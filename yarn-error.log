@@ -1,0 +1,41 @@
+Arguments: 
+  /usr/bin/node /usr/bin/yarn install --modules-folder ./_assets/yarn
+
+PATH: 
+  /usr/lib/node_modules/npm/node_modules/npm-lifecycle/node-gyp-bin:/home/andrea/sources/chalk-master/node_modules/.bin:/home/andrea/.gem/ruby/2.5.0/bin:/home/andrea/py3.7/bin:/home/andrea/bin:/home/andrea/.cargo/bin:/home/andrea/bin:/home/andrea/.cargo/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl:/home/andrea/.fzf/bin
+
+Yarn version: 
+  1.12.3
+
+Node version: 
+  11.3.0
+
+Platform: 
+  linux x64
+
+Trace: 
+  Error: ENOENT: no such file or directory, lstat '/home/andrea/sources/chalk-master/_assets/yarn/mkdirp'
+
+npm manifest: 
+  {
+    "name": "chalk",
+    "scripts": {
+      "setup": "bin/setup",
+      "local": "bundle exec jekyll serve --drafts",
+      "publish": "bin/deploy"
+    },
+    "dependencies": {
+      "jquery": "^3.2.1",
+      "npm": "^6.0.1",
+      "retinajs": "^2.1.1",
+      "svgxuse": "^1.2.4",
+      "webfontloader": "^1.6.28",
+      "zooming": "^2.0.0"
+    }
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile
