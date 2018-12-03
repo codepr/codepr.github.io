@@ -8,11 +8,12 @@ set -e
 echo "Started deploying"
 
 # Checkout gh-pages branch.
-if [ `git branch | grep master` ]
-then
-  git branch -D master
-fi
-git checkout -b master
+# if [ `git branch | grep master` ]
+# then
+#   git branch -D master
+# fi
+# git checkout -b master
+git checkout master
 
 # Build site.
 yarn install --modules-folder ./_assets/yarn

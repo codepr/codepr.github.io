@@ -3,10 +3,17 @@
     <p class='subtitle'>CS, Imperative programming, functional and more. In an ordinary way.</p>
   </a>
   <ul class="header-links">
+    {% if site.projects_enabled == true %}
+    <li>
+        <a href="{{ 'projects' | relative_url }}" title="Projects">
+            Projects
+        </a>
+    </li>
+    {% endif %}
     {% if site.about_enabled == true %}
       <li>
         <a href="{{ 'about' | relative_url }}" title="About me">
-          {% include svg-icon.html icon="about" %}
+            About
         </a>
       </li>
     {% endif %}

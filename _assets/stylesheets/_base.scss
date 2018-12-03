@@ -93,8 +93,9 @@ h6 {
 }
 
 a {
-  color: $base-accent-color;
-  text-decoration: underline;
+    text-decoration: none;
+    font-weight: 500;
+  color: #000080;
   transition: color $base-transition-speed linear;
   &:hover,
   &:active {
@@ -163,4 +164,23 @@ img {
 p.subtitle {
     font-size: 16px;
     color: $gray-light;
+}
+
+p.proj-subtitle {
+    padding: -2px;
+    margin: -2px;
+    font-size: 14px;
+    color: $gray-light;
+}
+
+svg {
+    width: 16px;
+    height: 16px;
+    fill: $header-link-color;
+}
+
+.lang {
+    font-size: 14px;
+    color: $gray-light;
+    float: right
 }
