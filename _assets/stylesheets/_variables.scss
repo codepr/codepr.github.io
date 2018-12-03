@@ -6,7 +6,7 @@
 // =============================================================================
 
 $sans-serif: "Montserrat", Helvetica, Arial, sans-serif;
-$serif: "Cormorant Garamond", Courier, serif;
+$serif: "Montserrat", Courier, serif;
 $base-font-family: $sans-serif;
 $base-font-weight: 400;
 $base-font-weight-bold: 700;
@@ -27,14 +27,14 @@ $brand-warning: #f1c90b;
 // Grid
 
 $columns: 12;
-$max-width: 750px;
+$max-width: 800px;
 $gutter: 20px;
 $one-column: 100% / $columns;
 $negative-gutter: 0 - $gutter;
 
 // Font sizes
 
-$base-font-size: 16px;
+$base-font-size: 15px;
 $base-line-height: 1.8;
 
 // Box sizes
