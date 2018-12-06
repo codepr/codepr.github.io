@@ -1,7 +1,7 @@
 # Mandatory settings
 
 blog_theme: light # Or use dark
-name: Ordinary thougths #<p class='subtitle'>CS, Imperative programming, functional and more. In an ordinary way.</p>
+name: ~/ordinary_thougths #<p class='subtitle'>CS, Imperative programming, functional and more. In an ordinary way.</p>
 paginate: 10
 url: # add your site url (format: https://example.com)
 

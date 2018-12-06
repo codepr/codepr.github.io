@@ -2,7 +2,7 @@
 layout: post
 title: "Overture"
 description: "Writing down some thoughts on future goals."
-tags: [plans, languages]
+tags: [languages]
 ---
 
 I've never been a great planner for my life, I can safely say that the only

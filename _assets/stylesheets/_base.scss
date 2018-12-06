@@ -45,7 +45,7 @@ h4,
 h5,
 h6 {
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.4;
   text-rendering: optimizeLegibility;
 }
 
@@ -162,7 +162,7 @@ img {
 }
 
 p.subtitle {
-    font-size: 15px;
+    font-size: 16px;
     color: $gray-light;
 }
 
@@ -182,4 +182,8 @@ svg {
 .lang {
     font-size: 14px;
     color: $gray-light;
+}
+
+.psub {
+    font-size: 22px;
 }
