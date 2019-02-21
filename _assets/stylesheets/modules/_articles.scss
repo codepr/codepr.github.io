@@ -15,7 +15,7 @@
   li {
     position: relative;
     display: block;
-    padding: 40px 0;
+    padding: 16px 0;
     border-bottom: 1px solid $base-border-color;
     &:last-child {
       border-bottom: 0;
@@ -58,6 +58,8 @@
   a {
     text-decoration: none;
     h5 {
+      font-family: $serif;
+      font-size: $base-font-size;
       position: relative;
       display: block;
       padding-right: 25px;
@@ -135,11 +137,14 @@
 // =============================================================================
 
 .article-header {
+  font-family: $serif;
   display: block;
   padding-bottom: 30px;
   margin-bottom: 30px;
   border-bottom: 1px solid $base-border-color;
   p {
+    text-align: justify;
+    font-family: $base-font-family;
     display: block;
     margin: 12px 0 10px;
     font-size: $base-font-size;
@@ -151,6 +156,7 @@
 }
 
 .article-content {
+  text-align: justify;
   display: block;
   p,
   ul,

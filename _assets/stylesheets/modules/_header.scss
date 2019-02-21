@@ -11,8 +11,8 @@
 .header-logo {
   display: inline-block;
   font-family: $serif;
-  font-size: 38px;
-  font-weight: 400;
+  font-size: 40px;
+  font-weight: 700;
   color: $header-logo-color;
   text-decoration: none;
 }
@@ -20,7 +20,7 @@
 .header-links {
   float: right;
   padding: 0;
-  margin: 15px 0 0;
+  margin: 6px 0 0;
   list-style: none;
   li {
     display: inline-block;
@@ -30,6 +30,7 @@
       margin-left: 0;
     }
     a {
+      font-family: $serif;
       font-size: 18px;
       font-weight: 500;
       color: $header-link-color;

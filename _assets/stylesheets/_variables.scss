@@ -5,8 +5,8 @@
 // Typography
 // =============================================================================
 
-$sans-serif: "Inconsolata", Helvetica, Arial, sans-serif;
-$serif: "Inconsolata", Courier, serif;
+$sans-serif: "Noto Sans", "Inconsolata", Helvetica, Arial, sans-serif;
+$serif: serif;
 $base-font-family: $sans-serif;
 $base-font-weight: 400;
 $base-font-weight-bold: 700;
@@ -27,14 +27,14 @@ $brand-warning: #f1c90b;
 // Grid
 
 $columns: 12;
-$max-width: 850px;
+$max-width: 1000px;
 $gutter: 20px;
 $one-column: 100% / $columns;
 $negative-gutter: 0 - $gutter;
 
 // Font sizes
 
-$base-font-size: 17px;
+$base-font-size: 18px;
 $base-line-height: 1.4;
 
 // Box sizes

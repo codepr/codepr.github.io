@@ -162,8 +162,11 @@ img {
 }
 
 p.subtitle {
-    font-size: 16px;
-    color: $gray-light;
+    text-align: justify;
+    padding-top: 10px;
+    font-family: $base-font-family;
+    font-size: 15px;
+    color: $gray;
 }
 
 p.proj-subtitle {
@@ -180,10 +183,16 @@ svg {
 }
 
 .lang {
+    font-family: $serif;
     font-size: 14px;
     color: $gray-light;
 }
 
 .psub {
+    font-family: $serif;
     font-size: 22px;
+}
+
+.pname {
+    font-family: $serif;
 }

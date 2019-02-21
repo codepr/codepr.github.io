@@ -1,14 +1,14 @@
 # Mandatory settings
 
 blog_theme: light # Or use dark
-name: ~/ordinary_thougths #<p class='subtitle'>CS, Imperative programming, functional and more. In an ordinary way.</p>
+name: Ordinary thoughts #Wonky monkey #~/ordinary_thougths #<p class='subtitle'>CS, Imperative programming, functional and more. In an ordinary way.</p>
 paginate: 10
 url: # add your site url (format: https://example.com)
 
 
 # Optional settings
 
-about_enabled: true # Change to true if you wish to show an icon in the navigation that redirects to the about page
+about_enabled: false # Change to true if you wish to show an icon in the navigation that redirects to the about page
 projects_enabled: true
 baseurl: # Set if blog doesn't sit at the root of the domain (format: /blog)
 discus_identifier: # Add your Disqus identifier
