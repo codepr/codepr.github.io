@@ -25,7 +25,7 @@ in a single folder:
 sol/
  ├── src/
  ├── CHANGELOG
- ├── CMakeCache.txt
+ ├── CMakeLists.txt
  ├── COPYING
  └── README.md
 {% endhighlight %}
@@ -1096,8 +1096,9 @@ sol/
  │    ├── pack.h
  │    └── pack.c
  ├── CHANGELOG
- ├── CMakeCache.txt
+ ├── CMakeLists.txt
  ├── COPYING
  └── README.md
 {% endhighlight %}
 
+Just `git commit` and `git push`. Cya.
