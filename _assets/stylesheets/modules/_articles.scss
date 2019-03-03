@@ -15,7 +15,7 @@
   li {
     position: relative;
     display: block;
-    padding: 16px 0;
+    padding: 10px 0;
     border-bottom: 1px solid $base-border-color;
     &:last-child {
       border-bottom: 0;
@@ -176,6 +176,7 @@
   }
   blockquote p {
     margin-bottom: 0;
+    font-size: 17px;
   }
   img.emoji {
     display: inline-block;

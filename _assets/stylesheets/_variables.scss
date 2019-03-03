@@ -5,7 +5,8 @@
 // Typography
 // =============================================================================
 
-$sans-serif: "Noto Sans", "Inconsolata", Helvetica, Arial, sans-serif;
+// $sans-serif: "Noto Sans", "Inconsolata", Helvetica, Arial, sans-serif;
+$sans-serif: Helvetica, Arial, sans-serif;
 $serif: serif;
 $base-font-family: $sans-serif;
 $base-font-weight: 400;
@@ -34,8 +35,8 @@ $negative-gutter: 0 - $gutter;
 
 // Font sizes
 
-$base-font-size: 18px;
-$base-line-height: 1.4;
+$base-font-size: 17px;
+$base-line-height: 1.3;
 
 // Box sizes
 
@@ -44,4 +45,4 @@ $base-border-radius: 4px;
 // Effects
 // =============================================================================
 
-$base-transition-speed: .2s;
+$base-transition-speed: .1s;
