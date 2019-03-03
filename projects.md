@@ -4,6 +4,12 @@ title: "Pet projects"
 description: "Personal pet projects, mostly learning experiences. As a side note, these are just a part of all the code I produced in the last years, being it for a significant part experimental work."
 ---
 
+< href="https://github.com/codepr/sol.git" target="_blank" class="pname">Sol</a> - <span class="psub">Lightweight MQTT broker </span><span class="lang"> [C] </span>
+Oversimplified MQTT broker written from scratch, which mimick mosquitto
+features. Implemented for learning how the protocol works, for now it supports
+almost all MQTT v3.1.1 commands on linux platform; it relies on EPOLL interface
+introduced on kernel 2.5.44.
+
 <a href="https://github.com/codepr/tasq.git" target="_blank" class="pname">Tasq</a> - <span class="psub">A brokerless distributed task queue </span><span class="lang"> [Python] </span>
 ---------------------------------------------------------------------
 
