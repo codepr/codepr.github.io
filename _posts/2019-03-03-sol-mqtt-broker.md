@@ -2,12 +2,14 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part-1"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: C, Unix, Tutorial
+tags: [c, unix, tutorial]
 ---
 
 It's been a while that for my daily work I have to deal with IoT architectures
 and researching best patterns to develop such systems, including diving through
-standards and protocols like MQTT, so once again I `git init` a low-level
+standards and protocols like MQTT; as I always been craving for new ideas to
+learn and refine my programming skills, I thought that going a little deeper on
+the topic would be cool and usefull too, so once again I `git init` a low-level
 project on my box to deepen my knowledge on the MQTT protocol, instead of the
 usual Key-Value store, which happens to be my favourite pet-project of choice
 when it comes to learn a new language or to dusting out on low-level system
@@ -30,18 +32,31 @@ sol/
  └── README.md
 {% endhighlight %}
 
+Here the repository on Github
+[https://github.com/codepr/sol.git](https://github.com/codepr/sol.git).  I'll
+try to describe step by step my journey into the development of the software,
+without being too much verbose, and listing lot of code directly with brief
+explanation of its purpose. The best way still remains to write it down,
+compile it and play/modify it.
+
 ### General architecture
 
 In essence a broker is a middleware, a software that accepts input from
 multiple clients (producers) and forward it to a set of destinatary clients
-(consumers) using an abstraction to define these groups of clients in the form
-of a channel or `topic` as defined by the protocol standards. Each consumer
-client can subscribe to `topics` in order to receive all messages published by
-other clients to those `topics`.
+(consumers) using an abstraction to define and manage these groups of clients
+in the form of a channel or `topic` as it's called by the protocol standards.
+Much like an IRC channel or equivalent in a generic chart, each consumer client
+can subscribe to `topics` in order to receive all messages published by other
+clients to those `topics`.
 
 The first idea coming to mind is a server built on top of a of a data structure
 of some kind that allow to easily manage these `topics` and connected
-`clients`, being them producers or consumers.
+`clients`, being them producers or consumers. Each message received by a client
+must be forwarded to all other connected clients that are subscribed to the
+specified topic of the message.
+
+Let's try this way, a TCP server and a module to handle binary communication
+through the wire.
 
 ### The MQTT protocol
 
@@ -1102,3 +1117,5 @@ sol/
 {% endhighlight %}
 
 Just `git commit` and `git push`. Cya.
+
+[Sol - An MQTT broker from scratch. Part-2](sol-mqtt-broker-p2)
