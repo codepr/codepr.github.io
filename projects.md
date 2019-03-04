@@ -5,6 +5,7 @@ description: "Personal pet projects, mostly learning experiences. As a side note
 ---
 
 <a href="https://github.com/codepr/sol.git" target="_blank" class="pname">Sol</a> - <span class="psub">Lightweight MQTT broker </span><span class="lang"> [C] </span>
+----------------------------------------------------------------------
 Oversimplified MQTT broker written from scratch, which mimick mosquitto
 features. Implemented for learning how the protocol works, for now it supports
 almost all MQTT v3.1.1 commands on linux platform; it relies on EPOLL interface
