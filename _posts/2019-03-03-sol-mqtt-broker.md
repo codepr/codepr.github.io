@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Sol - An MQTT broker from scratch. Part-1"
+title: "Sol - An MQTT broker from scratch. Part 1 - The protocol"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
 tags: [c, unix, tutorial]
 ---
@@ -18,7 +18,10 @@ programming on UNIX.
 `Sol` will be a C project, a super-simple MQTT broker for Linux platform which
 will support version 3.1.1 of the protocol, skipping on older protocols for
 now, very similar to a lightweight mosquitto (which is already a lightweight
-piece of software anyway).
+piece of software anyway). As a side note, the name decision is a 50/50 for the
+elegance i feel for short names and the martian day (The Martian docet). Or
+maybe it stands for Shitty Obnoxious Laxative. Tastes.
+
 
 Going per steps, I usually init my C projects in order to have all sources
 in a single folder:
@@ -49,7 +52,7 @@ Much like an IRC channel or equivalent in a generic chart, each consumer client
 can subscribe to `topics` in order to receive all messages published by other
 clients to those `topics`.
 
-The first idea coming to mind is a server built on top of a of a data structure
+The first idea coming to mind is a server built on top of a data structure
 of some kind that allow to easily manage these `topics` and connected
 `clients`, being them producers or consumers. Each message received by a client
 must be forwarded to all other connected clients that are subscribed to the
@@ -169,16 +172,16 @@ union mqtt_header {
 The first 2 `#define` refers to fixed sizes of the MQTT Fixed Header and of
 every type of MQTT `ACK` packets, set for convenience, we'll use those later.
 
-As shown, we leverage the `union` of C99 to represent a byte. In unions, in
-contrast to normal `struct` there can be only one field with a value. Their
-position in memory are shared, this way using `bitfields` we can effectively
-manipulate single bits or portions of a byte.
+As shown, we leverage the **union**, a value that may have any of several
+representations withing the same position in memory, to represent a byte. In
+other words, inside unions, in contrast to normal **struct**, there can be only
+one field with a value. Their position in memory are shared, this way using
+**bitfields** we can effectively manipulate single bits or portions of a byte.
 
 The first Control Packet we're going to define is the `CONNECT`. The
 `CONNECT` is the first packet that must be sent when a client establish a new
 connection and it must be extactly one, more than one `CONNECT` per client must
-be treated as a violation of the protocol and the client must be dropped.
-
+be treated as a violation of the protocol and the client must be dropped.<br>
 At each `CONNECT` must be followed in response a `CONNACK`.
 
 **src/mqtt.h**
@@ -240,7 +243,8 @@ pattern, accordingly to the documentation of MQTT v3.1.1.
 
 We proceed with `SUBSCRIBE`, `UNSUBSCRIBE` and `PUBLISH`. `SUBSCRIBE` is the
 only packet with a dedicated packet definition `SUBACK`, the other can be
-defined as generic `ACK`, and typenamed usng `typedef` for semantic separation.
+defined as generic `ACK`, and typenamed usng **typedef** for semantic
+separation.
 
 **src/mqtt.h**
 
@@ -322,9 +326,8 @@ The remaning `ACK` packets, namely:
 - `DISCONNECT`
 
 can be obtained by typedef'ing `struct ack`, just for semantic separation of
-concerns.
-
-The last one, `DISCONNECT`, is not really an `ACK` but the format is the same.
+concerns. The last one, `DISCONNECT`, is not really an `ACK` but the format is
+the same.
 
 **src/mqtt.h**
 
@@ -735,8 +738,7 @@ It consists in:
 > future versions of the MQTT specification.
 
 For version 3.1.1 the Protocol Name is 'M' 'Q' 'T' 'T', 4 bytes in total, we
-will ignore for now what is the name for older versions.
-
+will ignore for now what is the name for older versions.<br>
 Connect flags byte contains some indications on the behaviour of the client and
 the presence or absence of fields in the payload:
 

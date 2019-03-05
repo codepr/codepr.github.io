@@ -1,19 +1,20 @@
 ---
 layout: post
-title: "Sol - An MQTT broker from scratch. Part-2"
+title: "Sol - An MQTT broker from scratch. Part 2 - Networking"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
 tags: [c, unix, tutorial]
 ---
 
-Let's continue from where we left, our `src/mqtt.c` module has now all
-unpacking functions, we must add the remaining build helpers and the packing
-functions to serialize packet for output.
+Let's continue from where we left, in the [part 1](sol-mqtt-broker) we defined
+and roughly modeled the MQTT v3.1.1 protocol and our `src/mqtt.c` module has
+now all unpacking functions, we must add the remaining build helpers and the
+packing functions to serialize packet for output.
 
 ## Build, pack and send.
 
 For now we only need `CONNACK`, `SUBACK` and `PUBLISH` packet builder, the
 other `ACK` like packets can be created at the same manner with a single
-function, that's why the use of `typedef` for different ack codes.
+function, that's why the use of **typedef** for different ack codes.
 
 - `union mqtt_header *mqtt_packet_header(unsigned char)` will cover packet
   Fixed Header as well as `PINGREQ`, `PINGRESP` and `DISCONNECT` packets
@@ -143,9 +144,19 @@ void mqtt_packet_release(union mqtt_packet *pkt, unsigned type) {
 
 {% endhighlight %}
 
-We move on to packing functions now, essentially they reflect unpacking one,
-but on the other way around: We start from structs and union to build a
-bytearray.
+We move on to packing functions now, essentially they reflect unpacking ones,
+but acting in the opposite direction: We start from structs and unions to build a
+bytearray, ready to be written out over a socket.
+
+A sure thing to underline, where you see functions returning pointer to static
+structure, this trick is ok with little structure that can be instantiated on
+the stack and on a single-thread context. Passing to a multithreaded
+environment this approach will surely bite us in the ass, cause every pointer
+to packet built like this will point to the same area of memory, causing
+conflicts and undefined results (different from undefined behaviour, the
+ultimate frightening beast of C/C++), so for future improvements it will
+probably better to refactor these parts to `malloc` some bytes for these
+strucutures.
 
 {% highlight c %}
 
@@ -277,12 +288,12 @@ unsigned char *pack_mqtt_packet(const union mqtt_packet *pkt, unsigned type) {
 ## The server
 
 The server we're gonna create will be a single-threaded TCP server with
-multiplexed I/O by using `EPOLL` interface. `EPOLL` is the last multiplexing
-mechanism after `SELECT` and `POLL` added with kernel 2.5.44, and the most
+multiplexed I/O by using **epoll** interface. Epoll is the last multiplexing
+mechanism after **select** and **poll** added with kernel 2.5.44, and the most
 performant with high number of connection, it's counterpart for BSD and
-BSD-like systems is `kqueue`.
+BSD-like (Mac OSX) systems is **kqueue**.
 
-We're gonna need some functions to manage our socket descritor.
+We're gonna need some functions to manage our socket descriptor.
 
 **src/network.h**
 
@@ -325,7 +336,7 @@ int accept_connection(int);
 
 Just some well-known helper functions to create and bind socket to listen for
 new connections and to set socket in non-blocking mode (a requirement to use
-`EPOLL` multiplexing at his best).
+**epoll** multiplexing at his best).
 
 I don't like to have to manage all streams of bytes incoming to and exiting
 from the host, this two functions never fail to appear in every C codebase
@@ -362,7 +373,7 @@ ssize_t recv_bytes(int, unsigned char *, size_t);
 
 {% endhighlight %}
 
-And the implementation on networ.c.
+And the implementation on network.c.
 
 **src/network.c**
 
@@ -611,16 +622,43 @@ err:
 
 ## Basic closure system
 
-To make more easy and comfortable the usage of the `EPOLL` API, being not so
-complex operations to make, I built a simple abstraction on top of the
-multiplexing interface to make it possible to register callback functions that
-will be executed on events happening.
+To make more easy and comfortable the usage of the **epoll** API,with this
+project requiring not so complex operations to handle, I’ve built a simple
+abstraction on top of the multiplexing interface to make it possible to
+register callback functions that will be executed on events happening.
 
-There's two types of callback which can be defined, the common ones, that will be
-triggered with events and the periodic ones, that will be executed automatically
-every tick of time interval defined. So let's wrap the epoll loop into a dedicated
-structure, we'll do the same for the callback functions, defining a structure with
-some fields usefull for the execution of the callback.
+There’re a lot of examples of using epoll on the web, the mojority of them just
+show the basic usage, where we register a set of socket descriptors and start a
+loop to monitor them for incoming events, each time a descriptor is ready for
+reading or writing, a function is called to make use of them, which is surely a
+neat implementation, but a bit limitating. The solution I decided to use,
+leverage the union `epoll_data`:
+
+{% highlight c %}
+
+typedef union epoll_data {
+   void        *ptr;
+   int          fd;
+   uint32_t     u32;
+   uint64_t     u64;
+} epoll_data_t;
+
+{% endhighlight %}
+
+As shown, there is a `void *`, an int commonly used to store the descriptor we
+were talking about and two integer of different size. I prefered to use a
+custom structure with the descriptor inside and some other context fields,
+specifically a function pointer and its optional arguments. We’ll register a
+pointer to this structure passing it to the pointer `void *ptr`. This way,
+every time an event occur, we’ll have access to the very same structure pointer
+we registered, including the file descriptor associated.
+
+There’s two types of callback which can be defined, the common ones, that will
+be triggered with events and the periodic ones, that will be executed
+automatically every tick of time interval defined. So let’s wrap the epoll loop
+into a dedicated structure, we’ll do the same for the callback functions,
+defining a structure with some fields usefull for the execution of the
+callback.
 
 **src/network.h**
 
@@ -731,7 +769,7 @@ int epoll_del(int, int);
 
 {% endhighlight %}
 
-After some declarations on the header for network utility we can pass to the
+After some declarations on the header for network utility we can move on to the
 implementation of the functions.
 
 We start with simple creation, init and deletion of the previously declared
@@ -786,12 +824,14 @@ void evloop_free(struct evloop *loop) {
 
 {% endhighlight %}
 
-Now, epoll API is extensively documentated on its man page, but we'll need 3
+Now, epoll API is extensively documentated on its manpage, but we’ll need 3
 functions to add, remove and modify monitored descriptors and trigger events,
-using `EPOLLET` flag, in order to use epoll on edge-trigger and avoid in a
+using `EPOLLET` flag, in order to use epoll on edge-triggered bhaviour (the
+default one is Level-triggered, see
+[manpage](http://man7.org/linux/man-pages/man7/epoll.7.html) and avoid in a
 future multithreaded implementation to wake up all threads at once every time a
-new event is triggered one or more descriptor are ready to read or write, but this
-is another story, also this explained clearly on the man page.
+new event is triggered one or more descriptor are ready to read or write, but
+this is another story, also this explained clearly on the man page.
 
 **src/network.c**
 
@@ -835,13 +875,16 @@ int epoll_del(int efd, int fd) {
 
 Two things to be noted:
 
-- First, the main structure `epoll_event` contains a `union` inside, which
-  accept a file descriptor or a `void *` pointer. We'll use the latter, this
-  way we'll be able to pass around more informations and use our custom
-  closure, the file descriptor will be stored inside the structure pointed.
+- First, as previously stated, the main structure `epoll_event` contains a
+  `union epoll_data` inside, which accept a file descriptor or a `void *`
+  pointer. We'll use the latter, this way we'll be able to pass around more
+  informations and use our custom closure, the file descriptor will be stored
+  inside the structure pointed.
 
-- Second, our two add and mod functions accepts as third parameters a set of
-  events, mostly `EPOLLIN` or `EPOLLOUT`, but they add `EPOLLONESHOT` to them.
+- Second, our add and mod functions accepts as third parameters a set of
+  events, mostly `EPOLLIN` or `EPOLLOUT`, but they add `EPOLLONESHOT` to them,
+  in other words after an event if fired for a descriptor, that descriptor will
+  be disabled, until manually rearmed.<br>
   This way every time an event is triggered, the descriptor must be manually
   rearmed for read or write events.This is done to maintain some degree of
   control on low level events triggering and to left an open door in case of
@@ -994,6 +1037,14 @@ int evloop_del_callback(struct evloop *el, struct closure *cb) {
 
 {% endhighlight %}
 
+Of all defined functions, `evloop_wait` is the most interesting, start an
+`epoll_wait` loop and after error check, it proceed to apply the callback
+registered with that fd, differentiating from periodic task auto-triggered on
+time-basis or normal callback for read/write events.
+
+The codebase is growing, we have added another module, currently it should look
+like this:
+
 {% highlight bash %}
 sol/
  ├── src/
@@ -1008,3 +1059,5 @@ sol/
  ├── COPYING
  └── README.md
 {% endhighlight %}
+
+The [part 3](sol-mqtt-broker-p3) awaits for implementation of the server module.
