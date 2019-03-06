@@ -483,8 +483,6 @@ yet, so I generally add those logging functions to the `util` module.
 enum log_level { DEBUG, INFORMATION, WARNING, ERROR };
 
 
-bool is_integer(const char *);
-int parse_int(const char *);
 int number_len(size_t);
 int generate_uuid(char *);
 
@@ -583,26 +581,6 @@ void sol_log(int level, const char *fmt, ...) {
         fflush(fh);
 }
 
-/* Auxiliary function to check wether a string is an integer */
-bool is_integer(const char *string) {
-    for (; *string; ++string)
-        if (!isdigit(*string))
-            return false;
-    return true;
-}
-
-/* Parse the integer part of a string, by effectively iterate through it and
-   converting the numbers found */
-int parse_int(const char *string) {
-    int n = 0;
-
-    while (*string && isdigit(*string)) {
-        n = (n * 10) + (*string - '0');
-        string++;
-    }
-    return n;
-}
-
 /*
  * Return the 'length' of a positive number, as the number of chars it would
  * take in a string
@@ -628,3 +606,119 @@ int generate_uuid(char *uuid_placeholder) {
 }
 
 {% endhighlight %}
+
+This simple functions allow us to have a pretty decent logging system, by
+calling `sol_log_init` on the main function we can also persist logs on disk
+by passing a path on the filesystem.
+
+We finally arrive to write our `start_server` function, which uses all other
+functions already defined.
+
+**src/server.c**
+
+{% highlight c %}
+
+
+static void run(struct evloop *loop) {
+    if (evloop_wait(loop) < 0) {
+        sol_error("Event loop exited unexpectedly: %s", strerror(loop->status));
+        evloop_free(loop);
+    }
+}
+
+/*
+ * Cleanup function to be passed in as destructor to the Hashtable for
+ * connecting clients
+ */
+static int client_destructor(struct hashtable_entry *entry) {
+
+    if (!entry)
+        return -1;
+
+    struct sol_client *client = entry->val;
+
+    if (client->client_id)
+        sol_free(client->client_id);
+
+    sol_free(client);
+
+    return 0;
+}
+
+/*
+ * Cleanup function to be passed in as destructor to the Hashtable for
+ * registered closures.
+ */
+static int closure_destructor(struct hashtable_entry *entry) {
+
+    if (!entry)
+        return -1;
+
+    struct closure *closure = entry->val;
+
+    if (closure->payload)
+        bytestring_release(closure->payload);
+
+    sol_free(closure);
+
+    return 0;
+}
+
+
+int start_server(const char *addr, const char *port) {
+
+    /* Initialize global Sol instance */
+    trie_init(&sol.topics);
+    sol.clients = hashtable_create(client_destructor);
+    sol.closures = hashtable_create(closure_destructor);
+
+    struct closure server_closure;
+
+    /* Initialize the sockets, first the server one */
+    server_closure.fd = make_listen(addr, port, conf->socket_family);
+    server_closure.payload = NULL;
+    server_closure.args = &server_closure;
+    server_closure.call = on_accept;
+    generate_uuid(server_closure.closure_id);
+
+    /* Generate stats topics */
+    for (int i = 0; i < SYS_TOPICS; i++)
+        sol_topic_put(&sol, topic_create(sol_strdup(sys_topics[i])));
+
+    struct evloop *event_loop = evloop_create(EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
+
+    /* Set socket in EPOLLIN flag mode, ready to read data */
+    evloop_add_callback(event_loop, &server_closure);
+
+    /* Add periodic task for publishing stats on SYS topics */
+    // TODO Implement
+    struct closure sys_closure = {
+        .fd = 0,
+        .payload = NULL,
+        .args = &sys_closure,
+        .call = publish_stats
+    };
+
+    generate_uuid(sys_closure.closure_id);
+
+    /* Schedule as periodic task to be executed every 5 seconds */
+    evloop_add_periodic_task(event_loop, conf->stats_pub_interval,
+                             0, &sys_closure);
+
+    sol_info("Server start");
+    info.start_time = time(NULL);
+
+    run(event_loop);
+
+    hashtable_release(sol.clients);
+    hashtable_release(sol.closures);
+
+    sol_info("Sol v%s exiting", VERSION);
+
+    return 0;
+}
+{% endhighlight %}
+
+Ok, we have now a fully functioning server that uses our toyish callback system
+to handle traffic. Let's move forward to [part 4](sol-mqtt-broker-p4), we'll
+start implementing some handlers for every MQTT command.

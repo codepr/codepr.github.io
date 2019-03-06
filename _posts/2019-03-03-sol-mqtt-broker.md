@@ -9,7 +9,7 @@ It's been a while that for my daily work I have to deal with IoT architectures
 and researching best patterns to develop such systems, including diving through
 standards and protocols like MQTT; as I always been craving for new ideas to
 learn and refine my programming skills, I thought that going a little deeper on
-the topic would be cool and usefull too, so once again I `git init` a low-level
+the topic would be cool and useful too. So once again I `git init` a low-level
 project on my box to deepen my knowledge on the MQTT protocol, instead of the
 usual Key-Value store, which happens to be my favourite pet-project of choice
 when it comes to learn a new language or to dusting out on low-level system
@@ -40,7 +40,11 @@ Here the repository on Github
 try to describe step by step my journey into the development of the software,
 without being too much verbose, and listing lot of code directly with brief
 explanation of its purpose. The best way still remains to write it down,
-compile it and play/modify it.
+compile it and play/modify it.<br>
+I'd like to underline that the resulting software will be a fully functioning
+broker, but with large space for improvements and optimization as well as code
+quality improvements and probably, with some hidden features as well (aka bugs
+:P).
 
 ### General architecture
 
@@ -59,7 +63,11 @@ must be forwarded to all other connected clients that are subscribed to the
 specified topic of the message.
 
 Let's try this way, a TCP server and a module to handle binary communication
-through the wire.
+through the wire. There are many ways to implement a server, threads, fork
+processes and multiplexing I/O, which is the way I'd like to explore the most.
+We'll start with a single-threaded multiplexing I/O server, with the possibility
+on future to scale it out using threads, **epoll** interface for multiplexing in
+fact is thread-safe by implementation.
 
 ### The MQTT protocol
 
@@ -749,7 +757,11 @@ the presence or absence of fields in the payload:
 - Will flag
 - Clean Session
 
-The last bit is reserved for future implementations.
+The last bit is reserved for future implementations. All other flags are
+intended as booleans, on the payload part of the packet, according to those
+flags there are also the corresponding fields, so let's say we have username
+and password at true, on the payload we'll find a 2 bytes field representing
+username length, followed by the username itself, and the same for the password.
 
 **src/mqtt.c**
 
@@ -858,6 +870,8 @@ The `PUBLISH` packet now:
 {% endhighlight %}
 
 
+Packet identifier MSB and LSB are present in the packet if and only if the QoS
+level is > 0, with a QoS set to *at most once* there's no need for a packet ID.
 Payload length is calculated by subtracting the Remaining Length with all the
 other fields already unpacked.
 
@@ -907,7 +921,7 @@ static size_t unpack_mqtt_publish(const unsigned char *raw,
 {% endhighlight %}
 
 Subscribe and unsubscribe packets are fairly similar, they reflect the
-`PUBLISH` packet, but for payload they have a list of tuple consinting in a
+`PUBLISH` packet, but for payload they have a list of tuple consisting in a
 pair (topic, QoS). Their implementation is practically identical, with the
 only difference in the payload part, where `UNSUBSCRIBE` doesn't specify QoS
 for each topic.
@@ -1017,11 +1031,11 @@ static size_t unpack_mqtt_unsubscribe(const unsigned char *raw,
 
 {% endhighlight %}
 
-And finally the `ACK`. In MQTT doesn't exists generic acks, but the
-structure of the most of the ack-like packets is practically the same for each
-one.
+And finally the `ACK`. In MQTT doesn't exists generic acks, but the structure
+of most of the ack-like packets is practically the same for each one, formed by
+a header and a packet ID.
 
-This are:
+These are:
 
 - `PUBACK`
 - `PUBREC`
@@ -1120,4 +1134,5 @@ sol/
 
 Just `git commit` and `git push`. Cya.
 
-[Sol - An MQTT broker from scratch. Part-2](sol-mqtt-broker-p2)
+[Sol - An MQTT broker from scratch. Part-2](sol-mqtt-broker-p2) will deal with the
+networking utilities needed to setup our communication layer and thus the server.

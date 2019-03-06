@@ -8,7 +8,11 @@ tags: [c, unix, tutorial]
 Let's continue from where we left, in the [part 1](sol-mqtt-broker) we defined
 and roughly modeled the MQTT v3.1.1 protocol and our `src/mqtt.c` module has
 now all unpacking functions, we must add the remaining build helpers and the
-packing functions to serialize packet for output.
+packing functions to serialize packet for output.<br>
+As a side note we're probably not going to write perfect and efficient
+memory-wise code, but again, premature optimization is the root of all evil,
+there'll be plenty of time to improve the quality of the software with future
+revisions.
 
 ## Build, pack and send.
 
@@ -28,7 +32,7 @@ function, that's why the use of **typedef** for different ack codes.
 
 The remaining packets will have a dedicated function. There's probably better
 ways to reuse code and to model this but for now let's stick to something
-working, time to optimize and refactor will come.
+working, as previously stated time to optimize and refactor will come.
 
 **src/mqtt.c**
 
