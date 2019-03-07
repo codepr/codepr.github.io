@@ -42,7 +42,7 @@ int start_server(const char *, const char *);
 
 The implementation part will be a little bigger than it seems, all our handler
 functions and callbacks will be contained here for now, so let's start with
-the 3 basic callback that every server will need to effectively communicate with
+the 3 basic callbacks that every server will need to effectively communicate with
 clients after it started listening:
 
 - an accept callback
@@ -369,18 +369,19 @@ static void on_write(struct evloop *loop, void *arg) {
 
 Another 3 static functions added, as shown, there's a `recv_packet` function
 that like foretold by his name, have the duty of receiving streams of bytes till
-a full MQTT packet is built, relying on functions from `mqtt`` module, the other
+a full MQTT packet is built, relying on functions from `mqtt` module, the other
 two are respectively `on_read` and `on_write`.
 
 To be noted that, these 3 callbacks, rearm the socket using previously defined
 helper bouncing the ball on each others. `on_read` callback specifically, based
 upon a return code from the calling of a handler (chosen in turn to the type of
-command received from the client), rearm the socket for read or write or not at
-all. This last case will cover disconnections for errors and legitimate `DISCONNECT`
-packets.
+command received from the client on the line
+`int rc = handlers[hdr.bits.type](cb, &packet)`), rearm the socket for read or
+write or not at all. This last case will cover disconnections for errors and
+legitimate `DISCONNECT` packets.
 
 On the write callback we see that the `send_bytes` call pass in a payload with
-`data` and `size` as fields; it's a convenient structure I defined to make it simpler
+data and size as fields; it's a convenient structure I defined to make it simpler
 to track number of bytes on an array, this case to know how many bytes to write out.
 We have to re-open the `src/pack.h` and `src/pack.c` to add these utilities.
 
@@ -505,7 +506,8 @@ void sol_log(int, const char *, ...);
 
 {% endhighlight %}
 
-And here we go, with an additional utility macro `STREQ` to compare two
+And here we go, a log function with some macros to conveniently call the
+correct level of logging, with an additional utility macro `STREQ` to compare two
 strings.
 
 **src/util.c**
@@ -612,7 +614,8 @@ calling `sol_log_init` on the main function we can also persist logs on disk
 by passing a path on the filesystem.
 
 We finally arrive to write our `start_server` function, which uses all other
-functions already defined.
+functions already defined. Basically it acts as an entry point, setting up all
+global structures and the first closure for accepting incoming connections.
 
 **src/server.c**
 
@@ -638,9 +641,9 @@ static int client_destructor(struct hashtable_entry *entry) {
     struct sol_client *client = entry->val;
 
     if (client->client_id)
-        sol_free(client->client_id);
+        free(client->client_id);
 
-    sol_free(client);
+    free(client);
 
     return 0;
 }
@@ -659,7 +662,7 @@ static int closure_destructor(struct hashtable_entry *entry) {
     if (closure->payload)
         bytestring_release(closure->payload);
 
-    sol_free(closure);
+    free(closure);
 
     return 0;
 }
@@ -719,6 +722,8 @@ int start_server(const char *addr, const char *port) {
 }
 {% endhighlight %}
 
-Ok, we have now a fully functioning server that uses our toyish callback system
-to handle traffic. Let's move forward to [part 4](sol-mqtt-broker-p4), we'll
-start implementing some handlers for every MQTT command.
+Ok, we have now a (almost) fully functioning server that uses our toyish
+callback system to handle traffic. There're still some parts that we have to
+write in order to have this piece of code to compile and work, some calls to
+`hashtable_*` and `sol_topic_*` will be plugged-in soon. Let's move forward to
+[part 4](sol-mqtt-broker-p4), we'll start implementing some handlers for every MQTT command.
