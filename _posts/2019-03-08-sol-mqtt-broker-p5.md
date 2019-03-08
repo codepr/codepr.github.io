@@ -441,10 +441,12 @@ follow
   QoS level that can be received by the subscriber.
 
 <br>
-<center>
 
 **Publish QoS 2 message on a topic with a single subscriber on QoS 1**
 
+<br>
+
+<center>
 {% include image.html path="QoS2-sample.png" path-detail="QoS2-sample.png" alt="QoS2 sequential diagram" %}
 </center>
 <br>
