@@ -41,6 +41,15 @@ try to describe step by step my journey into the development of the software,
 without being too much verbose, and listing lot of code directly with brief
 explanation of its purpose. The best way still remains to write it down,
 compile it and play/modify it.<br>
+This will be a series of posts, each one tackling and mostly implementing a single
+topic/module of the project:
+
+- [Part 1 - Protocol](sol-mqtt-broker), lays the foundations to handle the MQTT protocol packets
+- [Part 2 - Networking](sol-mqtt-broker-p2), utility module, focus on network communication
+- [Part 3 - Server](sol-mqtt-broker-p3), the main entry point of the program
+- [Part 4 - Data structures](sol-mqtt-broker-p4), utility and educational modules
+- [Part 5 - Handlers](sol-mqtt-broker-p5), server completion, for each packet there's a handler dedicated
+
 I'd like to underline that the resulting software will be a fully functioning
 broker, but with large space for improvements and optimization as well as code
 quality improvements and probably, with some hidden features as well (aka bugs
@@ -484,7 +493,9 @@ unpack process of each received packet and also ready for send forged MQTT
 packet.
 
 Let's go fast here, it's just simple serialization/deserialization respecting
-the network byte order of the packets.
+the network byte order (endianness, usually network byte order refers to
+Big-endian order, while the majority of machines follow Little-endian
+convention) of the packets.
 
 **src/pack.h**
 
@@ -546,16 +557,18 @@ uint8_t unpack_u8(const uint8_t **buf) {
 
 
 uint16_t unpack_u16(const uint8_t **buf) {
-    uint16_t val = ntohs(*((uint16_t *) (*buf)));
+    uint16_t val;
+    memcpy(&val, *buf, sizeof(uint16_t));
     (*buf) += sizeof(uint16_t);
-    return val;
+    return ntohs(val);
 }
 
 
 uint32_t unpack_u32(const uint8_t **buf) {
-    uint32_t val = ntohl(*((uint32_t *) (*buf)));
+    uint32_t val;
+    memcpy(&val, *buf, sizeof(uint32_t));
     (*buf) += sizeof(uint32_t);
-    return val;
+    return ntohl(val);
 }
 
 
@@ -576,13 +589,15 @@ void pack_u8(uint8_t **buf, uint8_t val) {
 
 
 void pack_u16(uint8_t **buf, uint16_t val) {
-    *((uint16_t *) (*buf)) = htons(val);
+    uint16_t htonsval = htons(val);
+    memcpy(*buf, &htonsval, sizeof(uint16_t));
     (*buf) += sizeof(uint16_t);
 }
 
 
 void pack_u32(uint8_t **buf, uint32_t val) {
-    *((uint32_t *) (*buf)) = htonl(val);
+    uint32_t htonlval = htonl(val);
+    memcpy(*buf, &htonlval, sizeof(uint32_t));
     (*buf) += sizeof(uint32_t);
 }
 
@@ -717,9 +732,13 @@ flags there are also the corresponding fields, so let's say we have username
 and password at true, on the payload we'll find a 2 bytes field representing
 username length, followed by the username itself, and the same for the password.
 
-To clarify the concept, let's suppose we receive a `CONNECT` packet with
-username and password flag to 1, username set to "hello", password "nacho"
-and client ID "danzan":
+To clarify the concept, let's suppose we receive a `CONNECT` packet with:
+
+- username and password flag to 1
+- username = "hello"
+- password = "nacho"
+- client ID = "danzan"
+
 
 | Field                | size (bytes)| offset (byte position)  | Description                                                         |
 |----------------------|:-----------:|:-----------------------:|---------------------------------------------------------------------|
@@ -739,7 +758,8 @@ and client ID "danzan":
 
 <br>
 Having will flags to 0 there's no need to decode those fields, as they don't
-even appear.
+even appear. We have as a result a total length 34 bytes packet including fixed
+header.
 
 **src/mqtt.c**
 
@@ -826,7 +846,7 @@ The `PUBLISH` packet now:
 
  |   Bit    |  7  |  6  |  5  |  4  |  3  |  2  |  1  |   0    |  <-- Fixed Header
  |----------|-----------------------|--------------------------|
- | Byte 1   | MQTT type 3           | dup |    QoS    | retain |
+ | Byte 1   |      MQTT type 3      | dup |    QoS    | retain |
  |----------|--------------------------------------------------|
  | Byte 2   |                                                  |
  |  .       |               Remaning Length                    |
@@ -836,7 +856,8 @@ The `PUBLISH` packet now:
  | Byte 6   |                Topic len MSB                     |
  | Byte 7   |                Topic len LSB                     |
  |-------------------------------------------------------------|
- | Byte 8   |                Topic name                        |
+ | Byte 8   |                                                  |
+ |   .      |                Topic name                        |
  | Byte N   |                                                  |
  |----------|--------------------------------------------------|
  | Byte N+1 |            Packet Identifier MSB                 |

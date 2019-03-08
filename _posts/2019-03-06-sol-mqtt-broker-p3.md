@@ -184,7 +184,8 @@ correct use of the term, static functions can only be seen in the scope of
 the module of definition, almost like a private method on a class in OOP
 programming), the `accept_new_client` which by using functions from `network`
 module to accept new connecting clients and the `on_accept` function, which
-will be the effective callback for accepting new connections.<br>
+will be the effective callback for accepting new connections.
+
 The `accept_new_client` function expects a struct `connection` that i added
 for convenience and for reuse of old code from another codebase of mine,
 not strictly necessary to follow this pattern.
@@ -786,11 +787,11 @@ static struct sol sol;
 
 {% endhighlight %}
 
-
 There're still some parts that we have to write in order to have this piece of
 code to compile and work, for example, what is that `closure_destructor`
 function? What about that `info` structure that we update in `on_write` and
 `on_read`? We can see that those have to do with some calls to `hashtable_*`
-and `sol_topic_*`, which will be plugged-in soon.<br>
+and `sol_topic_*`, which will be plugged-in soon.
+
 Let's move forward to [part 4](sol-mqtt-broker-p4), we'll start implementing
 some handlers for every MQTT command.

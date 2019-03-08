@@ -440,6 +440,12 @@ follow
   the QoS have to be updated to the QoS of the subscriber, which is the maximum
   QoS level that can be received by the subscriber.
 
+<br>
+<center>
+{% include image.html path="QoS2-sample.png" path-detail="QoS2-sample.png" alt="QoS2 sequential diagram" %}
+</center>
+<br>
+
 **src/server.c**
 
 {% highlight c %}
@@ -581,8 +587,12 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
 {% endhighlight %}
 
 All the remaining `ACK` handlers now, they basically all the same, for now we
-limit to log their execution, in the future we'll handle the message based on
-the QoS deliverance.
+limit ourselves to just log their execution, in the future we'll handle the
+message based on the QoS deliverance.
+
+The last one, is the `PINGREQ` handler, it's only purpose is to guarantee the
+health of connected clients who are inactive for some time, receiving one
+expects a `PINGRESP` as answer.
 
 **src/server.c**
 
@@ -668,5 +678,112 @@ static int pingreq_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     return REARM_W;
 }
+
+{% endhighlight %}
+
+Our lightweight broker is taking shape, code should now be enough to try and
+play a bit, using `mosquitto_sub` and `mosquitto_pub` or Python `paho-mqtt`
+library.
+
+Let's add the last brick, a main:
+
+**src/sol.c**
+
+{% highlight c %}
+
+#define _POSIX_C_SOURCE 2
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include "util.h"
+#include "server.h"
+
+
+int main (int argc, char **argv) {
+
+    char *addr = DEFAULT_HOSTNAME;
+    char *port = DEFAULT_PORT;
+    int debug = 0;
+    int opt;
+
+    while ((opt = getopt(argc, argv, "a:c:p:m:vn:")) != -1) {
+        switch (opt) {
+            case 'a':
+                addr = optarg;
+                break;
+            case 'c':
+                confpath = optarg;
+                break;
+            case 'p':
+                port = optarg;
+                break;
+            case 'v':
+                debug = 1;
+                break;
+            default:
+                fprintf(stderr,
+                        "Usage: %s [-a addr] [-p port] [-c conf] [-v]\n",
+                        argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
+
+    start_server(addr, port);
+
+    return 0;
+}
+
+{% endhighlight %}
+
+Short and clean, for compilation I'd like to write custom `Makefile` usually,
+but this time, as shown on the folder tree, I'll consider using a
+`CMakeLists.txt` defined template ad `cmake` to generate it:
+
+{% highlight bash %}
+
+cmake_minimum_required(VERSION 2.8)
+
+project(sol)
+
+OPTION(DEBUG "add debug flags" OFF)
+
+if (DEBUG)
+    message(STATUS "Configuring build for debug")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wunused -Werror -std=c11 -O3 -pedantic -luuid -ggdb -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -pg")
+else (DEBUG)
+    message(STATUS "Configuring build for production")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wunused -Werror -Wextra -std=c11 -O3 -pedantic -luuid")
+endif (DEBUG)
+
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR})
+
+file(GLOB SOURCES src/*.c)
+
+set(AUTHOR "Andrea Giacomo Baldan")
+set(LICENSE "BSD2 license")
+
+# Executable
+add_executable(sol ${SOURCES})
+
+{% endhighlight %}
+
+The only part worth a note is the `DEBUG` flag that I added, it makes cmake
+generate a different `Makefile` that compile the sources with some additional
+flags to catch and signal memory leaks and undefined behaviours.
+
+So the next move is to generate the `Makefile`
+
+{% highlight bash %}
+
+$ cmake -DDEBUG=1 .
+
+{% endhighlight %}
+
+and compile the sources:
+
+{% highlight bash %}
+
+$ make
 
 {% endhighlight %}
