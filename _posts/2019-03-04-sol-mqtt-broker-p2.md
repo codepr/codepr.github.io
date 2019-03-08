@@ -158,8 +158,8 @@ structure, this trick is ok with little structure that can be instantiated on
 the stack and on a single-thread context. Passing to a multithreaded
 environment this approach will surely bite us in the ass, cause every pointer
 to packet built like this will point to the same area of memory, causing
-conflicts and undefined results (different from undefined behaviour, the
-ultimate frightening beast of C/C++), so for future improvements it will
+conflicts and undefined results (different from dreadful undefined behaviour,
+the ultimate frightening beast of C/C++), so for future improvements it will
 probably better to refactor these parts to `malloc` some bytes for these
 strucutures.
 
