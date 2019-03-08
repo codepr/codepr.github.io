@@ -69,11 +69,11 @@ struct mqtt_connack *mqtt_packet_connack(unsigned char byte,
 
     static struct mqtt_connack connack;
 
-	connack.header.byte = byte;
+    connack.header.byte = byte;
     connack.byte = cflags;
     connack.rc = rc;
 
-	return &connack;
+    return &connack;
 }
 
 
@@ -87,7 +87,8 @@ struct mqtt_suback *mqtt_packet_suback(unsigned char byte,
     suback->header.byte = byte;
     suback->pkt_id = pkt_id;
     suback->rcslen = rcslen;
-    suback->rcs = (unsigned char *) strdup((const char *) rcs);
+    suback->rcs = sol_malloc(rcslen);
+    memcpy(suback->rcs, rcs, rcslen);
 
     return suback;
 }

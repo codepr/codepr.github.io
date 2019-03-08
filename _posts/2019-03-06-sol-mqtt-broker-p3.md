@@ -36,6 +36,24 @@ improvements.
 #define EPOLL_TIMEOUT       -1
 
 
+/* Error codes for packet reception, signaling respectively
+ * - client disconnection
+ * - error reading packet
+ * - error packet sent exceeds size defined by configuration (generally default
+ *   to 2MB)
+ */
+#define ERRCLIENTDC         1
+#define ERRPACKETERR        2
+#define ERRMAXREQSIZE       3
+
+/* Return code of handler functions, signaling if there's data payload to be
+ * sent out or if the server just need to re-arm closure for reading incoming
+ * bytes
+ */
+#define REARM_R             0
+#define REARM_W             1
+
+
 int start_server(const char *, const char *);
 
 {% endhighlight %}
@@ -723,7 +741,56 @@ int start_server(const char *addr, const char *port) {
 {% endhighlight %}
 
 Ok, we have now a (almost) fully functioning server that uses our toyish
-callback system to handle traffic. There're still some parts that we have to
-write in order to have this piece of code to compile and work, some calls to
-`hashtable_*` and `sol_topic_*` will be plugged-in soon. Let's move forward to
-[part 4](sol-mqtt-broker-p4), we'll start implementing some handlers for every MQTT command.
+callback system to handle traffic. Let's add some additional code to the server
+header, like that `info` structure and a global structure named `sol` on the
+source .c, we'll be back on that soon.
+
+**src/server.h**
+
+{% highlight c %}
+
+/* Global informations statistics structure */
+struct sol_info {
+    /* Number of clients currently connected */
+    int nclients;
+    /* Total number of clients connected since the start */
+    int nconnections;
+    /* Timestamp of the start time */
+    long long start_time;
+    /* Total number of requests served */
+    int nrequests;
+    /* Total number of bytes received */
+    long long bytes_recv;
+    /* Total number of bytes sent out */
+    long long bytes_sent;
+    /* Total number of sent messages */
+    long long messages_sent;
+    /* Total number of received messages */
+    long long messages_recv;
+};
+
+{% endhighlight %}
+
+**src/server.c**
+
+{% highlight c %}
+
+/*
+ * General informations of the broker, all fields will be published
+ * periodically to internal topics
+ */
+static struct sol_info info;
+
+/* Broker global instance, contains the topic trie and the clients hashtable */
+static struct sol sol;
+
+{% endhighlight %}
+
+
+There're still some parts that we have to write in order to have this piece of
+code to compile and work, for example, what is that `closure_destructor`
+function? What about that `info` structure that we update in `on_write` and
+`on_read`? We can see that those have to do with some calls to `hashtable_*`
+and `sol_topic_*`, which will be plugged-in soon.<br>
+Let's move forward to [part 4](sol-mqtt-broker-p4), we'll start implementing
+some handlers for every MQTT command.

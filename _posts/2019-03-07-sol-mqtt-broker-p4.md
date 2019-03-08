@@ -606,9 +606,10 @@ static unsigned long crc32(const uint8_t *s, unsigned int len) {
 
 {% endhighlight %}
 
-Our hash function just compute the CRC32 using the knuth multiplicative method,
-another valid hash could be the Murmur3, but I won't analyze the best algorithms
-and implementations around that best work for key hashing.
+Our hash function just compute the CRC32 of a given string, using the knuth
+multiplicative method, another valid hash could be the Murmur3, but I won't
+analyze the best algorithms and implementations around that best work for key
+hashing.
 
 We'll surely gonna need a list as well, vector could be more performant by
 leveraging his cache-friendly nature, but the gain is not so high for what
@@ -657,9 +658,6 @@ unsigned long list_size(const List *);
 /* Clear out the list without de-allocating it */
 void list_clear(List *, int);
 
-/* Attach a list to another one on tail */
-List *list_attach(List *, struct list_node *, unsigned long);
-
 /* Insert data into a node and push it to the front of the list */
 List *list_push(List *, void *);
 
@@ -681,12 +679,6 @@ struct list_node *list_remove_node(List *, void *, compare_func);
 
 /* Comapare function for merge_sort application */
 typedef int cmp(void *, void *);
-
-/* Merge sort customized on TTL of new values data with complexity of O(nlogn) */
-struct list_node *list_merge_sort(struct list_node *, cmp);
-
-/* Divide a list in 2 sublists at roughly the middle of the original list */
-struct list_node *bisect_list(struct list_node *);
 
 /* Insert a new node into a list while maintaining the order of the elements */
 struct list_node *list_sort_inset(struct list_node **,
@@ -794,16 +786,6 @@ void list_clear(List *l, int deep) {
 
     l->head = l->tail = NULL;
     l->len = 0L;
-}
-
-/*
- * Attach a node to the head of a new list
- */
-List *list_attach(List *l, struct list_node *head, unsigned long len) {
-    // set default values to the List structure fields
-    l->head = head;
-    l->len = len;
-    return l;
 }
 
 /*
@@ -942,68 +924,6 @@ struct list_node *list_remove_node(List *list, void *data, compare_func cmp) {
     return node;
 }
 
-/*
- * Returns a pointer to a node near the middle of the list,
- * after having truncated the original list before that point.
- */
-struct list_node *bisect_list(struct list_node *head) {
-    /* The fast pointer moves twice as fast as the slow pointer. */
-    /* The prev pointer points to the node preceding the slow pointer. */
-    struct list_node *fast = head, *slow = head, *prev = NULL;
-
-    while (fast != NULL && fast->next != NULL) {
-        fast = fast->next->next;
-        prev = slow;
-        slow = slow->next;
-    }
-
-    if (prev != NULL)
-        prev->next = NULL;
-
-    return slow;
-}
-
-/*
- * Merges two list by using a comparison function, sorting them according to
- * the outcome of the given comparison func.
- */
-static struct list_node *merge_list(struct list_node *list1,
-                                    struct list_node *list2, cmp cmp_func) {
-
-    struct list_node dummy_head = { NULL, NULL }, *tail = &dummy_head;
-
-    while (list1 && list2) {
-
-        int outcome = cmp_func(list1->data, list2->data);
-
-        struct list_node **min = outcome <= 0 ? &list1 : &list2;
-        struct list_node *next = (*min)->next;
-        tail = tail->next = *min;
-        *min = next;
-    }
-
-    tail->next = list1 ? list1 : list2;
-    return dummy_head.next;
-}
-
-/*
- * Merge sort for nodes list, apply a given comparison function which return
- * -1 0 or 1 based on the outcome of the comparison.
- */
-struct list_node *list_merge_sort(struct list_node *head, cmp cmp_func) {
-
-    struct list_node *list1 = head;
-
-    if (!list1 || !list1->next)
-        return list1;
-
-    /* find the middle */
-    struct list_node *list2 = bisect_list(list1);
-
-    return merge_list(list_merge_sort(list1, cmp_func),
-                      list_merge_sort(list2, cmp_func), cmp_func);
-}
-
 /* Insert a new list node in a list maintaining the order of the list */
 struct list_node *list_sort_inset(struct list_node **head,
                                   struct list_node *new, cmp cmp_func) {
@@ -1024,6 +944,8 @@ struct list_node *list_sort_inset(struct list_node **head,
 }
 
 {% endhighlight %}
+
+## Handling topic abstraction with a particular tree
 
 We move now to the `trie`, the structure of choice to store topics. Trie is a
 kind of trees in which each node is a prefix for a key, the node position
@@ -1109,16 +1031,6 @@ void trie_release(Trie *);
    complexity */
 void trie_prefix_delete(Trie *, const char *);
 
-/* Count all keys matching a given prefix in a less than linear time
-   complexity */
-int trie_prefix_count(const Trie *, const char *);
-
-/* Search for all keys matching a given prefix */
-List *trie_prefix_find(const Trie *, const char *);
-
-/* Apply a given function to all nodes which keys match a given prefix */
-void trie_prefix_map(Trie *, const char *, void (*mapfunc)(struct trie_node *));
-
 /*
  * Apply a given function to all ndoes which keys match a given prefix. The
  * function accepts two arguments, a struct trie_node pointer which correspond
@@ -1131,6 +1043,72 @@ void trie_prefix_map_tuple(Trie *, const char *,
 #endif
 
 {% endhighlight %}
+
+Implementation of this data structure is a bit tricky and there're lot of
+different approaches, the most simple one would involve the use of a fixed
+length array on each node of the trie, with the complete alphabet size as
+length.
+
+{% highlight c %}
+
+#define ALPHABET_SIZE 94
+
+/* Trie node, it contains a fixed size array (every node can have at max the
+   alphabet length size of children), a flag defining if the node represent
+   the end of a word and then if it contains a value defined by data. */
+
+struct trie_node {
+	struct trie_node *children[ALPHABET_SIZE];
+    void *data;
+};
+
+{% endhighlight %}
+
+The biggest advantage of the trie, beside the possibility of applying range
+queries on the keyspace (this one will come handy for wildcard subscriptions
+and management of topics), is in terms of average performances over hashtables
+or B-Trees, it gives in fact on worst case O(L) insert, delete and search time
+complexity where L is the length of the key. This comes at a cost, the main
+drawback is that the structure itself, following this imlementation is really
+memory hungry. In the example case with an alphabet of size 96, starting from
+the `<space>` character and ending with the `~` each node has 96 NULL pointer
+to their children, this means that on a 64 bit arch machine with 8 bytes per
+pointer we effectively have 768 bytes of allocated space per node. Let's
+briefly analyze a case:
+
+- insert key foo
+- insert key foot
+
+So we have the root f which have 1 non-null pointer o, the children have
+another 1 non-null pointer o, here lies our first value for key foo, and the
+last children o have 1 non-null pointer for t, which will also store our second
+value for foot key. So we have a total of 4 nodes, that means 4 * 96 = 384
+pointers, of which only 4 are used. Now that's a lot of wasted space! There's
+some techniques to mitigate this homongous amount of wasting bytes while
+maintaining good time-complexity performances, called compressed trie and
+adaptive trie.
+
+Without going too deep into these concepts, best solutions so far seems three:
+
+- Use a single dynamic array (vector) in the Trie structure, each node must have
+  a pointer to that vector and an array char children_idx[ALPHABET_SIZE] which
+  store the index in the main vector for each children;
+
+- Use sized node based on the number of children and adapting lookup
+  algorithm accordingly e.g.  with # children <= 4 use a fixed length array
+  of 4 pointers and linear search for children, growing up set fixed steps of
+  size and use a different mapping for characters on the array of children
+  pointers.
+
+- Replace the fixed length array on each node with a singly-linked `linked list`,
+  maintained sorted on each insertion, this way there's an average performance of
+  O(n/2) on each search, which is the best case possible with the linked list
+  data structure.
+
+Luckily we just written a `linked list` before (Perhaps I knew the answer? :P) but
+also a `vector` could do well.
+
+Let's implement our trie with the third solution:
 
 **src/trie.c**
 
@@ -1500,97 +1478,6 @@ void trie_prefix_delete(Trie *trie, const char *prefix) {
     list_clear(cursor->children, 1);
 }
 
-
-int trie_prefix_count(const Trie *trie, const char *prefix) {
-
-    assert(trie && prefix);
-
-    int count = 0;
-
-    // Walk the trie till the end of the key
-    struct trie_node *node = trie_node_find(trie->root, prefix);
-
-    // No complete key found
-    if (!node)
-        return count;
-
-    // Check all possible sub-paths and add to count where there is a leaf */
-    count += trie_node_count(node);
-
-    return count;
-}
-
-
-static void trie_node_prefix_find(const struct trie_node *node,
-                                  char str[], int level, List *keys) {
-
-    /*
-     * If node is leaf node, it indicates end of string, so a null charcter is
-     * added and string is added to the keys list
-     */
-    if (node && node->data) {
-        str[level] = '\0';
-        list_push_back(keys, sol_strdup(str));
-    }
-
-    for (struct list_node *cur = node->children->head; cur; cur = cur->next) {
-        /*
-         * If NON NULL child is found add parent key to str and call the
-         * function recursively for child node, caring for the size of the
-         * current string, if exceed bounds, double the size of the string
-         * host
-         */
-        str[level] = ((struct trie_node *) cur->data)->chr;
-        trie_node_prefix_find(cur->data, str, level + 1, keys);
-    }
-}
-
-
-List *trie_prefix_find(const Trie *trie, const char *prefix) {
-
-    assert(trie && prefix);
-
-    // Walk the trie till the end of the key
-    struct trie_node *node = trie_node_find(trie->root, prefix);
-
-    // No complete key found
-    if (!node)
-        return NULL;
-
-    List *keys = list_create(NULL);
-
-    // Check all possible sub-paths and add the resulting key to the result
-    size_t plen = strlen(prefix);
-    char str[plen + 1];
-    memcpy(str, prefix, plen);
-    str[plen] = '\0';
-
-    // Recursive function call
-    trie_node_prefix_find(node, str, plen, keys);
-
-    return keys;
-}
-
-/*
- * Iterate through children of each node starting from a given node, applying
- * a defined function which take a struct trie_node as argument
- */
-static void trie_prefix_map_func(struct trie_node *node,
-                                 void (*mapfunc)(struct trie_node *)) {
-
-    if (trie_is_free_node(node)) {
-        mapfunc(node);
-        return;
-    }
-
-    struct list_node *child = node->children->head;
-    for (; child; child = child->next)
-        trie_prefix_map_func(child->data, mapfunc);
-
-    mapfunc(node);
-
-}
-
 /* Iterate through children of each node starting from a given node, applying
    a defined function which take a struct trie_node as argument */
 static void trie_prefix_map_func2(struct trie_node *node,
@@ -1704,3 +1591,29 @@ void trie_release(Trie *trie) {
 }
 
 {% endhighlight %}
+
+Well, we have enough in our plate for now, our project should now have 3 more
+modules:
+
+{% highlight bash %}
+sol/
+ ├── src/
+ │    ├── mqtt.h
+ |    ├── mqtt.c
+ │    ├── network.h
+ │    ├── network.c
+ │    ├── list.h
+ │    ├── list.c
+ │    ├── hashtable.h
+ │    ├── hashtable.c
+ │    ├── trie.h
+ │    ├── trie.c
+ │    ├── pack.h
+ │    └── pack.c
+ ├── CHANGELOG
+ ├── CMakeLists.txt
+ ├── COPYING
+ └── README.md
+{% endhighlight %}
+
+The [part 5](sol-mqtt-broker-p5) awaits with the server side handlers.

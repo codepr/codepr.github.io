@@ -496,12 +496,6 @@ the network byte order of the packets.
 #include <stdio.h>
 #include <stdint.h>
 
-/* To network byte order for long long int */
-void htonll(uint8_t *, uint_least64_t );
-
-/* To host from network byte order for long long int */
-uint_least64_t ntohll(const uint8_t *);
-
 /* Reading data on const uint8_t pointer */
 // bytes -> uint8_t
 uint8_t unpack_u8(const uint8_t **);
@@ -511,9 +505,6 @@ uint16_t unpack_u16(const uint8_t **);
 
 // bytes -> uint32_t
 uint32_t unpack_u32(const uint8_t **);
-
-// bytes -> uint64_t
-uint64_t unpack_u64(const uint8_t **);
 
 // read a defined len of bytes
 uint8_t *unpack_bytes(const uint8_t **, size_t, uint8_t *);
@@ -527,9 +518,6 @@ void pack_u16(uint8_t **, uint16_t);
 
 // append a uint32_t -> bytes into the bytestring
 void pack_u32(uint8_t **, uint32_t);
-
-// append a uint64_t -> bytes into the bytestring
-void pack_u64(uint8_t **, uint64_t);
 
 // append len bytes into the bytestring
 void pack_bytes(uint8_t **, uint8_t *);
@@ -549,27 +537,6 @@ And the corresponding implementation
 #include <arpa/inet.h>
 #include "pack.h"
 
-
-/* Host-to-network (native endian to big endian) */
-void htonll(uint8_t *block, uint_least64_t num) {
-    block[0] = num >> 56 & 0xFF;
-    block[1] = num >> 48 & 0xFF;
-    block[2] = num >> 40 & 0xFF;
-    block[3] = num >> 32 & 0xFF;
-    block[4] = num >> 24 & 0xFF;
-    block[5] = num >> 16 & 0xFF;
-    block[6] = num >> 8 & 0xFF;
-    block[7] = num >> 0 & 0xFF;
-}
-
-/* Network-to-host (big endian to native endian) */
-uint_least64_t ntohll(const uint8_t *block) {
-    return (uint_least64_t) block[0] << 56 | (uint_least64_t) block[1] << 48
-        | (uint_least64_t) block[2] << 40 | (uint_least64_t) block[3] << 32
-        | (uint_least64_t) block[4] << 24 | (uint_least64_t) block[5] << 16
-        | (uint_least64_t) block[6] << 8 | (uint_least64_t) block[7] << 0;
-}
-
 // Reading data
 uint8_t unpack_u8(const uint8_t **buf) {
     uint8_t val = **buf;
@@ -588,13 +555,6 @@ uint16_t unpack_u16(const uint8_t **buf) {
 uint32_t unpack_u32(const uint8_t **buf) {
     uint32_t val = ntohl(*((uint32_t *) (*buf)));
     (*buf) += sizeof(uint32_t);
-    return val;
-}
-
-
-uint64_t unpack_u64(const uint8_t **buf) {
-    uint64_t val = ntohll(*buf);
-    (*buf) += sizeof(uint64_t);
     return val;
 }
 
@@ -624,12 +584,6 @@ void pack_u16(uint8_t **buf, uint16_t val) {
 void pack_u32(uint8_t **buf, uint32_t val) {
     *((uint32_t *) (*buf)) = htonl(val);
     (*buf) += sizeof(uint32_t);
-}
-
-
-void pack_u64(uint8_t **buf, uint64_t val) {
-    htonll(*buf, val);
-    (*buf) += sizeof(uint64_t);
 }
 
 
@@ -762,6 +716,30 @@ intended as booleans, on the payload part of the packet, according to those
 flags there are also the corresponding fields, so let's say we have username
 and password at true, on the payload we'll find a 2 bytes field representing
 username length, followed by the username itself, and the same for the password.
+
+To clarify the concept, let's suppose we receive a `CONNECT` packet with
+username and password flag to 1, username set to "hello", password "nacho"
+and client ID "danzan":
+
+| Field                | size (bytes)| offset (byte position)  | Description                                                         |
+|----------------------|:-----------:|:-----------------------:|---------------------------------------------------------------------|
+| Packet type          |  1 (4 bits) |   0                     | Connect type                                                        |
+| Length               |    1        |   1                     | 32 bytes length, being it < 127 bytes, it requires only 1 byte      |
+| Protocol name length |    2        |   2                     | 4 bytes length                                                      |
+| Protocol name (MQTT) |    4        |   4                     | 'M' 'Q' 'T' 'T'                                                     |
+| Protocol level       |    1        |   8                     | For version 3.1.1 the level is 4                                    |
+| Connect flags        |    1        |   9                     | Username, password, will retain, will QoS, will flag, clean session |
+| Keepalive            |    2        |   10                    | 16-bit word, maximum value is 18 hr 12 min 15 seconds               |
+| Client ID length     |    2        |   12                    | 2 bytes, 6 is the length of the Client ID (danzan)                  |
+| Client ID            |    6        |   14                    | 'd' 'a' 'n' 'z' 'a' 'n'                                             |
+| Username length      |    2        |   20                    | 2 bytes, 5 is the length of the username (hello)                    |
+| Username             |    5        |   22                    | 'h' 'e' 'l' 'l' 'o'                                                 |
+| Password length      |    2        |   27                    | 2 bytes, 5 is the length of the password (nacho)                    |
+| Password             |    5        |   29                    | 'n' 'a' 'c' 'h' 'o'                                                 |
+
+<br>
+Having will flags to 0 there's no need to decode those fields, as they don't
+even appear.
 
 **src/mqtt.c**
 
@@ -1069,6 +1047,8 @@ We have now all needed helpers functions to implement our only exposed function
 on the header `mqtt_mqtt_packet`. It ended up being a fairly short and simple
 function, we'll use a static array to map all helper functions, making it O(1)
 the selection of the correct unpack function based on the Control Packet type.
+To be noted that in case of a disconnect, a pingreq or pingresp packet we only
+need a single byte, with remaining length 0.
 
 {% highlight c %}
 
