@@ -48,7 +48,8 @@ topic/module of the project:
 - [Part 2 - Networking](sol-mqtt-broker-p2), utility module, focus on network communication
 - [Part 3 - Server](sol-mqtt-broker-p3), the main entry point of the program
 - [Part 4 - Data structures](sol-mqtt-broker-p4), utility and educational modules
-- [Part 5 - Handlers](sol-mqtt-broker-p5), server completion, for each packet there's a handler dedicated
+- [Part 5 - Topic abstraction](sol-mqtt-broker-p5), handling the main scaling and grouping abstraction of the broker
+- [Part 6 - Handlers](sol-mqtt-broker-p6), server completion, for each packet there's a handler dedicated
 
 I'd like to underline that the resulting software will be a fully functioning
 broker, but with large space for improvements and optimization as well as code
