@@ -87,7 +87,7 @@ struct mqtt_suback *mqtt_packet_suback(unsigned char byte,
     suback->header.byte = byte;
     suback->pkt_id = pkt_id;
     suback->rcslen = rcslen;
-    suback->rcs = sol_malloc(rcslen);
+    suback->rcs = malloc(rcslen);
     memcpy(suback->rcs, rcs, rcslen);
 
     return suback;

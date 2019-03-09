@@ -918,7 +918,7 @@ struct list_node *list_sort_insert(struct list_node **head,
 
 {% endhighlight %}
 
-## Handling topic abstraction with a particular tree
+## Handling topic abstraction: the trie
 
 We move now to the `trie`, the structure of choice to store topics. Trie is a
 kind of trees in which each node is a prefix for a key, the node position

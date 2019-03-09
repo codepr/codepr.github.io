@@ -172,6 +172,17 @@ struct topic *sol_topic_get(struct sol *sol, const char *name) {
 
 ## Finally, the handlers
 
+Handlers are the functions that will be called on the `on_read` callback, as the
+name suggests, they handle commands, after being done, they optionally set a payload
+ready for being sent to the client and return a code, which can be:
+
+- REARM_W, imply the rearming of the descriptor setting the next callback to `on_write`
+  there's data to send to the client
+- REARM_R, in this case there's nothing to tell to the client, the file descriptor will
+  be rearmed with the callback set to `on_read` again
+- -REARM_W this particular case has no code defined, but use the REARM_W and negate it,
+  it means that the client disconnected.
+
 The first handler we'll add will be the `connect_handler`, which as the name
 suggests will handle CONNECT packet coming just after connecting.
 
