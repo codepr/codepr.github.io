@@ -201,7 +201,6 @@ Let's implement our trie with the third solution:
 #include <stdlib.h>
 #include <string.h>
 #include "list.h"
-#include "util.h"
 #include "trie.h"
 
 
@@ -300,27 +299,6 @@ static struct trie_node *trie_node_find(const struct trie_node *node,
 
     return retnode;
 }
-
-
-static int trie_node_count(const struct trie_node *node) {
-
-    /* Count only if it is a leaf with a value */
-    if (trie_is_free_node(node) && node->data)
-        return 1;
-
-    int count = 0;
-
-    /* Recurse through all the children */
-    for (struct list_node *cur = node->children->head; cur; cur = cur->next)
-        count += trie_node_count(cur->data);
-
-    /* Add count if the node has a value */
-    if (node->data)
-        count++;
-
-    return count;
-}
-
 
 // Returns new trie node (initialized to NULL)
 struct trie_node *trie_create_node(char c) {
@@ -581,31 +559,6 @@ static void trie_prefix_map_func2(struct trie_node *node,
 
 /*
  * Apply a function to every key below a given prefix, if prefix is null the
- * function will be applied to all the trie
- */
-void trie_prefix_map(Trie *trie, const char *prefix,
-                     void (*mapfunc)(struct trie_node *)) {
-
-    assert(trie);
-
-    if (!prefix) {
-        trie_prefix_map_func(trie->root, mapfunc);
-    } else {
-
-        // Walk the trie till the end of the key
-        struct trie_node *node = trie_node_find(trie->root, prefix);
-
-        // No complete key found
-        if (!node)
-            return;
-
-        // Check all possible sub-paths and add to count where there is a leaf
-        trie_prefix_map_func(node, mapfunc);
-    }
-}
-
-/*
- * Apply a function to every key below a given prefix, if prefix is null the
  * function will be applied to all the trie. The function applied accepts an
  * additional arguments for optional extra data.
  */
@@ -691,6 +644,8 @@ sol/
  │    ├── hashtable.c
  │    ├── trie.h
  │    ├── trie.c
+ │    ├── util.h
+ │    ├── util.c
  │    ├── pack.h
  │    └── pack.c
  ├── CHANGELOG

@@ -160,7 +160,7 @@ environment this approach will surely bite us in the ass, cause every pointer
 to packet built like this will point to the same area of memory, causing
 conflicts and undefined results (different from dreadful undefined behaviour,
 the ultimate frightening beast of C/C++), so for future improvements it will
-probably better to refactor these parts to `malloc` some bytes for these
+probably better to refactor these parts to malloc some bytes for these
 strucutures.
 
 Let's map them like we've done before with the unpacking functions, an array
@@ -426,6 +426,7 @@ And the implementation on network.c.
 #include <sys/socket.h>
 #include <sys/eventfd.h>
 #include "network.h"
+#include "config.h"
 
 
 /* Set non-blocking socket */
@@ -688,7 +689,7 @@ There’s two types of callback which can be defined, the common ones, that will
 be triggered with events and the periodic ones, that will be executed
 automatically every tick of time interval defined. So let’s wrap the epoll loop
 into a dedicated structure, we’ll do the same for the callback functions,
-defining a structure with some fields usefull for the execution of the
+defining a structure with some fields useful for the execution of the
 callback.
 
 **Sequential diagram, for each cycle of epoll_wait on incoming events**
@@ -699,6 +700,17 @@ callback.
 </center>
 <br>
 
+We're going to declare two structures and a function pointer:
+
+- **struct evloop**, a wrapper around the epoll instance, encapsulating all
+  needed properties
+- **struct closure** which abstract a callback and a sort of context with
+  arguments and a serialized payload of the results
+- **void callback(struct evloop *, void *)**, the heart of the **closure**, it's
+  the prototype of the function we're gonna pass as callback.
+
+Plus, we'll declare and implement on the .c file some creation, delete and
+managing functions.
 
 **src/network.h**
 

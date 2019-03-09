@@ -102,7 +102,7 @@ Here the implementation:
 {% highlight c %}
 
 #include <string.h>
-#include "util.h"
+#include <stdlib.h>
 #include "core.h"
 
 
@@ -225,7 +225,7 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
     struct sol_client *new_client = malloc(sizeof(*new_client));
     new_client->fd = cb->fd;
     const char *cid = (const char *) pkt->connect.payload.client_id;
-    new_client->client_id = sol_strdup(cid);
+    new_client->client_id = strdup(cid);
     hashtable_put(sol.clients, cid, new_client);
 
     /* Substitute fd on callback with closure */
@@ -378,7 +378,7 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
         // TODO check for callback correctly set to obj
 
         if (!t) {
-            t = topic_create(sol_strdup(topic));
+            t = topic_create(strdup(topic));
             sol_topic_put(&sol, t);
         } else if (wildcard == true) {
             struct subscriber *sub = malloc(sizeof(*sub));
@@ -501,7 +501,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
     struct topic *t = sol_topic_get(&sol, topic);
 
     if (!t) {
-        t = topic_create(sol_strdup(topic));
+        t = topic_create(strdup(topic));
         sol_topic_put(&sol, t);
     }
 
@@ -828,6 +828,7 @@ strucuture:
 
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <sys/socket.h>
 #include <sys/eventfd.h>
@@ -1302,3 +1303,9 @@ printed out on screen to better follow the execution.
 $ sol -v
 
 {% endhighlight %}
+
+And that's it for now, there're probably a lot of bugs, memory leaks that must
+be fixed and redundant code, as well as messy includes, but the skeleton is all
+there and have to be considered an MVP. Part-7 will come soon, with testing and
+some snippets using `paho-mqtt` to play with the newborn. Of course some tests
+would be added, at least for the main features.

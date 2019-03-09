@@ -15,12 +15,13 @@ usual Key-Value store, which happens to be my favourite pet-project of choice
 when it comes to learn a new language or to dusting out on low-level system
 programming on UNIX.
 
-**Sol** will be a C project, a super-simple MQTT broker for Linux platform which
-will support version 3.1.1 of the protocol, skipping on older protocols for
-now, very similar to a lightweight mosquitto (which is already a lightweight
-piece of software anyway). As a side note, the name decision is a 50/50 for the
-elegance i feel for short names and the martian day (The Martian docet). Or
-maybe it stands for Shitty Obnoxious Laxative. Tastes.
+**Sol** will be a C project, a super-simple MQTT broker for Linux platform
+which will support version 3.1.1 of the protocol, skipping on older protocols
+for now, very similar to a lightweight mosquitto (which is already a
+lightweight piece of software anyway), and with the abundance of MQTT clients
+out there, testing will be also easier. As a side note, the name decision is a
+50/50 for the elegance i feel for short names and the martian day (The Martian
+docet). Or maybe it stands for Shitty Obnoxious Laxative. Tastes.
 
 
 Going per steps, I usually init my C projects in order to have all sources
@@ -42,7 +43,7 @@ without being too much verbose, and listing lot of code directly with brief
 explanation of its purpose. The best way still remains to write it down,
 compile it and play/modify it.<br>
 This will be a series of posts, each one tackling and mostly implementing a single
-topic/module of the project:
+concept/module of the project:
 
 - [Part 1 - Protocol](sol-mqtt-broker), lays the foundations to handle the MQTT protocol packets
 - [Part 2 - Networking](sol-mqtt-broker-p2), utility module, focus on network communication
@@ -454,6 +455,7 @@ packet, these will be called by the previously defined "public" functions
 {% highlight c %}
 
 #include <stdlib.h>
+#include <string.h>
 #include "mqtt.h"
 
 
@@ -550,6 +552,7 @@ And the corresponding implementation
 {% highlight c %}
 
 #include <string.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include "pack.h"
 
@@ -654,6 +657,12 @@ No need for further explanation, the MQTT documentation is crystal clear.
 **src/mqtt.c**
 
 {% highlight c %}
+
+/*
+ * MQTT v3.1.1 standard, Remaining length field on the fixed header can be at
+ * most 4 bytes.
+ */
+static const int MAX_LEN_BYTES = 4;
 
 /*
  * Encode Remaining Length on a MQTT packet header, comprised of Variable
@@ -1093,6 +1102,11 @@ need a single byte, with remaining length 0.
 **src/mqtt.c**
 
 {% highlight c %}
+
+
+typedef size_t mqtt_unpack_handler(const unsigned char *,
+                                   union mqtt_header *,
+                                   union mqtt_packet *);
 
 /*
  * Unpack functions mapping unpacking_handlers positioned in the array based

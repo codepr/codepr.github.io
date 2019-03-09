@@ -24,7 +24,7 @@ the collisions (e.g. keys that compute to the same hash) as much as possible.
 
 <br>
 <center>
-{% include image.html path="hashtable.png" path-detail="hashtable.png" alt="Hashtable reprsentation" %}
+{% include image.html path="hashtable.png" path-detail="hashtable.png" alt="Hashtable representation" %}
 </center>
 <br>
 
@@ -668,6 +668,8 @@ typedef int cmp(void *, void *);
 struct list_node *list_sort_insert(struct list_node **,
                                    struct list_node *, compare_func);
 
+/* Divide a list in 2 sublists at roughly the middle of the original list */
+struct list_node *bisect_list(struct list_node *);
 
 #endif
 
@@ -678,7 +680,7 @@ struct list_node *list_sort_insert(struct list_node **,
 {% highlight c %}
 
 #include "list.h"
-#include "util.h"
+#include <stdlib.h>
 
 
 static struct list_node *list_node_remove(struct list_node *,
@@ -925,6 +927,27 @@ struct list_node *list_sort_insert(struct list_node **head,
     }
 
     return *head;
+}
+
+/*
+ * Returns a pointer to a node near the middle of the list,
+ * after having truncated the original list before that point.
+ */
+struct list_node *bisect_list(struct list_node *head) {
+    /* The fast pointer moves twice as fast as the slow pointer. */
+    /* The prev pointer points to the node preceding the slow pointer. */
+    struct list_node *fast = head, *slow = head, *prev = NULL;
+
+    while (fast != NULL && fast->next != NULL) {
+        fast = fast->next->next;
+        prev = slow;
+        slow = slow->next;
+    }
+
+    if (prev != NULL)
+        prev->next = NULL;
+
+    return slow;
 }
 
 {% endhighlight %}

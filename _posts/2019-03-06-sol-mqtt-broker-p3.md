@@ -56,6 +56,8 @@ improvements.
 
 int start_server(const char *, const char *);
 
+#endif
+
 {% endhighlight %}
 
 The implementation part will be a little bigger than it seems, all our handler
@@ -67,16 +69,90 @@ clients after it started listening:
 - a read callback for read events
 - a write callback to send out data
 
+We will also forward declare some functions, mostly handlers and a mapping much
+like the one used to pack and unpack payloads on mqtt module, we took them as is,
+to make thing easier for the near-future development.
+
 **src/server.c**
 
 {% highlight c %}
 
-#include <stdio.h>
+#define _POSIX_C_SOURCE 200809L
+#include <time.h>
+#include <errno.h>
 #include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include "pack.h"
+#include "util.h"
+#include "mqtt.h"
+#include "core.h"
 #include "network.h"
+#include "hashtable.h"
+#include "config.h"
+#include "server.h"
+
+
+/* Seconds in a Sol, easter egg */
+static const double SOL_SECONDS = 88775.24;
+
+/*
+ * General informations of the broker, all fields will be published
+ * periodically to internal topics
+ */
+static struct sol_info info;
+
+/* Broker global instance, contains the topic trie and the clients hashtable */
+static struct sol sol;
+
+/*
+ * Prototype for a command handler, it accepts a pointer to the closure as the
+ * link to the client sender of the command and a pointer to the packet itself
+ */
+typedef int handler(struct closure *, union mqtt_packet *);
+
+/* Command handler, each one have responsibility over a defined command packet */
+static int connect_handler(struct closure *, union mqtt_packet *);
+
+static int disconnect_handler(struct closure *, union mqtt_packet *);
+
+static int subscribe_handler(struct closure *, union mqtt_packet *);
+
+static int unsubscribe_handler(struct closure *, union mqtt_packet *);
+
+static int publish_handler(struct closure *, union mqtt_packet *);
+
+static int puback_handler(struct closure *, union mqtt_packet *);
+
+static int pubrec_handler(struct closure *, union mqtt_packet *);
+
+static int pubrel_handler(struct closure *, union mqtt_packet *);
+
+static int pubcomp_handler(struct closure *, union mqtt_packet *);
+
+static int pingreq_handler(struct closure *, union mqtt_packet *);
+
+/* Command handler mapped usign their position paired with their type */
+static handler *handlers[15] = {
+    NULL,
+    connect_handler,
+    NULL,
+    publish_handler,
+    puback_handler,
+    pubrec_handler,
+    pubrel_handler,
+    pubcomp_handler,
+    subscribe_handler,
+    NULL,
+    unsubscribe_handler,
+    NULL,
+    pingreq_handler,
+    NULL,
+    disconnect_handler
+};
 
 /*
  * Connection structure for private use of the module, mainly for accepting
@@ -97,6 +173,12 @@ static void on_read(struct evloop *, void *);
 static void on_write(struct evloop *, void *);
 
 static void on_accept(struct evloop *, void *);
+
+/*
+ * Periodic task callback, will be executed every N seconds defined on the
+ * configuration
+ */
+static void publish_stats(struct evloop *, void *);
 
 /*
  * Accept a new incoming connection assigning ip address and socket descriptor
@@ -504,7 +586,10 @@ enum log_level { DEBUG, INFORMATION, WARNING, ERROR };
 
 
 int number_len(size_t);
+int parse_int(const char *);
 int generate_uuid(char *);
+char *remove_occur(char *, char) ;
+char *append_string(char *, char *, size_t);
 
 /* Logging */
 void sol_log_init(const char *);
@@ -613,6 +698,48 @@ int number_len(size_t number) {
         number /= 10;
     }
     return len;
+}
+
+/* Parse the integer part of a string, by effectively iterate through it and
+   converting the numbers found */
+int parse_int(const char *string) {
+    int n = 0;
+
+    while (*string && isdigit(*string)) {
+        n = (n * 10) + (*string - '0');
+        string++;
+    }
+    return n;
+}
+
+
+char *remove_occur(char *str, char c) {
+    char *p = str;
+    char *pp = str;
+
+    while (*p) {
+        *pp = *p++;
+        pp += (*pp != c);
+    }
+
+    *pp = '\0';
+
+    return str;
+}
+
+/*
+ * Append a string to another, the destination string must be NUL-terminated
+ * and long enough to contain the resulting string, for the chunk part that
+ * will be appended the function require the length, the resulting string will
+ * be heap alloced and nul-terminated.
+ */
+char *append_string(char *src, char *chunk, size_t chunklen) {
+    size_t srclen = strlen(src);
+    char *ret = malloc(srclen + chunklen + 1);
+    memcpy(ret, src, srclen);
+    memcpy(ret + srclen, chunk, chunklen);
+    ret[srclen + chunklen] = '\0';
+    return ret;
 }
 
 
@@ -729,7 +856,7 @@ int start_server(const char *addr, const char *port) {
 
     /* Generate stats topics */
     for (int i = 0; i < SYS_TOPICS; i++)
-        sol_topic_put(&sol, topic_create(sol_strdup(sys_topics[i])));
+        sol_topic_put(&sol, topic_create(strdup(sys_topics[i])));
 
     struct evloop *event_loop = evloop_create(EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
 
@@ -916,10 +1043,6 @@ static void publish_stats(struct evloop *loop, void *args) {
     char sutime[16];
     sprintf(sutime, "%.4f", sol_uptime);
 
-    long long memory = memory_used();
-    char mem[number_len(memory)];
-    sprintf(mem, "%lld", memory);
-
     publish_message(0, strlen(sys_topics[5]), sys_topics[5],
                     strlen(utime), (unsigned char *) &utime);
     publish_message(0, strlen(sys_topics[6]), sys_topics[6],
@@ -932,9 +1055,6 @@ static void publish_stats(struct evloop *loop, void *args) {
                     strlen(msent), (unsigned char *) &msent);
     publish_message(0, strlen(sys_topics[12]), sys_topics[12],
                     strlen(mrecv), (unsigned char *) &mrecv);
-    publish_message(0, strlen(sys_topics[13]), sys_topics[13],
-                    strlen(mem), (unsigned char *) &mem);
-
 }
 
 {% endhighlight %}
