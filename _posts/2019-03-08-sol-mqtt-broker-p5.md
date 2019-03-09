@@ -113,7 +113,7 @@ static int compare_cid(void *c1, void *c2) {
 
 
 struct topic *topic_create(const char *name) {
-    struct topic *t = sol_malloc(sizeof(*t));
+    struct topic *t = malloc(sizeof(*t));
     topic_init(t, name);
     return t;
 }
@@ -129,7 +129,7 @@ void topic_add_subscriber(struct topic *t,
                           struct sol_client *client,
                           unsigned qos,
                           bool cleansession) {
-    struct subscriber *sub = sol_malloc(sizeof(*sub));
+    struct subscriber *sub = malloc(sizeof(*sub));
     sub->client = client;
     sub->qos = qos;
     t->subscribers = list_push(t->subscribers, sub);
@@ -173,7 +173,7 @@ struct topic *sol_topic_get(struct sol *sol, const char *name) {
 ## Finally, the handlers
 
 The first handler we'll add will be the `connect_handler`, which as the name
-suggests will handle `CONNECT` packet coming just after connecting.
+suggests will handle CONNECT packet coming just after connecting.
 
 **src/server.c**
 
@@ -211,7 +211,7 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
      * Add the new connected client to the global map, if it is already
      * connected, kick him out accordingly to the MQTT v3.1.1 specs.
      */
-    struct sol_client *new_client = sol_malloc(sizeof(*new_client));
+    struct sol_client *new_client = malloc(sizeof(*new_client));
     new_client->fd = cb->fd;
     const char *cid = (const char *) pkt->connect.payload.client_id;
     new_client->client_id = sol_strdup(cid);
@@ -221,7 +221,7 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
     cb->obj = new_client;
 
     /* Respond with a connack */
-    union mqtt_packet *response = sol_malloc(sizeof(*response));
+    union mqtt_packet *response = malloc(sizeof(*response));
     unsigned char byte = CONNACK;
 
     // TODO check for session already present
@@ -238,13 +238,13 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
     cb->payload = bytestring_create(MQTT_ACK_LEN);
     unsigned char *p = pack_mqtt_packet(response, CONNACK_TYPE);
     memcpy(cb->payload->data, p, MQTT_ACK_LEN);
-    sol_free(p);
+    free(p);
 
     sol_debug("Sending CONNACK to %s (%u, %u)",
               pkt->connect.payload.client_id,
               session_present, rc);
 
-    sol_free(response);
+    free(response);
 
     return REARM_W;
 }
@@ -252,12 +252,12 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
 {% endhighlight %}
 
 Essentially it behave exactly as defined by the protocol standard, except for
-the *clean session* thing, which for now we ignore; if a double `CONNECT`
+the *clean session* thing, which for now we ignore; if a double CONNECT
 packet is received it kick out the connected clients that sent it, otherwise it
-schedule a response to it with a `CONNACK`, that will be handled by the
+schedule a response to it with a CONNACK, that will be handled by the
 `on_write` handler.
 
-Next command, `DISCONNECT`:
+Next command, DISCONNECT:
 
 **src/server.c**
 
@@ -289,7 +289,7 @@ static int disconnect_handler(struct closure *cb, union mqtt_packet *pkt) {
 Straight forward, just log the disconnection, update the infos, close the fd,
 remove the client from the global map and return a negative code, neat.
 
-Let's move to a more interesting operation, `SUBSCRIBE`, this is where our
+Let's move to a more interesting operation, SUBSCRIBE, this is where our
 trie structure kick-in, in fact we have to:
 
 - Iterate through the list of tuples (topic, QoS) and for each
@@ -300,10 +300,10 @@ trie structure kick-in, in fact we have to:
       in a trivial manner thanks to the nature of the trie struct
     - Add to session in case of `clean_session` false, still need
       some implementation here through
-- Answer with a `SUBACK`
+- Answer with a SUBACK
 
-Nothing special for the `UNSUBSCRIBE` command, remove the client from the
-specified topic and answer with an `UNSUBACK`:
+Nothing special for the UNSUBSCRIBE command, remove the client from the
+specified topic and answer with an UNSUBACK:
 
 **src/server.c**
 
@@ -370,7 +370,7 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
             t = topic_create(sol_strdup(topic));
             sol_topic_put(&sol, t);
         } else if (wildcard == true) {
-            struct subscriber *sub = sol_malloc(sizeof(*sub));
+            struct subscriber *sub = malloc(sizeof(*sub));
             sub->client = cb->obj;
             sub->qos = pkt->subscribe.tuples[i].qos;
             trie_prefix_map_tuple(&sol.topics, topic,
@@ -381,7 +381,7 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
         topic_add_subscriber(t, cb->obj, pkt->subscribe.tuples[i].qos, true);
 
         if (alloced)
-            sol_free(topic);
+            free(topic);
 
         rcs[i] = pkt->subscribe.tuples[i].qos;
     }
@@ -397,10 +397,10 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
     size_t len = MQTT_HEADER_LEN + sizeof(uint16_t) + pkt->subscribe.tuples_len;
     cb->payload = bytestring_create(len);
     memcpy(cb->payload->data, packed, len);
-    sol_free(packed);
+    free(packed);
 
     mqtt_packet_release(pkt, SUBACK_TYPE);
-    sol_free(suback);
+    free(suback);
 
     sol_debug("Sending SUBACK to %s", c->client_id);
 
@@ -419,7 +419,7 @@ static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
     unsigned char *packed = pack_mqtt_packet(pkt, UNSUBACK_TYPE);
     cb->payload = bytestring_create(MQTT_ACK_LEN);
     memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
-    sol_free(packed);
+    free(packed);
 
     sol_debug("Sending UNSUBACK to %s", c->client_id);
 
@@ -429,12 +429,12 @@ static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 
 {% endhighlight %}
 
-The `PUBLISH` handler is the longer of our handlers, but it's fairly easy to
+The PUBLISH handler is the longer of our handlers, but it's fairly easy to
 follow
 
 - create the topic if it does not exists
-- based upon the QoS of the message, it schedules the correct `ACK` (`PUBACK` for
-  an **at least once** level, `PUBREC` for an **exactly once** level, nothing for
+- based upon the QoS of the message, it schedules the correct ACK (PUBACK for
+  an **at least once** level, PUBREC for an **exactly once** level, nothing for
   the `at most once` level)
 - Forward the publish packed with the updated QoS to all subscribers of the topic,
   the QoS have to be updated to the QoS of the subscriber, which is the maximum
@@ -496,7 +496,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     // Not the best way to handle this
     if (alloced == true)
-        sol_free(topic);
+        free(topic);
 
     size_t publen;
     unsigned char *pub;
@@ -537,7 +537,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
 
         info.messages_sent++;
 
-        sol_free(pub);
+        free(pub);
     }
 
     // TODO free publish
@@ -553,7 +553,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
         unsigned char *packed = pack_mqtt_packet(pkt, PUBACK_TYPE);
         cb->payload = bytestring_create(MQTT_ACK_LEN);
         memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
-        sol_free(packed);
+        free(packed);
 
         sol_debug("Sending PUBACK to %s", c->client_id);
 
@@ -572,7 +572,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
         unsigned char *packed = pack_mqtt_packet(pkt, PUBREC_TYPE);
         cb->payload = bytestring_create(MQTT_ACK_LEN);
         memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
-        sol_free(packed);
+        free(packed);
 
         sol_debug("Sending PUBREC to %s", c->client_id);
 
@@ -591,13 +591,13 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
 
 {% endhighlight %}
 
-All the remaining `ACK` handlers now, they basically all the same, for now we
+All the remaining ACK handlers now, they basically all the same, for now we
 limit ourselves to just log their execution, in the future we'll handle the
 message based on the QoS deliverance.
 
-The last one, is the `PINGREQ` handler, it's only purpose is to guarantee the
+The last one, is the PINGREQ handler, it's only purpose is to guarantee the
 health of connected clients who are inactive for some time, receiving one
-expects a `PINGRESP` as answer.
+expects a PINGRESP as answer.
 
 **src/server.c**
 
@@ -627,7 +627,7 @@ static int pubrec_handler(struct closure *cb, union mqtt_packet *pkt) {
     unsigned char *packed = pack_mqtt_packet(pkt, PUBREC_TYPE);
     cb->payload = bytestring_create(MQTT_ACK_LEN);
     memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
-    sol_free(packed);
+    free(packed);
 
     sol_debug("Sending PUBREL to %s", c->client_id);
 
@@ -647,7 +647,7 @@ static int pubrel_handler(struct closure *cb, union mqtt_packet *pkt) {
     unsigned char *packed = pack_mqtt_packet(pkt, PUBCOMP_TYPE);
     cb->payload = bytestring_create(MQTT_ACK_LEN);
     memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
-    sol_free(packed);
+    free(packed);
 
     sol_debug("Sending PUBCOMP to %s",
               ((struct sol_client *) cb->obj)->client_id);
@@ -676,7 +676,7 @@ static int pingreq_handler(struct closure *cb, union mqtt_packet *pkt) {
     unsigned char *packed = pack_mqtt_packet(pkt, PINGRESP_TYPE);
     cb->payload = bytestring_create(MQTT_HEADER_LEN);
     memcpy(cb->payload->data, packed, MQTT_HEADER_LEN);
-    sol_free(packed);
+    free(packed);
 
     sol_debug("Sending PINGRESP to %s",
               ((struct sol_client *) cb->obj)->client_id);
@@ -690,6 +690,443 @@ Our lightweight broker is taking shape, code should now be enough to try and
 play a bit, using `mosquitto_sub` and `mosquitto_pub` or Python `paho-mqtt`
 library.
 
+We just need a configuration module to have better control on the general
+settings of the system and after that we will sonn to be finished.
+The format of the configuration file will be the classical key value one
+used by most services on Linux, something like this:
+
+**conf/sol.conf**
+
+{% highlight bash %}
+
+# Sol configuration file, uncomment and edit desired configuration
+
+# Network configuration
+
+# Uncomment ip_address and ip_port to set socket family to TCP, if unix_socket
+# is set, UNIX family socket will be used
+
+# ip_address 127.0.0.1
+# ip_port 9090
+
+unix_socket /tmp/sol.sock
+
+# Logging configuration
+
+# Could be either DEBUG, INFO/INFORMATION, WARNING, ERROR
+log_level DEBUG
+
+log_path /tmp/sol.log
+
+# Max memory to be used, after which the system starts to reclaim memory by
+# freeing older items stored
+max_memory 2GB
+
+# Max memory that will be allocated for each request
+max_request_size 50MB
+
+# TCP backlog, size of the complete connection queue
+tcp_backlog 128
+
+# Interval of time between one stats publish on $SOL topics and the subsequent
+stats_publish_interval 10s
+
+{% endhighlight %}
+
+So, let's define a new header:
+
+**src/config.h**
+
+{% highlight c %}
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <stdio.h>
+
+// Default parameters
+
+#define VERSION                     "0.0.1"
+#define DEFAULT_SOCKET_FAMILY       INET
+#define DEFAULT_LOG_LEVEL           DEBUG
+#define DEFAULT_LOG_PATH            "/tmp/sol.log"
+#define DEFAULT_CONF_PATH           "/etc/sol/sol.conf"
+#define DEFAULT_HOSTNAME            "127.0.0.1"
+#define DEFAULT_PORT                "1883"
+#define DEFAULT_MAX_MEMORY          "2GB"
+#define DEFAULT_MAX_REQUEST_SIZE    "2MB"
+#define DEFAULT_STATS_INTERVAL      "10s"
+
+
+struct config {
+    /* Sol version <MAJOR.MINOR.PATCH> */
+    const char *version;
+    /* Eventfd to break the epoll_wait loop in case of signals */
+    int run;
+    /* Logging level, to be set by reading configuration */
+    int loglevel;
+    /* Epoll wait timeout, define even the number of times per second that the
+       system will check for expired keys */
+    int epoll_timeout;
+    /* Socket family (Unix domain or TCP) */
+    int socket_family;
+    /* Log file path */
+    char logpath[0xFF];
+    /* Hostname to listen on */
+    char hostname[0xFF];
+    /* Port to open while listening, only if socket_family is INET,
+     * otherwise it's ignored */
+    char port[0xFF];
+    /* Max memory to be used, after which the system starts to reclaim back by
+     * freeing older items stored */
+    size_t max_memory;
+    /* Max memory request can allocate */
+    size_t max_request_size;
+    /* TCP backlog size */
+    int tcp_backlog;
+    /* Delay between every automatic publish of broker stats on topic */
+    size_t stats_pub_interval;
+};
+
+
+extern struct config *conf;
+
+
+void config_set_default(void);
+void config_print(void);
+int config_load(const char *);
+
+char *time_to_string(size_t);
+char *memory_to_string(size_t);
+
+#endif
+
+{% endhighlight %}
+
+The configuration explains itself, for now we want control over host and port
+to listen on, the socket family (between TCP and UNIX) log level and log file
+path, plus some minor utilities regarding network communication tuning.
+
+The implementation will involve mainly utility functions to parse strings
+and to read from file the configuration and populate the global configuration
+strucuture:
+
+**src/config.c**
+
+{% highlight c %}
+
+#include <ctype.h>
+#include <string.h>
+#include <assert.h>
+#include <sys/socket.h>
+#include <sys/eventfd.h>
+#include "util.h"
+#include "config.h"
+#include "network.h"
+
+
+/* The main configuration structure */
+static struct config config;
+struct config *conf;
+
+
+struct llevel {
+    const char *lname;
+    int loglevel;
+};
+
+static const struct llevel lmap[5] = {
+    {"DEBUG", DEBUG},
+    {"WARNING", WARNING},
+    {"ERROR", ERROR},
+    {"INFO", INFORMATION},
+    {"INFORMATION", INFORMATION}
+};
+
+
+static size_t read_memory_with_mul(const char *memory_string) {
+
+    /* Extract digit part */
+    size_t num = parse_int(memory_string);
+    int mul = 1;
+
+    /* Move the pointer forward till the first non-digit char */
+    while (isdigit(*memory_string)) memory_string++;
+
+    /* Set multiplier */
+    if (STREQ(memory_string, "kb", 2))
+        mul = 1024;
+    else if (STREQ(memory_string, "mb", 2))
+        mul = 1024 * 1024;
+    else if (STREQ(memory_string, "gb", 2))
+        mul = 1024 * 1024 * 1024;
+
+    return num * mul;
+}
+
+
+static size_t read_time_with_mul(const char *time_string) {
+
+    /* Extract digit part */
+    size_t num = parse_int(time_string);
+    int mul = 1;
+
+    /* Move the pointer forward till the first non-digit char */
+    while (isdigit(*time_string)) time_string++;
+
+    /* Set multiplier */
+    switch (*time_string) {
+        case 'm':
+            mul = 60;
+            break;
+        case 'd':
+            mul = 60 * 60 * 24;
+            break;
+        default:
+            mul = 1;
+            break;
+    }
+
+    return num * mul;
+}
+
+/* Format a memory in bytes to a more human-readable form, e.g. 64b or 18Kb
+ * instead of huge numbers like 130230234 bytes */
+char *memory_to_string(size_t memory) {
+
+    int numlen = 0;
+    int translated_memory = 0;
+
+    char *mstring = NULL;
+
+    if (memory < 1024) {
+        translated_memory = memory;
+        numlen = number_len(translated_memory);
+        // +1 for 'b' +1 for nul terminating
+        mstring = malloc(numlen + 1);
+        snprintf(mstring, numlen + 1, "%db", translated_memory);
+    } else if (memory < 1048576) {
+        translated_memory = memory / 1024;
+        numlen = number_len(translated_memory);
+        // +2 for 'Kb' +1 for nul terminating
+        mstring = malloc(numlen + 2);
+        snprintf(mstring, numlen + 2, "%dKb", translated_memory);
+    } else if (memory < 1073741824) {
+        translated_memory = memory / (1024 * 1024);
+        numlen = number_len(translated_memory);
+        // +2 for 'Mb' +1 for nul terminating
+        mstring = malloc(numlen + 2);
+        snprintf(mstring, numlen + 2, "%dMb", translated_memory);
+    } else {
+        translated_memory = memory / (1024 * 1024 * 1024);
+        numlen = number_len(translated_memory);
+        // +2 for 'Gb' +1 for nul terminating
+        mstring = malloc(numlen + 2);
+        snprintf(mstring, numlen + 2, "%dGb", translated_memory);
+    }
+
+    return mstring;
+}
+
+/* Purely utility function, format a time in seconds to a more human-readable
+ * form, e.g. 2m or 4h instead of huge numbers */
+char *time_to_string(size_t time) {
+
+    int numlen = 0;
+    int translated_time = 0;
+
+    char *tstring = NULL;
+
+    if (time < 60) {
+        translated_time = time;
+        numlen = number_len(translated_time);
+        // +1 for 's' +1 for nul terminating
+        tstring = malloc(numlen + 1);
+        snprintf(tstring, numlen + 1, "%ds", translated_time);
+    } else if (time < 60 * 60) {
+        translated_time = time / 60;
+        numlen = number_len(translated_time);
+        // +1 for 'm' +1 for nul terminating
+        tstring = malloc(numlen + 1);
+        snprintf(tstring, numlen + 1, "%dm", translated_time);
+    } else if (time < 60 * 60 * 24) {
+        translated_time = time / (60 * 60);
+        numlen = number_len(translated_time);
+        // +1 for 'h' +1 for nul terminating
+        tstring = malloc(numlen + 1);
+        snprintf(tstring, numlen + 1, "%dh", translated_time);
+    } else {
+        translated_time = time / (60 * 60 * 24);
+        numlen = number_len(translated_time);
+        // +1 for 'd' +1 for nul terminating
+        tstring = malloc(numlen + 1);
+        snprintf(tstring, numlen + 1, "%dd", translated_time);
+    }
+
+    return tstring;
+}
+
+/* Set configuration values based on what is read from the persistent
+   configuration on disk */
+static void add_config_value(const char *key, const char *value) {
+
+    size_t klen = strlen(key);
+    size_t vlen = strlen(value);
+
+    if (STREQ("log_level", key, klen) == true) {
+        for (int i = 0; i < 3; i++) {
+            if (STREQ(lmap[i].lname, value, vlen) == true)
+                config.loglevel = lmap[i].loglevel;
+        }
+    } else if (STREQ("log_path", key, klen) == true) {
+        strcpy(config.logpath, value);
+    } else if (STREQ("unix_socket", key, klen) == true) {
+        config.socket_family = UNIX;
+        strcpy(config.hostname, value);
+    } else if (STREQ("ip_address", key, klen) == true) {
+        config.socket_family = INET;
+        strcpy(config.hostname, value);
+    } else if (STREQ("ip_port", key, klen) == true) {
+        strcpy(config.port, value);
+    } else if (STREQ("max_memory", key, klen) == true) {
+        config.max_memory = read_memory_with_mul(value);
+    } else if (STREQ("max_request_size", key, klen) == true) {
+        config.max_request_size = read_memory_with_mul(value);
+    } else if (STREQ("tcp_backlog", key, klen) == true) {
+        int tcp_backlog = parse_int(value);
+        config.tcp_backlog = tcp_backlog <= SOMAXCONN ? tcp_backlog : SOMAXCONN;
+    } else if (STREQ("stats_publish_interval", key, klen) == true) {
+        config.stats_pub_interval = read_time_with_mul(value);
+    }
+}
+
+
+static inline void strip_spaces(char **str) {
+    if (!*str) return;
+    while (isspace(**str) && **str) ++(*str);
+}
+
+
+static inline void unpack_bytes(char **str, char *dest) {
+
+    if (!str || !dest) return;
+
+    while (!isspace(**str) && **str) *dest++ = *(*str)++;
+}
+
+
+int config_load(const char *configpath) {
+
+    assert(configpath);
+
+    FILE *fh = fopen(configpath, "r");
+
+    if (!fh) {
+        sol_warning("WARNING: Unable to open conf file %s", configpath);
+        sol_warning("To specify a config file run sol -c /path/to/conf");
+        return false;
+    }
+
+    char line[0xff], key[0xff], value[0xff];
+    int linenr = 0;
+    char *pline, *pkey, *pval;
+
+    while (fgets(line, 0xff, fh) != NULL) {
+
+        memset(key, 0x00, 0xff);
+        memset(value, 0x00, 0xff);
+
+        linenr++;
+
+        // Skip comments or empty lines
+        if (line[0] == '#') continue;
+
+        // Remove whitespaces if any before the key
+        pline = line;
+        strip_spaces(&pline);
+
+        if (*pline == '\0') continue;
+
+        // Read key
+        pkey = key;
+        unpack_bytes(&pline, pkey);
+
+        // Remove whitespaces if any after the key and before the value
+        strip_spaces(&pline);
+
+        // Ignore eventually incomplete configuration, but notify it
+        if (line[0] == '\0') {
+            sol_warning("WARNING: Incomplete configuration '%s' at line %d. "
+                        "Fallback to default.", key, linenr);
+            continue;
+        }
+
+        // Read value
+        pval = value;
+        unpack_bytes(&pline, pval);
+
+        // At this point we have key -> value ready to be ingested on the
+        // global configuration object
+        add_config_value(key, value);
+    }
+
+    return true;
+}
+
+
+void config_set_default(void) {
+
+    // Set the global pointer
+    conf = &config;
+
+    // Set default values
+    config.version = VERSION;
+    config.socket_family = DEFAULT_SOCKET_FAMILY;
+    config.loglevel = DEFAULT_LOG_LEVEL;
+    strcpy(config.logpath, DEFAULT_LOG_PATH);
+    strcpy(config.hostname, DEFAULT_HOSTNAME);
+    strcpy(config.port, DEFAULT_PORT);
+    config.epoll_timeout = -1;
+    config.run = eventfd(0, EFD_NONBLOCK);
+    config.max_memory = read_memory_with_mul(DEFAULT_MAX_MEMORY);
+    config.max_request_size = read_memory_with_mul(DEFAULT_MAX_REQUEST_SIZE);
+    config.tcp_backlog = SOMAXCONN;
+    config.stats_pub_interval = read_time_with_mul(DEFAULT_STATS_INTERVAL);
+}
+
+
+void config_print(void) {
+    if (config.loglevel < WARNING) {
+        const char *sfamily = config.socket_family == UNIX ? "Unix" : "Tcp";
+        const char *llevel = NULL;
+        for (int i = 0; i < 4; i++) {
+            if (lmap[i].loglevel == config.loglevel)
+                llevel = lmap[i].lname;
+        }
+        sol_info("Sol v%s is starting", VERSION);
+        sol_info("Network settings:");
+        sol_info("\tSocket family: %s", sfamily);
+        if (config.socket_family == UNIX) {
+            sol_info("\tUnix socket: %s", config.hostname);
+        } else {
+            sol_info("\tAddress: %s", config.hostname);
+            sol_info("\tPort: %s", config.port);
+            sol_info("\tTcp backlog: %d", config.tcp_backlog);
+        }
+        const char *human_rsize = memory_to_string(config.max_request_size);
+        sol_info("\tMax request size: %s", human_rsize);
+        sol_info("Logging:");
+        sol_info("\tlevel: %s", llevel);
+        sol_info("\tlogpath: %s", config.logpath);
+        const char *human_memory = memory_to_string(config.max_memory);
+        sol_info("Max memory: %s", human_memory);
+        free((char *) human_memory);
+        free((char *) human_rsize);
+    }
+}
+
+{% endhighlight %}
+
 Let's add the last brick, a main:
 
 **src/sol.c**
@@ -702,6 +1139,7 @@ Let's add the last brick, a main:
 #include <string.h>
 #include <unistd.h>
 #include "util.h"
+#include "config.h"
 #include "server.h"
 
 
@@ -709,19 +1147,25 @@ int main (int argc, char **argv) {
 
     char *addr = DEFAULT_HOSTNAME;
     char *port = DEFAULT_PORT;
+    char *confpath = DEFAULT_CONF_PATH;
     int debug = 0;
     int opt;
+
+    // Set default configuration
+    config_set_default();
 
     while ((opt = getopt(argc, argv, "a:c:p:m:vn:")) != -1) {
         switch (opt) {
             case 'a':
                 addr = optarg;
+                strcpy(conf->hostname, addr);
                 break;
             case 'c':
                 confpath = optarg;
                 break;
             case 'p':
                 port = optarg;
+                strcpy(conf->port, port);
                 break;
             case 'v':
                 debug = 1;
@@ -734,16 +1178,60 @@ int main (int argc, char **argv) {
         }
     }
 
-    start_server(addr, port);
+    // Override default DEBUG mode
+    conf->loglevel = debug == 1 ? DEBUG : WARNING;
+
+    // Try to load a configuration, if found
+    config_load(confpath);
+
+    // Print configuration
+    config_print();
+
+    start_server(conf->hostname, conf->port);
 
     return 0;
 }
 
+
 {% endhighlight %}
 
-Short and clean, for compilation I'd like to write custom `Makefile` usually,
-but this time, as shown on the folder tree, I'll consider using a
-`CMakeLists.txt` defined template ad `cmake` to generate it:
+Short and clean, the project should now have all that is needed to work:
+
+{% highlight bash %}
+sol/
+ ├── src/
+ │    ├── mqtt.h
+ |    ├── mqtt.c
+ │    ├── network.h
+ │    ├── network.c
+ │    ├── list.h
+ │    ├── list.c
+ │    ├── hashtable.h
+ │    ├── hashtable.c
+ │    ├── server.h
+ │    ├── server.c
+ │    ├── trie.h
+ │    ├── trie.c
+ │    ├── util.h
+ │    ├── util.c
+ │    ├── core.h
+ │    ├── core.c
+ │    ├── config.h
+ │    ├── confg.c
+ │    ├── pack.h
+ │    ├── pack.c
+ │    └── sol.c
+ ├── conf
+ │    └── sol.conf
+ ├── CHANGELOG
+ ├── CMakeLists.txt
+ ├── COPYING
+ └── README.md
+{% endhighlight %}
+
+That's a moderate amount of code to manage, for compilation I'd like to write
+custom `Makefile` usually, but this time, as shown on the folder tree, I'll
+consider using a `CMakeLists.txt` defined template ad `cmake` to generate it:
 
 {% highlight bash %}
 
@@ -773,7 +1261,7 @@ add_executable(sol ${SOURCES})
 
 {% endhighlight %}
 
-The only part worth a note is the `DEBUG` flag that I added, it makes cmake
+The only part worth a note is the DEBUG flag that I added, it makes cmake
 generate a different `Makefile` that compile the sources with some additional
 flags to catch and signal memory leaks and undefined behaviours.
 

@@ -2,7 +2,7 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 2 - Networking"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial]
+tags: [c, unix, tutorial, epoll]
 ---
 
 Let's continue from where we left, in the [part 1](sol-mqtt-broker) we defined
@@ -16,19 +16,19 @@ revisions.
 
 ## Build, pack and send.
 
-For now we only need `CONNACK`, `SUBACK` and `PUBLISH` packet builder, the
-other `ACK` like packets can be created at the same manner with a single
+For now we only need CONNACK, SUBACK and PUBLISH packet builder, the
+other ACK like packets can be created at the same manner with a single
 function, that's why the use of **typedef** for different ack codes.
 
 - `union mqtt_header *mqtt_packet_header(unsigned char)` will cover packet
-  Fixed Header as well as `PINGREQ`, `PINGRESP` and `DISCONNECT` packets
+  Fixed Header as well as PINGREQ, PINGRESP and DISCONNECT packets
 - `struct mqtt_ack *mqtt_packet_ack(unsigned char, unsigned short)` will be
   used to  build:
-  - `PUBACK`
-  - `PUBREC`
-  - `PUBREL`
-  - `PUBCOMP`
-  - `UNSUBACK`
+  - PUBACK
+  - PUBREC
+  - PUBREL
+  - PUBCOMP
+  - UNSUBACK
 
 The remaining packets will have a dedicated function. There's probably better
 ways to reuse code and to model this but for now let's stick to something
@@ -163,12 +163,38 @@ the ultimate frightening beast of C/C++), so for future improvements it will
 probably better to refactor these parts to `malloc` some bytes for these
 strucutures.
 
-{% highlight c %}
+Let's map them like we've done before with the unpacking functions, an array
+where position reflects the packet type. To make the source a little more
+concise we could group pack and unpack handlers into a structure, so it'll be
+possible to use a single array as they share the same positions.
 
+**src/mqtt.c**
+
+{% highlight c %}
 
 /*
  * MQTT packets packing functions
  */
+
+typedef unsigned char *mqtt_pack_handler(const union mqtt_packet *);
+
+
+static mqtt_pack_handler *pack_handlers[13] = {
+    NULL,
+    NULL,
+    pack_mqtt_connack,
+    pack_mqtt_publish,
+    pack_mqtt_ack,
+    pack_mqtt_ack,
+    pack_mqtt_ack,
+    pack_mqtt_ack,
+    NULL,
+    pack_mqtt_suback,
+    NULL,
+    pack_mqtt_ack,
+    NULL
+};
+
 
 static unsigned char *pack_mqtt_header(const union mqtt_header *hdr) {
 
@@ -348,10 +374,10 @@ from the host, this two functions never fail to appear in every C codebase
 regarding TCP communication:
 
 - `ssize_t send_bytes(int, const unsigned char *, size_t)` used to send all
-  bytes out at once in while loop till no bytes left, by handling `EAGAIN` and
-  `EWOUDLBLOCK` error codes
+  bytes out at once in while loop till no bytes left, by handling EAGAIN and
+  EWOUDLBLOCK error codes
 - `ssize_t recv_bytes(int, unsigned char *, size_t)`, read an arbitrary number
-  of bytes in a while loop, again handling correctly `EAGAIN` and `EWOUDLBLOCK`
+  of bytes in a while loop, again handling correctly EAGAIN and EWOUDLBLOCK
   error codes
 
 
@@ -665,6 +691,15 @@ into a dedicated structure, we’ll do the same for the callback functions,
 defining a structure with some fields usefull for the execution of the
 callback.
 
+**Sequential diagram, for each cycle of epoll_wait on incoming events**
+
+<br>
+<center>
+{% include image.html path="epoll-sequential.png" path-detail="epoll-sequential.png" alt="Epoll sequential diagram" %}
+</center>
+<br>
+
+
 **src/network.h**
 
 {% highlight c %}
@@ -831,7 +866,7 @@ void evloop_free(struct evloop *loop) {
 
 Now, epoll API is extensively documentated on its manpage, but we’ll need 3
 functions to add, remove and modify monitored descriptors and trigger events,
-using `EPOLLET` flag, in order to use epoll on edge-triggered bhaviour (the
+using EPOLLET flag, in order to use epoll on edge-triggered bhaviour (the
 default one is Level-triggered, see
 [manpage](http://man7.org/linux/man-pages/man7/epoll.7.html) and avoid in a
 future multithreaded implementation to wake up all threads at once every time a
@@ -887,7 +922,7 @@ Two things to be noted:
   inside the structure pointed.
 
 - Second, our add and mod functions accepts as third parameters a set of
-  events, mostly `EPOLLIN` or `EPOLLOUT`, but they add `EPOLLONESHOT` to them,
+  events, mostly EPOLLIN or EPOLLOUT, but they add EPOLLONESHOT to them,
   in other words after an event if fired for a descriptor, that descriptor will
   be disabled, until manually rearmed.<br>
   This way every time an event is triggered, the descriptor must be manually
@@ -896,7 +931,7 @@ Two things to be noted:
   future multithreaded implementation, [this great
   article](https://idea.popcount.org/2017-02-20-epoll-is-fundamentally-broken-12/)
   explains wonderfully the advantages (or the broken parts) of the epoll and
-  why it's better to use `EPOLLONESHOT` flag.
+  why it's better to use EPOLLONESHOT flag.
 
 We move forward now to implement the basic closure system and the wait loop for
 read and write events, as well as periodic timed callbacks.
@@ -1043,7 +1078,7 @@ int evloop_del_callback(struct evloop *el, struct closure *cb) {
 {% endhighlight %}
 
 Of all defined functions, `evloop_wait` is the most interesting, start an
-`epoll_wait` loop and after error check, it proceed to apply the callback
+`epoll_wait` loop and after error check, it proceeds to apply the callback
 registered with that fd, differentiating from periodic task auto-triggered on
 time-basis or normal callback for read/write events.
 

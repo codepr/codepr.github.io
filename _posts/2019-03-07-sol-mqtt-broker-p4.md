@@ -2,7 +2,7 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 4 - Data structures"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial]
+tags: [c, unix, tutorial, structures]
 ---
 
 Before proceeding to the implementation of all command handlers, we're going to
@@ -348,33 +348,6 @@ void *hashtable_get(HashTable *table, const char *key) {
     return NULL;
 }
 
-
-/*
- * Return the key-value pair represented by a key in the hashtable
- */
-struct hashtable_entry *hashtable_get_entry(HashTable *table,
-                                            const char *key) {
-
-    assert(table && key);
-
-    /* Find data location */
-    uint64_t curr = hashtable_hash_int(table, (const uint8_t *) key);
-
-    /* Linear probing, if necessary */
-    for (int i = 0; i < MAX_CHAIN_LENGTH; i++) {
-        if (table->entries[curr].taken == true) {
-            if (STREQ(table->entries[curr].key, key, strlen(key)) == true)
-                return &table->entries[curr];
-        }
-
-        curr = (curr + 1) % table->table_size;
-    }
-
-    /* Not found */
-    return NULL;
-}
-
-
 /*
  * Remove an element with that key from the hashtable
  */
@@ -681,8 +654,8 @@ struct list_node *list_remove_node(List *, void *, compare_func);
 typedef int cmp(void *, void *);
 
 /* Insert a new node into a list while maintaining the order of the elements */
-struct list_node *list_sort_inset(struct list_node **,
-                                  struct list_node *, compare_func);
+struct list_node *list_sort_insert(struct list_node **,
+                                   struct list_node *, compare_func);
 
 
 #endif
@@ -925,8 +898,8 @@ struct list_node *list_remove_node(List *list, void *data, compare_func cmp) {
 }
 
 /* Insert a new list node in a list maintaining the order of the list */
-struct list_node *list_sort_inset(struct list_node **head,
-                                  struct list_node *new, cmp cmp_func) {
+struct list_node *list_sort_insert(struct list_node **head,
+                                   struct list_node *new, cmp cmp_func) {
 
     if (!*head || cmp_func(*head, new) >= 0) {
         new->next = *head;
@@ -1058,7 +1031,7 @@ length.
    the end of a word and then if it contains a value defined by data. */
 
 struct trie_node {
-	struct trie_node *children[ALPHABET_SIZE];
+    struct trie_node *children[ALPHABET_SIZE];
     void *data;
 };
 

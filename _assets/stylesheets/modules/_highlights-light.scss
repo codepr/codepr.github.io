@@ -10,6 +10,7 @@
   overflow: auto;
   font-weight: 400;
   background: lighten($gray-lightest, 6);
+  // background: inherit;
   border-radius: $base-border-radius;
   pre {
     margin: 0;

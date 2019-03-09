@@ -15,7 +15,7 @@ usual Key-Value store, which happens to be my favourite pet-project of choice
 when it comes to learn a new language or to dusting out on low-level system
 programming on UNIX.
 
-`Sol` will be a C project, a super-simple MQTT broker for Linux platform which
+**Sol** will be a C project, a super-simple MQTT broker for Linux platform which
 will support version 3.1.1 of the protocol, skipping on older protocols for
 now, very similar to a lightweight mosquitto (which is already a lightweight
 piece of software anyway). As a side note, the name decision is a 50/50 for the
@@ -82,7 +82,7 @@ fact is thread-safe by implementation.
 
 First of all, we have to model some structures to handle MQTT packets, by
 following specifications on the [official
-documentations](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/errata01/os/mqtt-v3.1.1-errata01-os-complete.html).
+documentation](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/errata01/os/mqtt-v3.1.1-errata01-os-complete.html).
 Starting from the opcode table and the MQTT header, according to the docs every packet
 consists of 3 parts:
 - Fixed Header (mandatory)
@@ -106,15 +106,15 @@ and a second to fifth byte to store the remaining length of the packet.
 
 {% endhighlight %}
 
-Flags are not all mandatory, just the 4 bits block `MQTT Control Type`, the
+Flags are not all mandatory, just the 4 bits block MQTT Control Type, the
 others are:
 
-- `Dup` flag, used when a message is sent more than one time
-- `QoS` level, can be `AT_MOST_ONCE`, `AT_LEAST_ONCE` and `EXACTLY_ONCE`, 0,
-   1, 2 respectively
-- `Retain` flag, if a message should be retained, in other words, when a
-   message is published on a topic, it is saved and future connecting clients
-   will receive it. It can be updated with another retained message.
+- Dup flag, used when a message is sent more than one time
+- QoS level, can be AT_MOST_ONCE, AT_LEAST_ONCE and EXACTLY_ONCE, 0,
+  1, 2 respectively
+- Retain flag, if a message should be retained, in other words, when a
+  message is published on a topic, it is saved and future connecting clients
+  will receive it. It can be updated with another retained message.
 
 
 So fire up Vim (or your favourite editor) and start writing `mqtt.h` header
@@ -125,6 +125,8 @@ Header:
 {% highlight c %}
 #ifndef MQTT_H
 #define MQTT_H
+
+#include <stdio.h>
 
 
 #define MQTT_HEADER_LEN 2
@@ -187,7 +189,7 @@ union mqtt_header {
 {% endhighlight %}
 
 The first 2 `#define` refers to fixed sizes of the MQTT Fixed Header and of
-every type of MQTT `ACK` packets, set for convenience, we'll use those later.
+every type of MQTT ACK packets, set for convenience, we'll use those later.
 
 As shown, we leverage the **union**, a value that may have any of several
 representations withing the same position in memory, to represent a byte. In
@@ -195,11 +197,11 @@ other words, inside unions, in contrast to normal **struct**, there can be only
 one field with a value. Their position in memory are shared, this way using
 **bitfields** we can effectively manipulate single bits or portions of a byte.
 
-The first Control Packet we're going to define is the `CONNECT`. The
-`CONNECT` is the first packet that must be sent when a client establish a new
-connection and it must be extactly one, more than one `CONNECT` per client must
+The first Control Packet we're going to define is the CONNECT. The
+CONNECT is the first packet that must be sent when a client establish a new
+connection and it must be extactly one, more than one CONNECT per client must
 be treated as a violation of the protocol and the client must be dropped.<br>
-At each `CONNECT` must be followed in response a `CONNACK`.
+At each CONNECT must be followed in response a CONNACK.
 
 **src/mqtt.h**
 
@@ -258,9 +260,9 @@ struct mqtt_connack {
 From now on, the definition of other packets are trivial by reproducing the
 pattern, accordingly to the documentation of MQTT v3.1.1.
 
-We proceed with `SUBSCRIBE`, `UNSUBSCRIBE` and `PUBLISH`. `SUBSCRIBE` is the
-only packet with a dedicated packet definition `SUBACK`, the other can be
-defined as generic `ACK`, and typenamed usng **typedef** for semantic
+We proceed with SUBSCRIBE, UNSUBSCRIBE and PUBLISH. SUBSCRIBE is the
+only packet with a dedicated packet definition SUBACK, the other can be
+defined as generic ACK, and typenamed using **typedef** for semantic
 separation.
 
 **src/mqtt.h**
@@ -332,18 +334,18 @@ struct mqtt_ack {
 
 {% endhighlight %}
 
-The remaning `ACK` packets, namely:
-- `PUBACK`
-- `PUBREC`
-- `PUBREL`
-- `PUBCOMP`
-- `UNSUBACK`
-- `PINGREQ`
-- `PINGRESP`
-- `DISCONNECT`
+The remaning ACK packets, namely:
+- PUBACK
+- PUBREC
+- PUBREL
+- PUBCOMP
+- UNSUBACK
+- PINGREQ
+- PINGRESP
+- DISCONNECT
 
 can be obtained by typedef'ing `struct ack`, just for semantic separation of
-concerns. The last one, `DISCONNECT`, is not really an `ACK` but the format is
+concerns. The last one, DISCONNECT, is not really an ACK but the format is
 the same.
 
 **src/mqtt.h**
@@ -437,6 +439,7 @@ void mqtt_packet_release(union mqtt_packet *, unsigned);
 
 
 #endif
+
 {% endhighlight %}
 
 Fine. We have a decent header module that define all that we need for handling
@@ -449,6 +452,7 @@ packet, these will be called by the previously defined "public" functions
 
 {% highlight c %}
 
+#include <stdlib.h>
 #include "mqtt.h"
 
 
@@ -617,6 +621,16 @@ connected clients. Let's move one.
 
 ### Back to src/mqtt.c
 
+After the creation of `pack` module we should include it into the `mqtt` source:
+
+**src/mqtt.c**
+
+{% highlight c %}
+
+#include "pack.h"
+
+{% endhighlight %}
+
 The first step will be the implemetation of the Fixed Header Remaning Length
 functions. The MQTT documentation suggests a pseudo-code implementation in one
 of the first paragraphs, we'll stick to that, it's fairly simple and clear.
@@ -695,9 +709,9 @@ unsigned long long mqtt_decode_length(const unsigned char **buf) {
 {% endhighlight %}
 
 Now we can read the first header byte and the total length of the packet. Let's
-move on with the unpacking of the `CONNECT` packet.
+move on with the unpacking of the CONNECT packet.
 It's the packet with more flags and the second one in length behind only the
-`PUBLISH` packet.
+PUBLISH packet.
 
 It consists in:
 - A fixed header with MQTT Control packet type 1 on the first 4 most
@@ -732,7 +746,7 @@ flags there are also the corresponding fields, so let's say we have username
 and password at true, on the payload we'll find a 2 bytes field representing
 username length, followed by the username itself, and the same for the password.
 
-To clarify the concept, let's suppose we receive a `CONNECT` packet with:
+To clarify the concept, let's suppose we receive a CONNECT packet with:
 
 - username and password flag to 1
 - username = "hello"
@@ -740,7 +754,7 @@ To clarify the concept, let's suppose we receive a `CONNECT` packet with:
 - client ID = "danzan"
 
 
-| Field                | size (bytes)| offset (byte position)  | Description                                                         |
+| Field  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;              | size (bytes) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| offset (byte position) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  | Description                   |
 |----------------------|:-----------:|:-----------------------:|---------------------------------------------------------------------|
 | Packet type          |  1 (4 bits) |   0                     | Connect type                                                        |
 | Length               |    1        |   1                     | 32 bytes length, being it < 127 bytes, it requires only 1 byte      |
@@ -840,7 +854,7 @@ static size_t unpack_mqtt_connect(const unsigned char *raw,
 
 {% endhighlight %}
 
-The `PUBLISH` packet now:
+The PUBLISH packet now:
 
 {% highlight markdown %}
 
@@ -920,10 +934,12 @@ static size_t unpack_mqtt_publish(const unsigned char *raw,
 {% endhighlight %}
 
 Subscribe and unsubscribe packets are fairly similar, they reflect the
-`PUBLISH` packet, but for payload they have a list of tuple consisting in a
+PUBLISH packet, but for payload they have a list of tuple consisting in a
 pair (topic, QoS). Their implementation is practically identical, with the
-only difference in the payload part, where `UNSUBSCRIBE` doesn't specify QoS
+only difference in the payload part, where UNSUBSCRIBE doesn't specify QoS
 for each topic.
+
+**src/mqtt.c**
 
 {% highlight c %}
 
@@ -1030,17 +1046,19 @@ static size_t unpack_mqtt_unsubscribe(const unsigned char *raw,
 
 {% endhighlight %}
 
-And finally the `ACK`. In MQTT doesn't exists generic acks, but the structure
+And finally the ACK. In MQTT doesn't exists generic acks, but the structure
 of most of the ack-like packets is practically the same for each one, formed by
 a header and a packet ID.
 
 These are:
 
-- `PUBACK`
-- `PUBREC`
-- `PUBREL`
-- `PUBCOMP`
-- `UNSUBACK`
+- PUBACK
+- PUBREC
+- PUBREL
+- PUBCOMP
+- UNSUBACK
+
+**src/mqtt.c**
 
 {% highlight c %}
 
@@ -1070,6 +1088,8 @@ function, we'll use a static array to map all helper functions, making it O(1)
 the selection of the correct unpack function based on the Control Packet type.
 To be noted that in case of a disconnect, a pingreq or pingresp packet we only
 need a single byte, with remaining length 0.
+
+**src/mqtt.c**
 
 {% highlight c %}
 

@@ -397,7 +397,7 @@ upon a return code from the calling of a handler (chosen in turn to the type of
 command received from the client on the line
 `int rc = handlers[hdr.bits.type](cb, &packet)`), rearm the socket for read or
 write or not at all. This last case will cover disconnections for errors and
-legitimate `DISCONNECT` packets.
+legitimate DISCONNECT packets.
 
 On the write callback we see that the `send_bytes` call pass in a payload with
 data and size as fields; it's a convenient structure I defined to make it simpler
@@ -641,6 +641,30 @@ global structures and the first closure for accepting incoming connections.
 {% highlight c %}
 
 
+/*
+ * Statistics topics, published every N seconds defined by configuration
+ * interval
+ */
+#define SYS_TOPICS 14
+
+static const char *sys_topics[SYS_TOPICS] = {
+    "$SOL/",
+    "$SOL/broker/",
+    "$SOL/broker/clients/",
+    "$SOL/broker/bytes/",
+    "$SOL/broker/messages/",
+    "$SOL/broker/uptime/",
+    "$SOL/broker/uptime/sol",
+    "$SOL/broker/clients/connected/",
+    "$SOL/broker/clients/disconnected/",
+    "$SOL/broker/bytes/sent/",
+    "$SOL/broker/bytes/received/",
+    "$SOL/broker/messages/sent/",
+    "$SOL/broker/messages/received/",
+    "$SOL/broker/memory/used"
+};
+
+
 static void run(struct evloop *loop) {
     if (evloop_wait(loop) < 0) {
         sol_error("Event loop exited unexpectedly: %s", strerror(loop->status));
@@ -758,8 +782,6 @@ struct sol_info {
     int nconnections;
     /* Timestamp of the start time */
     long long start_time;
-    /* Total number of requests served */
-    int nrequests;
     /* Total number of bytes received */
     long long bytes_recv;
     /* Total number of bytes sent out */
@@ -771,6 +793,157 @@ struct sol_info {
 };
 
 {% endhighlight %}
+
+This is directly linked to the periodic task added in the start_server function
+
+{% highlight c %}
+
+/* Add periodic task for publishing stats on SYS topics */
+// TODO Implement
+struct closure sys_closure = {
+    .fd = 0,
+    .payload = NULL,
+    .args = &sys_closure,
+    .call = publish_stats
+};
+
+generate_uuid(sys_closure.closure_id);
+
+/* Schedule as periodic task to be executed every N seconds */
+evloop_add_periodic_task(event_loop, conf->stats_pub_interval,
+                         0, &sys_closure);
+
+{% endhighlight %}
+
+The `publish_stats` callback is called periodically every N seconds where N is
+defined on a configuration global pointer that we're going to implement soon.
+
+But let's add the callback first:
+
+**src/server.c**
+
+{% highlight c %}
+
+static void publish_message(unsigned short pkt_id,
+                            unsigned short topiclen,
+                            const char *topic,
+                            unsigned short payloadlen,
+                            unsigned char *payload) {
+
+    /* Retrieve the Topic structure from the global map, exit if not found */
+    struct topic *t = sol_topic_get(&sol, topic);
+
+    if (!t)
+        return;
+
+    /* Build MQTT packet with command PUBLISH */
+    union mqtt_packet pkt;
+    struct mqtt_publish *p = mqtt_packet_publish(PUBLISH, pkt_id,
+                                                 topiclen,
+                                                 (unsigned char *) topic,
+                                                 payloadlen,
+                                                 payload);
+
+    pkt.publish = *p;
+
+    size_t len;
+    unsigned char *packed;
+
+    /* Send payload through TCP to all subscribed clients of the topic */
+    struct list_node *cur = t->subscribers->head;
+    size_t sent = 0L;
+    for (; cur; cur = cur->next) {
+
+        sol_debug("Sending PUBLISH (d%i, q%u, r%i, m%u, %s, ... (%i bytes))",
+                  pkt.publish.header.bits.dup,
+                  pkt.publish.header.bits.qos,
+                  pkt.publish.header.bits.retain,
+                  pkt.publish.pkt_id,
+                  pkt.publish.topic,
+                  pkt.publish.payloadlen);
+
+        len = MQTT_HEADER_LEN + sizeof(uint16_t) +
+            pkt.publish.topiclen + pkt.publish.payloadlen;
+
+        struct subscriber *sub = cur->data;
+        struct sol_client *sc = sub->client;
+
+        /* Update QoS according to subscriber's one */
+        pkt.publish.header.bits.qos = sub->qos;
+
+        if (pkt.publish.header.bits.qos > AT_MOST_ONCE)
+            len += sizeof(uint16_t);
+
+        packed = pack_mqtt_packet(&pkt, PUBLISH_TYPE);
+
+        if ((sent = send_bytes(sc->fd, packed, len)) < 0)
+            sol_error("Error publishing to %s: %s",
+                      sc->client_id, strerror(errno));
+
+        // Update information stats
+        info.bytes_sent += sent;
+        info.messages_sent++;
+
+        free(packed);
+    }
+
+    free(p);
+}
+
+/*
+ * Publish statistics periodic task, it will be called once every N config
+ * defined seconds, it publish some informations on predefined topics
+ */
+static void publish_stats(struct evloop *loop, void *args) {
+
+    char cclients[number_len(info.nclients) + 1];
+    sprintf(cclients, "%d", info.nclients);
+
+    char bsent[number_len(info.bytes_sent) + 1];
+    sprintf(bsent, "%lld", info.bytes_sent);
+
+    char msent[number_len(info.messages_sent) + 1];
+    sprintf(msent, "%lld", info.messages_sent);
+
+    char mrecv[number_len(info.messages_recv) + 1];
+    sprintf(mrecv, "%lld", info.messages_recv);
+
+    long long uptime = time(NULL) - info.start_time;
+    char utime[number_len(uptime) + 1];
+    sprintf(utime, "%lld", uptime);
+
+    double sol_uptime = (double)(time(NULL) - info.start_time) / SOL_SECONDS;
+    char sutime[16];
+    sprintf(sutime, "%.4f", sol_uptime);
+
+    long long memory = memory_used();
+    char mem[number_len(memory)];
+    sprintf(mem, "%lld", memory);
+
+    publish_message(0, strlen(sys_topics[5]), sys_topics[5],
+                    strlen(utime), (unsigned char *) &utime);
+    publish_message(0, strlen(sys_topics[6]), sys_topics[6],
+                    strlen(sutime), (unsigned char *) &sutime);
+    publish_message(0, strlen(sys_topics[7]), sys_topics[7],
+                    strlen(cclients), (unsigned char *) &cclients);
+    publish_message(0, strlen(sys_topics[9]), sys_topics[9],
+                    strlen(bsent), (unsigned char *) &bsent);
+    publish_message(0, strlen(sys_topics[11]), sys_topics[11],
+                    strlen(msent), (unsigned char *) &msent);
+    publish_message(0, strlen(sys_topics[12]), sys_topics[12],
+                    strlen(mrecv), (unsigned char *) &mrecv);
+    publish_message(0, strlen(sys_topics[13]), sys_topics[13],
+                    strlen(mem), (unsigned char *) &mem);
+
+}
+
+{% endhighlight %}
+
+Ok now we have our first periodic callback, it publishes general informations on
+the status of the broker to a set of topics called `$SYS` topics, that we
+called `$SOL` breaking the standards in a blink of an eye. These informations
+could be added incrementally in the future.
+
 
 **src/server.c**
 
