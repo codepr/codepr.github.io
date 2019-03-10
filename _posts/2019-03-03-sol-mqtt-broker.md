@@ -10,10 +10,11 @@ and researching best patterns to develop such systems, including diving through
 standards and protocols like MQTT; as I always been craving for new ideas to
 learn and refine my programming skills, I thought that going a little deeper on
 the topic would be cool and useful too. So once again I `git init` a low-level
-project on my box to deepen my knowledge on the MQTT protocol, instead of the
-usual Key-Value store, which happens to be my favourite pet-project of choice
-when it comes to learn a new language or to dusting out on low-level system
-programming on UNIX.
+project on my box to deepen my knowledge on the MQTT protocol, and I wanted to
+push myself a little further by sharing my steps; instead of the usual
+Key-Value store, which happens to be my favourite pet-project of choice when it
+comes to learn a new language or to dusting out on low-level system programming
+on UNIX.
 
 **Sol** will be a C project, a super-simple MQTT broker for Linux platform
 which will support version 3.1.1 of the protocol, skipping on older protocols
