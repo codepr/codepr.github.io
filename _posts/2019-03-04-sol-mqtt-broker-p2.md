@@ -335,6 +335,7 @@ We're gonna need some functions to manage our socket descriptor.
 
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include "util.h"
 
 
@@ -502,7 +503,7 @@ static int create_and_bind_tcp(const char *host, const char *port) {
         if (sfd == -1) continue;
 
         /* set SO_REUSEADDR so the socket will be reusable after process kill */
-        if (setsockopt(sfd, SOL_SOCKET, (SO_REUSEPORT | SO_REUSEADDR),
+        if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,
                        &(int) { 1 }, sizeof(int)) < 0)
             perror("SO_REUSEADDR");
 
