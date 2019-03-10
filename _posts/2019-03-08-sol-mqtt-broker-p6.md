@@ -446,7 +446,7 @@ follow
 - create the topic if it does not exists
 - based upon the QoS of the message, it schedules the correct ACK (PUBACK for
   an **at least once** level, PUBREC for an **exactly once** level, nothing for
-  the `at most once` level)
+  the **at most once** level)
 - Forward the publish packed with the updated QoS to all subscribers of the topic,
   the QoS have to be updated to the QoS of the subscriber, which is the maximum
   QoS level that can be received by the subscriber.

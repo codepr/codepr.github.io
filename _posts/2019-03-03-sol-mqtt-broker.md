@@ -69,14 +69,14 @@ quality improvements and probably, with some hidden features as well (aka bugs
 In essence a broker is a middleware, a software that accepts input from
 multiple clients (producers) and forward it to a set of destinatary clients
 (consumers) using an abstraction to define and manage these groups of clients
-in the form of a channel or `topic` as it's called by the protocol standards.
+in the form of a channel or **topic** as it's called by the protocol standards.
 Much like an IRC channel or equivalent in a generic chart, each consumer client
-can subscribe to `topics` in order to receive all messages published by other
-clients to those `topics`.
+can subscribe to **topics** in order to receive all messages published by other
+clients to those **topics**.
 
 The first idea coming to mind is a server built on top of a data structure
-of some kind that allow to easily manage these `topics` and connected
-`clients`, being them producers or consumers. Each message received by a client
+of some kind that allow to easily manage these **topics** and connected
+clients, being them producers or consumers. Each message received by a client
 must be forwarded to all other connected clients that are subscribed to the
 specified topic of the message.
 

@@ -30,7 +30,7 @@ less powerfull.
 
 ## Handling topic abstraction: the trie
 
-We move now to the `trie`, the structure of choice to store topics. Trie is a
+We move now to the **trie**, the structure of choice to store topics. Trie is a
 kind of trees in which each node is a prefix for a key, the node position
 define the keys and the associated values are set on the last node of each key.
 They provide a big-O runtime complexity of O(m) on worst case, for insertion
@@ -183,13 +183,13 @@ Without going too deep into these concepts, best solutions so far seems three:
   size and use a different mapping for characters on the array of children
   pointers.
 
-- Replace the fixed length array on each node with a singly-linked `linked list`,
+- Replace the fixed length array on each node with a singly-linked **linked list**,
   maintained sorted on each insertion, this way there's an average performance of
   O(n/2) on each search, which is the best case possible with the linked list
   data structure.
 
-Luckily we just written a `linked list` before (Perhaps I knew the answer? :P) but
-also a `vector` could do well.
+Luckily we just written a **linked list** before (Perhaps I knew the answer? :P) but
+also a **vector** could do well.
 
 Let's implement our trie with the third solution:
 

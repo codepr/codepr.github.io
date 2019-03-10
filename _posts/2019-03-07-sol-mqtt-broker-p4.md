@@ -7,7 +7,7 @@ tags: [c, unix, tutorial, structures]
 
 Before proceeding to the implementation of all command handlers, we're going to
 design and implement some of the most common data structures needed to the
-correct functioning of the server, namely `hashtable`, `list` and a `trie`.
+correct functioning of the server, namely **hashtable**, **list** and a **trie**.
 The last one, being not strictly necessary at this point of the development,
 will be crucial to manage the abstraction named **topic**.
 

@@ -261,7 +261,7 @@ static void on_accept(struct evloop *loop, void *arg) {
 
 {% endhighlight %}
 
-As you can see, I defined two `static` functions (in C, while not strictly a
+As you can see, I defined two static functions (in C, while not strictly a
 correct use of the term, static functions can only be seen in the scope of
 the module of definition, almost like a private method on a class in OOP
 programming), the `accept_new_client` which by using functions from `network`
