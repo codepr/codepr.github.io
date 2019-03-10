@@ -19,9 +19,15 @@ programming on UNIX.
 which will support version 3.1.1 of the protocol, skipping on older protocols
 for now, very similar to a lightweight mosquitto (which is already a
 lightweight piece of software anyway), and with the abundance of MQTT clients
-out there, testing will be also easier. As a side note, the name decision is a
-50/50 for the elegance i feel for short names and the martian day (The Martian
-docet). Or maybe it stands for Shitty Obnoxious Laxative. Tastes.
+out there, testing will be also easier. The final result will be a base for
+something more clean and with more features, what we're going to create have to
+be considered a minimal implementation, an MVP. As a side note, the name
+decision is a 50/50 for the elegance i feel for short names and the martian day
+(The Martian docet). Or maybe it stands for Shitty Obnoxious Laxative. Tastes.
+
+**Note**: the project won't compile till the very end of the series, following
+all steps, to test single parts and modules I suggest to provide a main by
+yourself and stop to make experiments, change parts etc.
 
 
 Going per steps, I usually init my C projects in order to have all sources
