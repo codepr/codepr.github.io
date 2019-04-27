@@ -20,15 +20,18 @@ Concept leveraging ZMQ sockets and cloudpickle serialization capabilities as
 well as a very basic actor system to handle different loads of work from
 connecting clients.
 
-<a href="https://github.com/codepr/sizigy.git" target="_blank" class="pname">Sizigy</a> - <span class="psub"> A toy MQTT broker </span><span class="lang"> [C] </span>
+<a href="https://github.com/codepr/tritedb.git" target="_blank" class="pname">TriteDB</a> - <span class="psub">Key-value store based on a trie data structure to handle the keyspace</span><span class="lang"> [C] </span>
 -------------------------------------------------------------------------
 
-Sizigy is a pet project born as a way to renew a bit of knowledge of the low
-level programming in C. It's an MQTT message broker built upon epoll interface,
-aiming to guarantee exactly once semantic. Distribution is still in development
-as well as a lot of the core features, but it is already possible to play with
-it. It's a good exercise to explore and better understand the TCP stack,
-endianness, serialization and scalability.
+Single threaded Key-value store based on a Trie data structure. Trie is a kind
+of trees in which each node is a prefix for a key, the node position define the
+keys and the associated values are set on the last node of each key. They
+provide a big-O runtime complexity of O(m) on worst case, for insertion and
+lookup, where m is the length of the key. The main advantage is the possibility
+to query the tree by prefix, executing range scans in an easy way.
+
+Almost all commands supported has a "prefix" version which apply the command
+itself on a prefix instead of a full key.
 
 <a href="https://github.com/codepr/vessel.git" target="_blank" class="pname">Vessel</a> - <span class="psub"> Epoll TCP server library supporting SSl </span> <span class="lang"> [C] </span>
 -------------------------------------------------------------------------
