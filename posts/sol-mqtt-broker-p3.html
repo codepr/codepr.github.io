@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Ordinary thoughts | Sol - An MQTT broker from scratch. Part 3 - Server</title>
+  <meta name="description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Sol - An MQTT broker from scratch. Part 3 - Server">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/posts/sol-mqtt-broker-p3">
+  <meta property="og:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta property="og:site_name" content="Ordinary thoughts">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="/posts/sol-mqtt-broker-p3">
+  <meta name="twitter:title" content="Sol - An MQTT broker from scratch. Part 3 - Server">
+  <meta name="twitter:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+
+  
+    <meta property="og:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+    <meta name="twitter:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+  
+
+  <link href="/feed.xml" type="application/rss+xml" rel="alternate" title="Ordinary thoughts Last 10 blog posts" />
+
+  
+
+  
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-light-a98c41efc5ed9fcc06ac664c9e2f7a9b3c3b2e0a52357d221fe382f6f4abc8fc.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon-light-87d1f2a3a19b1500e5c1626a0492025ca5f7f97d24540dc5900288e92112925a.png">
+    <link rel="stylesheet" type="text/css" href="/assets/light-273261f5acf40d5e75642b11aff49ad206e80876a27b830f96aa43304000296d.css">
+  
+</head>
+
+<body>
+  <main>
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav scrollappear">
+  <ul class="header-links">
+    
+    <li>
+        <a href="/projects" title="Projects">
+            Projects
+        </a>
+    </li>
+    
+    
+      <li>
+        <a href="/about" title="About me">
+            Resume
+        </a>
+      </li>
+    
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/codepr" rel="noreferrer noopener" target="_blank" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-github">
+  <use href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github" xlink:href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      <li>
+        <a href="mailto:a.g.baldan@gmail.com" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-email">
+  <use href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email" xlink:href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+  </ul>
+  <a href="/" class="header-logo" title="Ordinary thoughts">Ordinary thoughts
+      <p class='subtitle'>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+  </a>
+
+
+</nav>
+
+        <article class="article scrollappear">
+          <header class="article-header">
+            <h1>Sol - An MQTT broker from scratch. Part 3 - Server</h1>
+            <p>Writing an MQTT broker from scratch, to really understand something you have to build it.</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                March 6, 2019
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  28 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+                  <a href="/tag/c">c</a>
+                
+                  <a href="/tag/unix">unix</a>
+                
+                  <a href="/tag/tutorial">tutorial</a>
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <p>This part deal with the implementation of the server part of our application, by
+using the <code class="highlighter-rouge">network</code> module we drafted on <a href="sol-mqtt-broker-p2">part 2</a> it should be
+relative easy to handle incoming commands from a MQTT clients respecting 3.1.1
+standards as we defined on <a href="sol-mqtt-broker">part 1</a>.<br />
+Our header file will be extremely simple, the only function we want to make
+accessible from the outside will be a transparent <code class="highlighter-rouge">start_server</code>, accepting
+only two trivial arguments:</p>
+
+<ul>
+  <li>an IP address</li>
+  <li>a port to listen on</li>
+</ul>
+
+<p>We will define also two constants for the <strong>epoll</strong> interface creation, the
+number of events we want to monitor concurrently and the timeout, two
+properties which could be easily moved to a configuration module for further
+improvements.</p>
+
+<p><strong>src/server.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef SERVER_H
+#define SERVER_H
+</span>
+<span class="cm">/*
+ * Epoll default settings for concurrent events monitored and timeout, -1
+ * means no timeout at all, blocking undefinitely
+ */</span>
+<span class="cp">#define EPOLL_MAX_EVENTS    256
+#define EPOLL_TIMEOUT       -1
+</span>
+
+<span class="cm">/* Error codes for packet reception, signaling respectively
+ * - client disconnection
+ * - error reading packet
+ * - error packet sent exceeds size defined by configuration (generally default
+ *   to 2MB)
+ */</span>
+<span class="cp">#define ERRCLIENTDC         1
+#define ERRPACKETERR        2
+#define ERRMAXREQSIZE       3
+</span>
+<span class="cm">/* Return code of handler functions, signaling if there's data payload to be
+ * sent out or if the server just need to re-arm closure for reading incoming
+ * bytes
+ */</span>
+<span class="cp">#define REARM_R             0
+#define REARM_W             1
+</span>
+
+<span class="kt">int</span> <span class="n">start_server</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p>The implementation part will be a little bigger than it seems, all our handler
+functions and callbacks will be contained here for now, so let’s start with
+the 3 basic callbacks that every server will need to effectively communicate with
+clients after it started listening:</p>
+
+<ul>
+  <li>an accept callback</li>
+  <li>a read callback for read events</li>
+  <li>a write callback to send out data</li>
+</ul>
+
+<p>We will also forward declare some functions, mostly handlers and a mapping much
+like the one used to pack and unpack payloads on mqtt module, we took them as is,
+to make thing easier for the near-future development.</p>
+
+<p><strong>src/server.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#define _POSIX_C_SOURCE 200809L
+#include &lt;time.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;arpa/inet.h&gt;
+#include &lt;sys/epoll.h&gt;
+#include &lt;sys/socket.h&gt;
+#include "pack.h"
+#include "util.h"
+#include "mqtt.h"
+#include "core.h"
+#include "network.h"
+#include "hashtable.h"
+#include "config.h"
+#include "server.h"
+</span>
+
+<span class="cm">/* Seconds in a Sol, easter egg */</span>
+<span class="k">static</span> <span class="k">const</span> <span class="kt">double</span> <span class="n">SOL_SECONDS</span> <span class="o">=</span> <span class="mi">88775</span><span class="p">.</span><span class="mi">24</span><span class="p">;</span>
+
+<span class="cm">/*
+ * General informations of the broker, all fields will be published
+ * periodically to internal topics
+ */</span>
+<span class="k">static</span> <span class="k">struct</span> <span class="n">sol_info</span> <span class="n">info</span><span class="p">;</span>
+
+<span class="cm">/* Broker global instance, contains the topic trie and the clients hashtable */</span>
+<span class="k">static</span> <span class="k">struct</span> <span class="n">sol</span> <span class="n">sol</span><span class="p">;</span>
+
+<span class="cm">/*
+ * Prototype for a command handler, it accepts a pointer to the closure as the
+ * link to the client sender of the command and a pointer to the packet itself
+ */</span>
+<span class="k">typedef</span> <span class="kt">int</span> <span class="n">handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Command handler, each one have responsibility over a defined command packet */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="n">connect_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">disconnect_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">subscribe_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">unsubscribe_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">publish_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">puback_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">pubrec_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">pubrel_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">pubcomp_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="n">pingreq_handler</span><span class="p">(</span><span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Command handler mapped usign their position paired with their type */</span>
+<span class="k">static</span> <span class="n">handler</span> <span class="o">*</span><span class="n">handlers</span><span class="p">[</span><span class="mi">15</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">connect_handler</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">publish_handler</span><span class="p">,</span>
+    <span class="n">puback_handler</span><span class="p">,</span>
+    <span class="n">pubrec_handler</span><span class="p">,</span>
+    <span class="n">pubrel_handler</span><span class="p">,</span>
+    <span class="n">pubcomp_handler</span><span class="p">,</span>
+    <span class="n">subscribe_handler</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">unsubscribe_handler</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">pingreq_handler</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">disconnect_handler</span>
+<span class="p">};</span>
+
+<span class="cm">/*
+ * Connection structure for private use of the module, mainly for accepting
+ * new connections
+ */</span>
+<span class="k">struct</span> <span class="n">connection</span> <span class="p">{</span>
+    <span class="kt">char</span> <span class="n">ip</span><span class="p">[</span><span class="n">INET_ADDRSTRLEN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="kt">int</span> <span class="n">fd</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="cm">/* I/O closures, for the 3 main operation of the server
+ * - Accept a new connecting client
+ * - Read incoming bytes from connected clients
+ * - Write output bytes to connected clients
+ */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="n">on_read</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">void</span> <span class="n">on_write</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">void</span> <span class="n">on_accept</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Periodic task callback, will be executed every N seconds defined on the
+ * configuration
+ */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="n">publish_stats</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Accept a new incoming connection assigning ip address and socket descriptor
+ * to the connection structure pointer passed as argument
+ */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">accept_new_client</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="k">struct</span> <span class="n">connection</span> <span class="o">*</span><span class="n">conn</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">conn</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="cm">/* Accept the connection */</span>
+    <span class="kt">int</span> <span class="n">clientsock</span> <span class="o">=</span> <span class="n">accept_connection</span><span class="p">(</span><span class="n">fd</span><span class="p">);</span>
+
+    <span class="cm">/* Abort if not accepted */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">clientsock</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="cm">/* Just some informations retrieval of the new accepted client connection */</span>
+    <span class="k">struct</span> <span class="n">sockaddr_in</span> <span class="n">addr</span><span class="p">;</span>
+    <span class="n">socklen_t</span> <span class="n">addrlen</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">addr</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">getpeername</span><span class="p">(</span><span class="n">clientsock</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">addr</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addrlen</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="kt">char</span> <span class="n">ip_buff</span><span class="p">[</span><span class="n">INET_ADDRSTRLEN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">inet_ntop</span><span class="p">(</span><span class="n">AF_INET</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addr</span><span class="p">.</span><span class="n">sin_addr</span><span class="p">,</span> <span class="n">ip_buff</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ip_buff</span><span class="p">))</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="n">sockaddr_in</span> <span class="n">sin</span><span class="p">;</span>
+    <span class="n">socklen_t</span> <span class="n">sinlen</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">sin</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">getsockname</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">sin</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">sinlen</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="n">conn</span><span class="o">-&gt;</span><span class="n">fd</span> <span class="o">=</span> <span class="n">clientsock</span><span class="p">;</span>
+    <span class="n">strcpy</span><span class="p">(</span><span class="n">conn</span><span class="o">-&gt;</span><span class="n">ip</span><span class="p">,</span> <span class="n">ip_buff</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Handle new connection, create a a fresh new struct client structure and link
+ * it to the fd, ready to be set in EPOLLIN event
+ */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">on_accept</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="cm">/* struct connection *server_conn = arg; */</span>
+    <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">server</span> <span class="o">=</span> <span class="n">arg</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">connection</span> <span class="n">conn</span><span class="p">;</span>
+
+    <span class="n">accept_new_client</span><span class="p">(</span><span class="n">server</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">conn</span><span class="p">);</span>
+
+    <span class="cm">/* Create a client structure to handle his context connection */</span>
+    <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">client_closure</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">client_closure</span><span class="p">));</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">client_closure</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="cm">/* Populate client structure */</span>
+    <span class="n">client_closure</span><span class="o">-&gt;</span><span class="n">fd</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="n">fd</span><span class="p">;</span>
+    <span class="n">client_closure</span><span class="o">-&gt;</span><span class="n">obj</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">client_closure</span><span class="o">-&gt;</span><span class="n">payload</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">client_closure</span><span class="o">-&gt;</span><span class="n">args</span> <span class="o">=</span> <span class="n">client_closure</span><span class="p">;</span>
+    <span class="n">client_closure</span><span class="o">-&gt;</span><span class="n">call</span> <span class="o">=</span> <span class="n">on_read</span><span class="p">;</span>
+    <span class="n">generate_uuid</span><span class="p">(</span><span class="n">client_closure</span><span class="o">-&gt;</span><span class="n">closure_id</span><span class="p">);</span>
+
+    <span class="n">hashtable_put</span><span class="p">(</span><span class="n">sol</span><span class="p">.</span><span class="n">closures</span><span class="p">,</span> <span class="n">client_closure</span><span class="o">-&gt;</span><span class="n">closure_id</span><span class="p">,</span> <span class="n">client_closure</span><span class="p">);</span>
+
+    <span class="cm">/* Add it to the epoll loop */</span>
+    <span class="n">evloop_add_callback</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">client_closure</span><span class="p">);</span>
+
+    <span class="cm">/* Rearm server fd to accept new connections */</span>
+    <span class="n">evloop_rearm_callback_read</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">server</span><span class="p">);</span>
+
+    <span class="cm">/* Record the new client connected */</span>
+    <span class="n">info</span><span class="p">.</span><span class="n">nclients</span><span class="o">++</span><span class="p">;</span>
+    <span class="n">info</span><span class="p">.</span><span class="n">nconnections</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="n">sol_info</span><span class="p">(</span><span class="s">"New connection from %s on port %s"</span><span class="p">,</span> <span class="n">conn</span><span class="p">.</span><span class="n">ip</span><span class="p">,</span> <span class="n">conf</span><span class="o">-&gt;</span><span class="n">port</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>As you can see, I defined two static functions (in C, while not strictly a
+correct use of the term, static functions can only be seen in the scope of
+the module of definition, almost like a private method on a class in OOP
+programming), the <code class="highlighter-rouge">accept_new_client</code> which by using functions from <code class="highlighter-rouge">network</code>
+module to accept new connecting clients and the <code class="highlighter-rouge">on_accept</code> function, which
+will be the effective callback for accepting new connections.</p>
+
+<p>The <code class="highlighter-rouge">accept_new_client</code> function expects a struct <code class="highlighter-rouge">connection</code> that i added
+for convenience and for reuse of old code from another codebase of mine,
+not strictly necessary to follow this pattern.</p>
+
+<p><strong>src/server.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * Parse packet header, it is required at least the Fixed Header of each
+ * packed, which is contained in the first 2 bytes in order to read packet
+ * type and total length that we need to recv to complete the packet.
+ *
+ * This function accept a socket fd, a buffer to read incoming streams of
+ * bytes and a structure formed by 2 fields:
+ *
+ * - buf -&gt; a byte buffer, it will be malloc'ed in the function and it will
+ *          contain the serialized bytes of the incoming packet
+ * - flags -&gt; flags pointer, copy the flag setting of the incoming packet,
+ *            again for simplicity and convenience of the caller.
+ */</span>
+<span class="k">static</span> <span class="kt">ssize_t</span> <span class="nf">recv_packet</span><span class="p">(</span><span class="kt">int</span> <span class="n">clientfd</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">command</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">ssize_t</span> <span class="n">nbytes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="cm">/* Read the first byte, it should contain the message type code */</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">nbytes</span> <span class="o">=</span> <span class="n">recv_bytes</span><span class="p">(</span><span class="n">clientfd</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">ERRCLIENTDC</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span> <span class="o">=</span> <span class="o">*</span><span class="n">buf</span><span class="p">;</span>
+    <span class="n">buf</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">DISCONNECT</span> <span class="o">&lt;</span> <span class="n">byte</span> <span class="o">||</span> <span class="n">CONNECT</span> <span class="o">&gt;</span> <span class="n">byte</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">ERRPACKETERR</span><span class="p">;</span>
+
+    <span class="cm">/*
+     * Read remaning length bytes which starts at byte 2 and can be long to 4
+     * bytes based on the size stored, so byte 2-5 is dedicated to the packet
+     * length.
+     */</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">buff</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>
+    <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">do</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">((</span><span class="n">n</span> <span class="o">=</span> <span class="n">recv_bytes</span><span class="p">(</span><span class="n">clientfd</span><span class="p">,</span> <span class="n">buf</span><span class="o">+</span><span class="n">count</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">ERRCLIENTDC</span><span class="p">;</span>
+        <span class="n">buff</span><span class="p">[</span><span class="n">count</span><span class="p">]</span> <span class="o">=</span> <span class="n">buf</span><span class="p">[</span><span class="n">count</span><span class="p">];</span>
+        <span class="n">nbytes</span> <span class="o">+=</span> <span class="n">n</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="n">buff</span><span class="p">[</span><span class="n">count</span><span class="o">++</span><span class="p">]</span> <span class="o">&amp;</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">7</span><span class="p">));</span>
+
+    <span class="c1">// Reset temporary buffer</span>
+    <span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pbuf</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">buff</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+    <span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="n">tlen</span> <span class="o">=</span> <span class="n">mqtt_decode_length</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pbuf</span><span class="p">);</span>
+
+    <span class="cm">/*
+     * Set return code to -ERRMAXREQSIZE in case the total packet len exceeds
+     * the configuration limit `max_request_size`
+     */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">tlen</span> <span class="o">&gt;</span> <span class="n">conf</span><span class="o">-&gt;</span><span class="n">max_request_size</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">nbytes</span> <span class="o">=</span> <span class="o">-</span><span class="n">ERRMAXREQSIZE</span><span class="p">;</span>
+        <span class="k">goto</span> <span class="n">exit</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Read remaining bytes to complete the packet */</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">n</span> <span class="o">=</span> <span class="n">recv_bytes</span><span class="p">(</span><span class="n">clientfd</span><span class="p">,</span> <span class="n">buf</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tlen</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">goto</span> <span class="n">err</span><span class="p">;</span>
+
+    <span class="n">nbytes</span> <span class="o">+=</span> <span class="n">n</span><span class="p">;</span>
+
+    <span class="o">*</span><span class="n">command</span> <span class="o">=</span> <span class="n">byte</span><span class="p">;</span>
+
+<span class="nl">exit:</span>
+
+    <span class="k">return</span> <span class="n">nbytes</span><span class="p">;</span>
+
+<span class="nl">err:</span>
+
+    <span class="n">shutdown</span><span class="p">(</span><span class="n">clientfd</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="n">close</span><span class="p">(</span><span class="n">clientfd</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">nbytes</span><span class="p">;</span>
+
+<span class="p">}</span>
+
+
+<span class="cm">/* Handle incoming requests, after being accepted or after a reply */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">on_read</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">cb</span> <span class="o">=</span> <span class="n">arg</span><span class="p">;</span>
+
+    <span class="cm">/* Raw bytes buffer to handle input from client */</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">buffer</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">conf</span><span class="o">-&gt;</span><span class="n">max_request_size</span><span class="p">);</span>
+
+    <span class="kt">ssize_t</span> <span class="n">bytes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">command</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="cm">/*
+     * We must read all incoming bytes till an entire packet is received. This
+     * is achieved by following the MQTT v3.1.1 protocol specifications, which
+     * send the size of the remaining packet as the second byte. By knowing it
+     * we know if the packet is ready to be deserialized and used.
+     */</span>
+    <span class="n">bytes</span> <span class="o">=</span> <span class="n">recv_packet</span><span class="p">(</span><span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">command</span><span class="p">);</span>
+
+    <span class="cm">/*
+     * Looks like we got a client disconnection.
+     *
+     * TODO: Set a error_handler for ERRMAXREQSIZE instead of dropping client
+     *       connection, explicitly returning an informative error code to the
+     *       client connected.
+     */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">bytes</span> <span class="o">==</span> <span class="o">-</span><span class="n">ERRCLIENTDC</span> <span class="o">||</span> <span class="n">bytes</span> <span class="o">==</span> <span class="o">-</span><span class="n">ERRMAXREQSIZE</span><span class="p">)</span>
+        <span class="k">goto</span> <span class="n">exit</span><span class="p">;</span>
+
+    <span class="cm">/*
+     * If a not correct packet received, we must free the buffer and reset the
+     * handler to the request again, setting EPOLL to EPOLLIN
+     */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">bytes</span> <span class="o">==</span> <span class="o">-</span><span class="n">ERRPACKETERR</span><span class="p">)</span>
+        <span class="k">goto</span> <span class="n">errdc</span><span class="p">;</span>
+
+    <span class="n">info</span><span class="p">.</span><span class="n">bytes_recv</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="cm">/*
+     * Unpack received bytes into a mqtt_packet structure and execute the
+     * correct handler based on the type of the operation.
+     */</span>
+    <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="n">packet</span><span class="p">;</span>
+    <span class="n">unpack_mqtt_packet</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">packet</span><span class="p">);</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">hdr</span> <span class="o">=</span> <span class="p">{</span> <span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">command</span> <span class="p">};</span>
+
+    <span class="cm">/* Execute command callback */</span>
+    <span class="kt">int</span> <span class="n">rc</span> <span class="o">=</span> <span class="n">handlers</span><span class="p">[</span><span class="n">hdr</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">type</span><span class="p">](</span><span class="n">cb</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">packet</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">rc</span> <span class="o">==</span> <span class="n">REARM_W</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">cb</span><span class="o">-&gt;</span><span class="n">call</span> <span class="o">=</span> <span class="n">on_write</span><span class="p">;</span>
+
+        <span class="cm">/*
+         * Reset handler to read_handler in order to read new incoming data and
+         * EPOLL event for read fds
+         */</span>
+        <span class="n">evloop_rearm_callback_write</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">cb</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">rc</span> <span class="o">==</span> <span class="n">REARM_R</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">cb</span><span class="o">-&gt;</span><span class="n">call</span> <span class="o">=</span> <span class="n">on_read</span><span class="p">;</span>
+        <span class="n">evloop_rearm_callback_read</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">cb</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Disconnect packet received</span>
+
+<span class="nl">exit:</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">buffer</span><span class="p">);</span>
+
+    <span class="k">return</span><span class="p">;</span>
+
+<span class="nl">errdc:</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">buffer</span><span class="p">);</span>
+
+    <span class="n">sol_error</span><span class="p">(</span><span class="s">"Dropping client"</span><span class="p">);</span>
+    <span class="n">shutdown</span><span class="p">(</span><span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="n">close</span><span class="p">(</span><span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">);</span>
+
+    <span class="n">hashtable_del</span><span class="p">(</span><span class="n">sol</span><span class="p">.</span><span class="n">clients</span><span class="p">,</span> <span class="p">((</span><span class="k">struct</span> <span class="n">sol_client</span> <span class="o">*</span><span class="p">)</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">obj</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">client_id</span><span class="p">);</span>
+    <span class="n">hashtable_del</span><span class="p">(</span><span class="n">sol</span><span class="p">.</span><span class="n">closures</span><span class="p">,</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">closure_id</span><span class="p">);</span>
+
+    <span class="n">info</span><span class="p">.</span><span class="n">nclients</span><span class="o">--</span><span class="p">;</span>
+
+    <span class="n">info</span><span class="p">.</span><span class="n">nconnections</span><span class="o">--</span><span class="p">;</span>
+
+    <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">on_write</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">cb</span> <span class="o">=</span> <span class="n">arg</span><span class="p">;</span>
+
+    <span class="kt">ssize_t</span> <span class="n">sent</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">sent</span> <span class="o">=</span> <span class="n">send_bytes</span><span class="p">(</span><span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">payload</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">payload</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">sol_error</span><span class="p">(</span><span class="s">"Error writing on socket to client %s: %s"</span><span class="p">,</span>
+                  <span class="p">((</span><span class="k">struct</span> <span class="n">sol_client</span> <span class="o">*</span><span class="p">)</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">obj</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">client_id</span><span class="p">,</span> <span class="n">strerror</span><span class="p">(</span><span class="n">errno</span><span class="p">));</span>
+
+    <span class="c1">// Update information stats</span>
+    <span class="n">info</span><span class="p">.</span><span class="n">bytes_sent</span> <span class="o">+=</span> <span class="n">sent</span><span class="p">;</span>
+    <span class="n">bytestring_release</span><span class="p">(</span><span class="n">cb</span><span class="o">-&gt;</span><span class="n">payload</span><span class="p">);</span>
+    <span class="n">cb</span><span class="o">-&gt;</span><span class="n">payload</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="cm">/*
+     * Re-arm callback by setting EPOLL event on EPOLLIN to read fds and
+     * re-assigning the callback `on_read` for the next event
+     */</span>
+    <span class="n">cb</span><span class="o">-&gt;</span><span class="n">call</span> <span class="o">=</span> <span class="n">on_read</span><span class="p">;</span>
+    <span class="n">evloop_rearm_callback_read</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">cb</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Another 3 static functions added, as shown, there’s a <code class="highlighter-rouge">recv_packet</code> function
+that like foretold by his name, have the duty of receiving streams of bytes till
+a full MQTT packet is built, relying on functions from <code class="highlighter-rouge">mqtt</code> module, the other
+two are respectively <code class="highlighter-rouge">on_read</code> and <code class="highlighter-rouge">on_write</code>.</p>
+
+<p>To be noted that, these 3 callbacks, rearm the socket using previously defined
+helper bouncing the ball on each others. <code class="highlighter-rouge">on_read</code> callback specifically, based
+upon a return code from the calling of a handler (chosen in turn to the type of
+command received from the client on the line
+<code class="highlighter-rouge">int rc = handlers[hdr.bits.type](cb, &amp;packet)</code>), rearm the socket for read or
+write or not at all. This last case will cover disconnections for errors and
+legitimate DISCONNECT packets.</p>
+
+<p>On the write callback we see that the <code class="highlighter-rouge">send_bytes</code> call pass in a payload with
+data and size as fields; it’s a convenient structure I defined to make it simpler
+to track number of bytes on an array, this case to know how many bytes to write out.
+We have to re-open the <code class="highlighter-rouge">src/pack.h</code> and <code class="highlighter-rouge">src/pack.c</code> to add these utilities.</p>
+
+<p><strong>src/pack.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * bytestring structure, provides a convenient way of handling byte string data.
+ * It is essentially an unsigned char pointer that track the position of the
+ * last written byte and the total size of the bystestring
+ */</span>
+<span class="k">struct</span> <span class="n">bytestring</span> <span class="p">{</span>
+    <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+    <span class="kt">size_t</span> <span class="n">last</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="cm">/*
+ * const struct bytestring constructor, it require a size cause we use a bounded
+ * bytestring, e.g. no resize over a defined size
+ */</span>
+<span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="n">bytestring_create</span><span class="p">(</span><span class="kt">size_t</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">bytestring_init</span><span class="p">(</span><span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">bytestring_release</span><span class="p">(</span><span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">bytestring_reset</span><span class="p">(</span><span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="p">);</span></code></pre></figure>
+
+<p>And their trivial implementation</p>
+
+<p><strong>src/pack.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="nf">bytestring_create</span><span class="p">(</span><span class="kt">size_t</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="n">bstring</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">bstring</span><span class="p">));</span>
+    <span class="n">bytestring_init</span><span class="p">(</span><span class="n">bstring</span><span class="p">,</span> <span class="n">len</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">bstring</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">bytestring_init</span><span class="p">(</span><span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="n">bstring</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">size</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">bstring</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="n">bstring</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span><span class="p">;</span>
+    <span class="n">bstring</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span><span class="p">)</span> <span class="o">*</span> <span class="n">size</span><span class="p">);</span>
+    <span class="n">bytestring_reset</span><span class="p">(</span><span class="n">bstring</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">bytestring_release</span><span class="p">(</span><span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="n">bstring</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">bstring</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">bstring</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">bstring</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">bytestring_reset</span><span class="p">(</span><span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="n">bstring</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">bstring</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="n">bstring</span><span class="o">-&gt;</span><span class="n">last</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">memset</span><span class="p">(</span><span class="n">bstring</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">bstring</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<h2 id="generic-utilities">Generic utilities</h2>
+
+<p>Let’s open a brief parenthesis, for my projects, generally there’s always need
+for generic helpers and utility functions, I usually collect them into a
+dedicated <code class="highlighter-rouge">util</code> module; that’s the case for call like <code class="highlighter-rouge">sol_info</code>, <code class="highlighter-rouge">sol_debug</code>
+and <code class="highlighter-rouge">sol_error</code> on those chunks of code previously analysed.</p>
+
+<p>Our logging requirements is so simple that there’s no need for a dedicated module
+yet, so I generally add those logging functions to the <code class="highlighter-rouge">util</code> module.</p>
+
+<p><strong>src/util.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef UTIL_H
+#define UTIL_H
+</span>
+<span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+#include &lt;strings.h&gt;
+</span>
+
+<span class="cp">#define UUID_LEN     37
+</span>
+<span class="cp">#define MAX_LOG_SIZE 119
+</span>
+
+<span class="k">enum</span> <span class="n">log_level</span> <span class="p">{</span> <span class="n">DEBUG</span><span class="p">,</span> <span class="n">INFORMATION</span><span class="p">,</span> <span class="n">WARNING</span><span class="p">,</span> <span class="n">ERROR</span> <span class="p">};</span>
+
+
+<span class="kt">int</span> <span class="n">number_len</span><span class="p">(</span><span class="kt">size_t</span><span class="p">);</span>
+<span class="kt">int</span> <span class="n">parse_int</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+<span class="kt">int</span> <span class="n">generate_uuid</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+<span class="kt">char</span> <span class="o">*</span><span class="nf">remove_occur</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">char</span><span class="p">)</span> <span class="p">;</span>
+<span class="kt">char</span> <span class="o">*</span><span class="n">append_string</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">);</span>
+
+<span class="cm">/* Logging */</span>
+<span class="kt">void</span> <span class="n">sol_log_init</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+<span class="kt">void</span> <span class="n">sol_log_close</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="kt">void</span> <span class="n">sol_log</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="p">...);</span>
+
+<span class="cp">#define log(...) sol_log( __VA_ARGS__ )
+#define sol_debug(...) log(DEBUG, __VA_ARGS__)
+#define sol_warning(...) log(WARNING, __VA_ARGS__)
+#define sol_error(...) log(ERROR, __VA_ARGS__)
+#define sol_info(...) log(INFORMATION, __VA_ARGS__)
+</span>
+
+<span class="cp">#define STREQ(s1, s2, len) strncasecmp(s1, s2, len) == 0 ? true : false
+</span>
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p>And here we go, a log function with some macros to conveniently call the
+correct level of logging, with an additional utility macro <code class="highlighter-rouge">STREQ</code> to compare two
+strings.</p>
+
+<p><strong>src/util.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#include &lt;time.h&gt;
+#include &lt;ctype.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;stdarg.h&gt;
+#include &lt;uuid/uuid.h&gt;
+#include "util.h"
+#include "config.h"
+</span>
+
+<span class="k">static</span> <span class="kt">FILE</span> <span class="o">*</span><span class="n">fh</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+
+<span class="kt">void</span> <span class="nf">sol_log_init</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">file</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">assert</span><span class="p">(</span><span class="n">file</span><span class="p">);</span>
+    <span class="n">fh</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s">"a+"</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">fh</span><span class="p">)</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"%lu * WARNING: Unable to open file %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span>
+               <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">),</span> <span class="n">file</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">sol_log_close</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">fh</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">fflush</span><span class="p">(</span><span class="n">fh</span><span class="p">);</span>
+        <span class="n">fclose</span><span class="p">(</span><span class="n">fh</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">sol_log</span><span class="p">(</span><span class="kt">int</span> <span class="n">level</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">fmt</span><span class="p">,</span> <span class="p">...)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">fmt</span><span class="p">);</span>
+
+    <span class="kt">va_list</span> <span class="n">ap</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">msg</span><span class="p">[</span><span class="n">MAX_LOG_SIZE</span> <span class="o">+</span> <span class="mi">4</span><span class="p">];</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">level</span> <span class="o">&lt;</span> <span class="n">conf</span><span class="o">-&gt;</span><span class="n">loglevel</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="n">va_start</span><span class="p">(</span><span class="n">ap</span><span class="p">,</span> <span class="n">fmt</span><span class="p">);</span>
+    <span class="n">vsnprintf</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="n">fmt</span><span class="p">,</span> <span class="n">ap</span><span class="p">);</span>
+    <span class="n">va_end</span><span class="p">(</span><span class="n">ap</span><span class="p">);</span>
+
+    <span class="cm">/* Truncate message too long and copy 3 bytes to make space for 3 dots */</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="n">msg</span> <span class="o">+</span> <span class="n">MAX_LOG_SIZE</span><span class="p">,</span> <span class="s">"..."</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span>
+    <span class="n">msg</span><span class="p">[</span><span class="n">MAX_LOG_SIZE</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'\0'</span><span class="p">;</span>
+
+    <span class="c1">// Distinguish message level prefix</span>
+    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">mark</span> <span class="o">=</span> <span class="s">"#i*!"</span><span class="p">;</span>
+
+    <span class="c1">// Open two handler, one for standard output and a second for the</span>
+    <span class="c1">// persistent log file</span>
+    <span class="kt">FILE</span> <span class="o">*</span><span class="n">fp</span> <span class="o">=</span> <span class="n">stdout</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">fp</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">fp</span><span class="p">,</span> <span class="s">"%lu %c %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">),</span> <span class="n">mark</span><span class="p">[</span><span class="n">level</span><span class="p">],</span> <span class="n">msg</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">fh</span><span class="p">)</span>
+        <span class="n">fprintf</span><span class="p">(</span><span class="n">fh</span><span class="p">,</span> <span class="s">"%lu %c %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span> <span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">),</span> <span class="n">mark</span><span class="p">[</span><span class="n">level</span><span class="p">],</span> <span class="n">msg</span><span class="p">);</span>
+
+    <span class="n">fflush</span><span class="p">(</span><span class="n">fp</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">fh</span><span class="p">)</span>
+        <span class="n">fflush</span><span class="p">(</span><span class="n">fh</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Return the 'length' of a positive number, as the number of chars it would
+ * take in a string
+ */</span>
+<span class="kt">int</span> <span class="nf">number_len</span><span class="p">(</span><span class="kt">size_t</span> <span class="n">number</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">number</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">len</span><span class="o">++</span><span class="p">;</span>
+        <span class="n">number</span> <span class="o">/=</span> <span class="mi">10</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">len</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/* Parse the integer part of a string, by effectively iterate through it and
+   converting the numbers found */</span>
+<span class="kt">int</span> <span class="nf">parse_int</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">string</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="o">*</span><span class="n">string</span> <span class="o">&amp;&amp;</span> <span class="n">isdigit</span><span class="p">(</span><span class="o">*</span><span class="n">string</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="mi">10</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="o">*</span><span class="n">string</span> <span class="o">-</span> <span class="sc">'0'</span><span class="p">);</span>
+        <span class="n">string</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">n</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">char</span> <span class="o">*</span><span class="nf">remove_occur</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">str</span><span class="p">,</span> <span class="kt">char</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">char</span> <span class="o">*</span><span class="n">p</span> <span class="o">=</span> <span class="n">str</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="o">*</span><span class="n">pp</span> <span class="o">=</span> <span class="n">str</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="p">{</span>
+        <span class="o">*</span><span class="n">pp</span> <span class="o">=</span> <span class="o">*</span><span class="n">p</span><span class="o">++</span><span class="p">;</span>
+        <span class="n">pp</span> <span class="o">+=</span> <span class="p">(</span><span class="o">*</span><span class="n">pp</span> <span class="o">!=</span> <span class="n">c</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="o">*</span><span class="n">pp</span> <span class="o">=</span> <span class="sc">'\0'</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">str</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Append a string to another, the destination string must be NUL-terminated
+ * and long enough to contain the resulting string, for the chunk part that
+ * will be appended the function require the length, the resulting string will
+ * be heap alloced and nul-terminated.
+ */</span>
+<span class="kt">char</span> <span class="o">*</span><span class="nf">append_string</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">src</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">chunk</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">chunklen</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">size_t</span> <span class="n">srclen</span> <span class="o">=</span> <span class="n">strlen</span><span class="p">(</span><span class="n">src</span><span class="p">);</span>
+    <span class="kt">char</span> <span class="o">*</span><span class="n">ret</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">srclen</span> <span class="o">+</span> <span class="n">chunklen</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">srclen</span><span class="p">);</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="n">ret</span> <span class="o">+</span> <span class="n">srclen</span><span class="p">,</span> <span class="n">chunk</span><span class="p">,</span> <span class="n">chunklen</span><span class="p">);</span>
+    <span class="n">ret</span><span class="p">[</span><span class="n">srclen</span> <span class="o">+</span> <span class="n">chunklen</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'\0'</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">ret</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">generate_uuid</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">uuid_placeholder</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="cm">/* Generate random uuid */</span>
+    <span class="n">uuid_t</span> <span class="n">binuuid</span><span class="p">;</span>
+    <span class="n">uuid_generate_random</span><span class="p">(</span><span class="n">binuuid</span><span class="p">);</span>
+    <span class="n">uuid_unparse</span><span class="p">(</span><span class="n">binuuid</span><span class="p">,</span> <span class="n">uuid_placeholder</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>This simple functions allow us to have a pretty decent logging system, by
+calling <code class="highlighter-rouge">sol_log_init</code> on the main function we can also persist logs on disk
+by passing a path on the filesystem.</p>
+
+<p>We finally arrive to write our <code class="highlighter-rouge">start_server</code> function, which uses all other
+functions already defined. Basically it acts as an entry point, setting up all
+global structures and the first closure for accepting incoming connections.</p>
+
+<p><strong>src/server.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * Statistics topics, published every N seconds defined by configuration
+ * interval
+ */</span>
+<span class="cp">#define SYS_TOPICS 14
+</span>
+<span class="k">static</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">sys_topics</span><span class="p">[</span><span class="n">SYS_TOPICS</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">"$SOL/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/clients/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/bytes/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/messages/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/uptime/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/uptime/sol"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/clients/connected/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/clients/disconnected/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/bytes/sent/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/bytes/received/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/messages/sent/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/messages/received/"</span><span class="p">,</span>
+    <span class="s">"$SOL/broker/memory/used"</span>
+<span class="p">};</span>
+
+
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">run</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">evloop_wait</span><span class="p">(</span><span class="n">loop</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">sol_error</span><span class="p">(</span><span class="s">"Event loop exited unexpectedly: %s"</span><span class="p">,</span> <span class="n">strerror</span><span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">status</span><span class="p">));</span>
+        <span class="n">evloop_free</span><span class="p">(</span><span class="n">loop</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Cleanup function to be passed in as destructor to the Hashtable for
+ * connecting clients
+ */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">client_destructor</span><span class="p">(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="n">entry</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">entry</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="n">sol_client</span> <span class="o">*</span><span class="n">client</span> <span class="o">=</span> <span class="n">entry</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">client</span><span class="o">-&gt;</span><span class="n">client_id</span><span class="p">)</span>
+        <span class="n">free</span><span class="p">(</span><span class="n">client</span><span class="o">-&gt;</span><span class="n">client_id</span><span class="p">);</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">client</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Cleanup function to be passed in as destructor to the Hashtable for
+ * registered closures.
+ */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">closure_destructor</span><span class="p">(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="n">entry</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">entry</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">closure</span> <span class="o">=</span> <span class="n">entry</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">closure</span><span class="o">-&gt;</span><span class="n">payload</span><span class="p">)</span>
+        <span class="n">bytestring_release</span><span class="p">(</span><span class="n">closure</span><span class="o">-&gt;</span><span class="n">payload</span><span class="p">);</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">closure</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">start_server</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">addr</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">port</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="cm">/* Initialize global Sol instance */</span>
+    <span class="n">trie_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sol</span><span class="p">.</span><span class="n">topics</span><span class="p">);</span>
+    <span class="n">sol</span><span class="p">.</span><span class="n">clients</span> <span class="o">=</span> <span class="n">hashtable_create</span><span class="p">(</span><span class="n">client_destructor</span><span class="p">);</span>
+    <span class="n">sol</span><span class="p">.</span><span class="n">closures</span> <span class="o">=</span> <span class="n">hashtable_create</span><span class="p">(</span><span class="n">closure_destructor</span><span class="p">);</span>
+
+    <span class="k">struct</span> <span class="n">closure</span> <span class="n">server_closure</span><span class="p">;</span>
+
+    <span class="cm">/* Initialize the sockets, first the server one */</span>
+    <span class="n">server_closure</span><span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">make_listen</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">conf</span><span class="o">-&gt;</span><span class="n">socket_family</span><span class="p">);</span>
+    <span class="n">server_closure</span><span class="p">.</span><span class="n">payload</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">server_closure</span><span class="p">.</span><span class="n">args</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">server_closure</span><span class="p">;</span>
+    <span class="n">server_closure</span><span class="p">.</span><span class="n">call</span> <span class="o">=</span> <span class="n">on_accept</span><span class="p">;</span>
+    <span class="n">generate_uuid</span><span class="p">(</span><span class="n">server_closure</span><span class="p">.</span><span class="n">closure_id</span><span class="p">);</span>
+
+    <span class="cm">/* Generate stats topics */</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">SYS_TOPICS</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+        <span class="n">sol_topic_put</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sol</span><span class="p">,</span> <span class="n">topic_create</span><span class="p">(</span><span class="n">strdup</span><span class="p">(</span><span class="n">sys_topics</span><span class="p">[</span><span class="n">i</span><span class="p">])));</span>
+
+    <span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">event_loop</span> <span class="o">=</span> <span class="n">evloop_create</span><span class="p">(</span><span class="n">EPOLL_MAX_EVENTS</span><span class="p">,</span> <span class="n">EPOLL_TIMEOUT</span><span class="p">);</span>
+
+    <span class="cm">/* Set socket in EPOLLIN flag mode, ready to read data */</span>
+    <span class="n">evloop_add_callback</span><span class="p">(</span><span class="n">event_loop</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">server_closure</span><span class="p">);</span>
+
+    <span class="cm">/* Add periodic task for publishing stats on SYS topics */</span>
+    <span class="c1">// TODO Implement</span>
+    <span class="k">struct</span> <span class="n">closure</span> <span class="n">sys_closure</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="p">.</span><span class="n">payload</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">,</span>
+        <span class="p">.</span><span class="n">args</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">sys_closure</span><span class="p">,</span>
+        <span class="p">.</span><span class="n">call</span> <span class="o">=</span> <span class="n">publish_stats</span>
+    <span class="p">};</span>
+
+    <span class="n">generate_uuid</span><span class="p">(</span><span class="n">sys_closure</span><span class="p">.</span><span class="n">closure_id</span><span class="p">);</span>
+
+    <span class="cm">/* Schedule as periodic task to be executed every 5 seconds */</span>
+    <span class="n">evloop_add_periodic_task</span><span class="p">(</span><span class="n">event_loop</span><span class="p">,</span> <span class="n">conf</span><span class="o">-&gt;</span><span class="n">stats_pub_interval</span><span class="p">,</span>
+                             <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">sys_closure</span><span class="p">);</span>
+
+    <span class="n">sol_info</span><span class="p">(</span><span class="s">"Server start"</span><span class="p">);</span>
+    <span class="n">info</span><span class="p">.</span><span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>
+
+    <span class="n">run</span><span class="p">(</span><span class="n">event_loop</span><span class="p">);</span>
+
+    <span class="n">hashtable_release</span><span class="p">(</span><span class="n">sol</span><span class="p">.</span><span class="n">clients</span><span class="p">);</span>
+    <span class="n">hashtable_release</span><span class="p">(</span><span class="n">sol</span><span class="p">.</span><span class="n">closures</span><span class="p">);</span>
+
+    <span class="n">sol_info</span><span class="p">(</span><span class="s">"Sol v%s exiting"</span><span class="p">,</span> <span class="n">VERSION</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Ok, we have now a (almost) fully functioning server that uses our toyish
+callback system to handle traffic. Let’s add some additional code to the server
+header, like that <code class="highlighter-rouge">info</code> structure and a global structure named <code class="highlighter-rouge">sol</code> on the
+source .c, we’ll be back on that soon.</p>
+
+<p><strong>src/server.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/* Global informations statistics structure */</span>
+<span class="k">struct</span> <span class="n">sol_info</span> <span class="p">{</span>
+    <span class="cm">/* Number of clients currently connected */</span>
+    <span class="kt">int</span> <span class="n">nclients</span><span class="p">;</span>
+    <span class="cm">/* Total number of clients connected since the start */</span>
+    <span class="kt">int</span> <span class="n">nconnections</span><span class="p">;</span>
+    <span class="cm">/* Timestamp of the start time */</span>
+    <span class="kt">long</span> <span class="kt">long</span> <span class="n">start_time</span><span class="p">;</span>
+    <span class="cm">/* Total number of bytes received */</span>
+    <span class="kt">long</span> <span class="kt">long</span> <span class="n">bytes_recv</span><span class="p">;</span>
+    <span class="cm">/* Total number of bytes sent out */</span>
+    <span class="kt">long</span> <span class="kt">long</span> <span class="n">bytes_sent</span><span class="p">;</span>
+    <span class="cm">/* Total number of sent messages */</span>
+    <span class="kt">long</span> <span class="kt">long</span> <span class="n">messages_sent</span><span class="p">;</span>
+    <span class="cm">/* Total number of received messages */</span>
+    <span class="kt">long</span> <span class="kt">long</span> <span class="n">messages_recv</span><span class="p">;</span>
+<span class="p">};</span></code></pre></figure>
+
+<p>This is directly linked to the periodic task added in the start_server function</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/* Add periodic task for publishing stats on SYS topics */</span>
+<span class="c1">// TODO Implement</span>
+<span class="k">struct</span> <span class="n">closure</span> <span class="n">sys_closure</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">payload</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">args</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">sys_closure</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">call</span> <span class="o">=</span> <span class="n">publish_stats</span>
+<span class="p">};</span>
+
+<span class="n">generate_uuid</span><span class="p">(</span><span class="n">sys_closure</span><span class="p">.</span><span class="n">closure_id</span><span class="p">);</span>
+
+<span class="cm">/* Schedule as periodic task to be executed every N seconds */</span>
+<span class="n">evloop_add_periodic_task</span><span class="p">(</span><span class="n">event_loop</span><span class="p">,</span> <span class="n">conf</span><span class="o">-&gt;</span><span class="n">stats_pub_interval</span><span class="p">,</span>
+                         <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">sys_closure</span><span class="p">);</span></code></pre></figure>
+
+<p>The <code class="highlighter-rouge">publish_stats</code> callback is called periodically every N seconds where N is
+defined on a configuration global pointer that we’re going to implement soon.</p>
+
+<p>But let’s add the callback first:</p>
+
+<p><strong>src/server.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">void</span> <span class="nf">publish_message</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">,</span>
+                            <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">topiclen</span><span class="p">,</span>
+                            <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">topic</span><span class="p">,</span>
+                            <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">payloadlen</span><span class="p">,</span>
+                            <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">payload</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="cm">/* Retrieve the Topic structure from the global map, exit if not found */</span>
+    <span class="k">struct</span> <span class="n">topic</span> <span class="o">*</span><span class="n">t</span> <span class="o">=</span> <span class="n">sol_topic_get</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sol</span><span class="p">,</span> <span class="n">topic</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="cm">/* Build MQTT packet with command PUBLISH */</span>
+    <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="n">pkt</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">mqtt_publish</span> <span class="o">*</span><span class="n">p</span> <span class="o">=</span> <span class="n">mqtt_packet_publish</span><span class="p">(</span><span class="n">PUBLISH</span><span class="p">,</span> <span class="n">pkt_id</span><span class="p">,</span>
+                                                 <span class="n">topiclen</span><span class="p">,</span>
+                                                 <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">topic</span><span class="p">,</span>
+                                                 <span class="n">payloadlen</span><span class="p">,</span>
+                                                 <span class="n">payload</span><span class="p">);</span>
+
+    <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span> <span class="o">=</span> <span class="o">*</span><span class="n">p</span><span class="p">;</span>
+
+    <span class="kt">size_t</span> <span class="n">len</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">packed</span><span class="p">;</span>
+
+    <span class="cm">/* Send payload through TCP to all subscribed clients of the topic */</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">cur</span> <span class="o">=</span> <span class="n">t</span><span class="o">-&gt;</span><span class="n">subscribers</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>
+    <span class="kt">size_t</span> <span class="n">sent</span> <span class="o">=</span> <span class="mi">0L</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(;</span> <span class="n">cur</span><span class="p">;</span> <span class="n">cur</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">sol_debug</span><span class="p">(</span><span class="s">"Sending PUBLISH (d%i, q%u, r%i, m%u, %s, ... (%i bytes))"</span><span class="p">,</span>
+                  <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">dup</span><span class="p">,</span>
+                  <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">qos</span><span class="p">,</span>
+                  <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">retain</span><span class="p">,</span>
+                  <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">pkt_id</span><span class="p">,</span>
+                  <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">topic</span><span class="p">,</span>
+                  <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">payloadlen</span><span class="p">);</span>
+
+        <span class="n">len</span> <span class="o">=</span> <span class="n">MQTT_HEADER_LEN</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">)</span> <span class="o">+</span>
+            <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">topiclen</span> <span class="o">+</span> <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">payloadlen</span><span class="p">;</span>
+
+        <span class="k">struct</span> <span class="n">subscriber</span> <span class="o">*</span><span class="n">sub</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">sol_client</span> <span class="o">*</span><span class="n">sc</span> <span class="o">=</span> <span class="n">sub</span><span class="o">-&gt;</span><span class="n">client</span><span class="p">;</span>
+
+        <span class="cm">/* Update QoS according to subscriber's one */</span>
+        <span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">qos</span> <span class="o">=</span> <span class="n">sub</span><span class="o">-&gt;</span><span class="n">qos</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="p">.</span><span class="n">publish</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">qos</span> <span class="o">&gt;</span> <span class="n">AT_MOST_ONCE</span><span class="p">)</span>
+            <span class="n">len</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+
+        <span class="n">packed</span> <span class="o">=</span> <span class="n">pack_mqtt_packet</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pkt</span><span class="p">,</span> <span class="n">PUBLISH_TYPE</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">((</span><span class="n">sent</span> <span class="o">=</span> <span class="n">send_bytes</span><span class="p">(</span><span class="n">sc</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="n">packed</span><span class="p">,</span> <span class="n">len</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">sol_error</span><span class="p">(</span><span class="s">"Error publishing to %s: %s"</span><span class="p">,</span>
+                      <span class="n">sc</span><span class="o">-&gt;</span><span class="n">client_id</span><span class="p">,</span> <span class="n">strerror</span><span class="p">(</span><span class="n">errno</span><span class="p">));</span>
+
+        <span class="c1">// Update information stats</span>
+        <span class="n">info</span><span class="p">.</span><span class="n">bytes_sent</span> <span class="o">+=</span> <span class="n">sent</span><span class="p">;</span>
+        <span class="n">info</span><span class="p">.</span><span class="n">messages_sent</span><span class="o">++</span><span class="p">;</span>
+
+        <span class="n">free</span><span class="p">(</span><span class="n">packed</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Publish statistics periodic task, it will be called once every N config
+ * defined seconds, it publish some informations on predefined topics
+ */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">publish_stats</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">char</span> <span class="n">cclients</span><span class="p">[</span><span class="n">number_len</span><span class="p">(</span><span class="n">info</span><span class="p">.</span><span class="n">nclients</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="n">sprintf</span><span class="p">(</span><span class="n">cclients</span><span class="p">,</span> <span class="s">"%d"</span><span class="p">,</span> <span class="n">info</span><span class="p">.</span><span class="n">nclients</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">bsent</span><span class="p">[</span><span class="n">number_len</span><span class="p">(</span><span class="n">info</span><span class="p">.</span><span class="n">bytes_sent</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="n">sprintf</span><span class="p">(</span><span class="n">bsent</span><span class="p">,</span> <span class="s">"%lld"</span><span class="p">,</span> <span class="n">info</span><span class="p">.</span><span class="n">bytes_sent</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">msent</span><span class="p">[</span><span class="n">number_len</span><span class="p">(</span><span class="n">info</span><span class="p">.</span><span class="n">messages_sent</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="n">sprintf</span><span class="p">(</span><span class="n">msent</span><span class="p">,</span> <span class="s">"%lld"</span><span class="p">,</span> <span class="n">info</span><span class="p">.</span><span class="n">messages_sent</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">mrecv</span><span class="p">[</span><span class="n">number_len</span><span class="p">(</span><span class="n">info</span><span class="p">.</span><span class="n">messages_recv</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="n">sprintf</span><span class="p">(</span><span class="n">mrecv</span><span class="p">,</span> <span class="s">"%lld"</span><span class="p">,</span> <span class="n">info</span><span class="p">.</span><span class="n">messages_recv</span><span class="p">);</span>
+
+    <span class="kt">long</span> <span class="kt">long</span> <span class="n">uptime</span> <span class="o">=</span> <span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">)</span> <span class="o">-</span> <span class="n">info</span><span class="p">.</span><span class="n">start_time</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">utime</span><span class="p">[</span><span class="n">number_len</span><span class="p">(</span><span class="n">uptime</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="n">sprintf</span><span class="p">(</span><span class="n">utime</span><span class="p">,</span> <span class="s">"%lld"</span><span class="p">,</span> <span class="n">uptime</span><span class="p">);</span>
+
+    <span class="kt">double</span> <span class="n">sol_uptime</span> <span class="o">=</span> <span class="p">(</span><span class="kt">double</span><span class="p">)(</span><span class="n">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">)</span> <span class="o">-</span> <span class="n">info</span><span class="p">.</span><span class="n">start_time</span><span class="p">)</span> <span class="o">/</span> <span class="n">SOL_SECONDS</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">sutime</span><span class="p">[</span><span class="mi">16</span><span class="p">];</span>
+    <span class="n">sprintf</span><span class="p">(</span><span class="n">sutime</span><span class="p">,</span> <span class="s">"%.4f"</span><span class="p">,</span> <span class="n">sol_uptime</span><span class="p">);</span>
+
+    <span class="n">publish_message</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">sys_topics</span><span class="p">[</span><span class="mi">5</span><span class="p">]),</span> <span class="n">sys_topics</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+                    <span class="n">strlen</span><span class="p">(</span><span class="n">utime</span><span class="p">),</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">utime</span><span class="p">);</span>
+    <span class="n">publish_message</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">sys_topics</span><span class="p">[</span><span class="mi">6</span><span class="p">]),</span> <span class="n">sys_topics</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span>
+                    <span class="n">strlen</span><span class="p">(</span><span class="n">sutime</span><span class="p">),</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">sutime</span><span class="p">);</span>
+    <span class="n">publish_message</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">sys_topics</span><span class="p">[</span><span class="mi">7</span><span class="p">]),</span> <span class="n">sys_topics</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span>
+                    <span class="n">strlen</span><span class="p">(</span><span class="n">cclients</span><span class="p">),</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">cclients</span><span class="p">);</span>
+    <span class="n">publish_message</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">sys_topics</span><span class="p">[</span><span class="mi">9</span><span class="p">]),</span> <span class="n">sys_topics</span><span class="p">[</span><span class="mi">9</span><span class="p">],</span>
+                    <span class="n">strlen</span><span class="p">(</span><span class="n">bsent</span><span class="p">),</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">bsent</span><span class="p">);</span>
+    <span class="n">publish_message</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">sys_topics</span><span class="p">[</span><span class="mi">11</span><span class="p">]),</span> <span class="n">sys_topics</span><span class="p">[</span><span class="mi">11</span><span class="p">],</span>
+                    <span class="n">strlen</span><span class="p">(</span><span class="n">msent</span><span class="p">),</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">msent</span><span class="p">);</span>
+    <span class="n">publish_message</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">sys_topics</span><span class="p">[</span><span class="mi">12</span><span class="p">]),</span> <span class="n">sys_topics</span><span class="p">[</span><span class="mi">12</span><span class="p">],</span>
+                    <span class="n">strlen</span><span class="p">(</span><span class="n">mrecv</span><span class="p">),</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">mrecv</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Ok now we have our first periodic callback, it publishes general informations on
+the status of the broker to a set of topics called <code class="highlighter-rouge">$SYS</code> topics, that we
+called <code class="highlighter-rouge">$SOL</code> breaking the standards in a blink of an eye. These informations
+could be added incrementally in the future.</p>
+
+<p><strong>src/server.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * General informations of the broker, all fields will be published
+ * periodically to internal topics
+ */</span>
+<span class="k">static</span> <span class="k">struct</span> <span class="n">sol_info</span> <span class="n">info</span><span class="p">;</span>
+
+<span class="cm">/* Broker global instance, contains the topic trie and the clients hashtable */</span>
+<span class="k">static</span> <span class="k">struct</span> <span class="n">sol</span> <span class="n">sol</span><span class="p">;</span></code></pre></figure>
+
+<p>There’re still some parts that we have to write in order to have this piece of
+code to compile and work, for example, what is that <code class="highlighter-rouge">closure_destructor</code>
+function? What about that <code class="highlighter-rouge">info</code> structure that we update in <code class="highlighter-rouge">on_write</code> and
+<code class="highlighter-rouge">on_read</code>? We can see that those have to do with some calls to <code class="highlighter-rouge">hashtable_*</code>
+and <code class="highlighter-rouge">sol_topic_*</code>, which will be plugged-in soon.</p>
+
+<p>Let’s move forward to <a href="sol-mqtt-broker-p4">part 4</a>, we’ll start implementing
+some handlers for every MQTT command.</p>
+
+          </div>
+          <div class="article-share">
+            
+            
+            <a href="https://twitter.com/home?status=Sol+-+An+MQTT+broker+from+scratch.+Part+3+-+Server%20-%20/posts/sol-mqtt-broker-p3" title="Share on Twitter" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M492 109.5c-17.4 7.7-36 12.9-55.6 15.3 20-12 35.4-31 42.6-53.6 -18.7 11.1-39.4 19.2-61.5 23.5C399.8 75.8 374.6 64 346.8 64c-53.5 0-96.8 43.4-96.8 96.9 0 7.6 0.8 15 2.5 22.1 -80.5-4-151.9-42.6-199.6-101.3 -8.3 14.3-13.1 31-13.1 48.7 0 33.6 17.2 63.3 43.2 80.7C67 210.7 52 206.3 39 199c0 0.4 0 0.8 0 1.2 0 47 33.4 86.1 77.7 95 -8.1 2.2-16.7 3.4-25.5 3.4 -6.2 0-12.3-0.6-18.2-1.8 12.3 38.5 48.1 66.5 90.5 67.3 -33.1 26-74.9 41.5-120.3 41.5 -7.8 0-15.5-0.5-23.1-1.4C62.8 432 113.7 448 168.3 448 346.6 448 444 300.3 444 172.2c0-4.2-0.1-8.4-0.3-12.5C462.6 146 479 129 492 109.5z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=/posts/sol-mqtt-broker-p3" title="Share on Facebook" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M288 192v-38.1c0-17.2 3.8-25.9 30.5-25.9H352V64h-55.9c-68.5 0-91.1 31.4-91.1 85.3V192h-45v64h45v192h83V256h56.4l7.6-64H288z"/></svg>
+            </a>
+            <a href="https://plus.google.com/share?url=/posts/sol-mqtt-broker-p3" title="Share on Google+" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 128 128"><path d="M40.7 55.9v16.1c0 0 15.6 0 22 0C59.2 82.5 53.8 88.2 40.7 88.2c-13.3 0-23.7-10.8-23.7-24.2s10.4-24.2 23.7-24.2c7.1 0 11.6 2.5 15.8 5.9 3.3-3.3 3.1-3.8 11.6-11.9 -7.2-6.6-16.8-10.6-27.4-10.6C18.2 23.3 0 41.5 0 64c0 22.5 18.2 40.7 40.7 40.7 33.6 0 41.8-29.3 39-48.8H40.7zM113.9 56.7V42.6h-10.1v14.1H89.4v10.1h14.5v14.5h10.1V66.8H128V56.7H113.9z"/></svg>
+            </a>
+          </div>
+
+          
+        </article>
+        <footer class="footer scrollappear">
+<p>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+<p>Powered by Jekyll.</p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+
+<script type="text/javascript" src="/assets/vendor-c7660858f86a434b413963ad66674aac04cdf9b172bee75278aa23e144569dde.js"></script>
+
+
+  <script type="text/javascript" src="/assets/webfonts-1d924df3a4c7364cfb23aab219296b7f778337c69c1e9fb531894165a1abcece.js"></script>
+
+
+
+  <script type="text/javascript" src="/assets/scrollappear-e2da8ea567e418637e31266cc5302126eaa79f62a2273739086358b589a89ee6.js"></script>
+
+
+<script type="text/javascript" src="/assets/application-cfde13ac81ddaf4351b2e739603e2baf688d0fcc9aba613fe62bbb1c7b037fb9.js"></script>
+
+</body>
+</html>

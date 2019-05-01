@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Ordinary thoughts | Sol - An MQTT broker from scratch. Part 2 - Networking</title>
+  <meta name="description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Sol - An MQTT broker from scratch. Part 2 - Networking">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/posts/sol-mqtt-broker-p2">
+  <meta property="og:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta property="og:site_name" content="Ordinary thoughts">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="/posts/sol-mqtt-broker-p2">
+  <meta name="twitter:title" content="Sol - An MQTT broker from scratch. Part 2 - Networking">
+  <meta name="twitter:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+
+  
+    <meta property="og:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+    <meta name="twitter:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+  
+
+  <link href="/feed.xml" type="application/rss+xml" rel="alternate" title="Ordinary thoughts Last 10 blog posts" />
+
+  
+
+  
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-light-a98c41efc5ed9fcc06ac664c9e2f7a9b3c3b2e0a52357d221fe382f6f4abc8fc.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon-light-87d1f2a3a19b1500e5c1626a0492025ca5f7f97d24540dc5900288e92112925a.png">
+    <link rel="stylesheet" type="text/css" href="/assets/light-273261f5acf40d5e75642b11aff49ad206e80876a27b830f96aa43304000296d.css">
+  
+</head>
+
+<body>
+  <main>
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav scrollappear">
+  <ul class="header-links">
+    
+    <li>
+        <a href="/projects" title="Projects">
+            Projects
+        </a>
+    </li>
+    
+    
+      <li>
+        <a href="/about" title="About me">
+            Resume
+        </a>
+      </li>
+    
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/codepr" rel="noreferrer noopener" target="_blank" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-github">
+  <use href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github" xlink:href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      <li>
+        <a href="mailto:a.g.baldan@gmail.com" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-email">
+  <use href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email" xlink:href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+  </ul>
+  <a href="/" class="header-logo" title="Ordinary thoughts">Ordinary thoughts
+      <p class='subtitle'>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+  </a>
+
+
+</nav>
+
+        <article class="article scrollappear">
+          <header class="article-header">
+            <h1>Sol - An MQTT broker from scratch. Part 2 - Networking</h1>
+            <p>Writing an MQTT broker from scratch, to really understand something you have to build it.</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                March 4, 2019
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  29 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+                  <a href="/tag/c">c</a>
+                
+                  <a href="/tag/unix">unix</a>
+                
+                  <a href="/tag/tutorial">tutorial</a>
+                
+                  <a href="/tag/epoll">epoll</a>
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <p>Let’s continue from where we left, in the <a href="sol-mqtt-broker">part 1</a> we defined
+and roughly modeled the MQTT v3.1.1 protocol and our <code class="highlighter-rouge">src/mqtt.c</code> module has
+now all unpacking functions, we must add the remaining build helpers and the
+packing functions to serialize packet for output.<br />
+As a side note we’re probably not going to write perfect and efficient
+memory-wise code, but again, premature optimization is the root of all evil,
+there’ll be plenty of time to improve the quality of the software with future
+revisions.</p>
+
+<h2 id="build-pack-and-send">Build, pack and send.</h2>
+
+<p>For now we only need CONNACK, SUBACK and PUBLISH packet builder, the
+other ACK like packets can be created at the same manner with a single
+function, that’s why the use of <strong>typedef</strong> for different ack codes.</p>
+
+<ul>
+  <li><code class="highlighter-rouge">union mqtt_header *mqtt_packet_header(unsigned char)</code> will cover packet
+Fixed Header as well as PINGREQ, PINGRESP and DISCONNECT packets</li>
+  <li><code class="highlighter-rouge">struct mqtt_ack *mqtt_packet_ack(unsigned char, unsigned short)</code> will be
+used to  build:
+    <ul>
+      <li>PUBACK</li>
+      <li>PUBREC</li>
+      <li>PUBREL</li>
+      <li>PUBCOMP</li>
+      <li>UNSUBACK</li>
+    </ul>
+  </li>
+</ul>
+
+<p>The remaining packets will have a dedicated function. There’s probably better
+ways to reuse code and to model this but for now let’s stick to something
+working, as previously stated time to optimize and refactor will come.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * MQTT packets building functions
+ */</span>
+
+<span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="nf">mqtt_packet_header</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">static</span> <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="n">header</span><span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">byte</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">header</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="o">*</span><span class="nf">mqtt_packet_ack</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">static</span> <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">ack</span><span class="p">;</span>
+
+    <span class="n">ack</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">byte</span><span class="p">;</span>
+    <span class="n">ack</span><span class="p">.</span><span class="n">pkt_id</span> <span class="o">=</span> <span class="n">pkt_id</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">ack</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_connack</span> <span class="o">*</span><span class="nf">mqtt_packet_connack</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">cflags</span><span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">rc</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">static</span> <span class="k">struct</span> <span class="n">mqtt_connack</span> <span class="n">connack</span><span class="p">;</span>
+
+    <span class="n">connack</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">byte</span><span class="p">;</span>
+    <span class="n">connack</span><span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">cflags</span><span class="p">;</span>
+    <span class="n">connack</span><span class="p">.</span><span class="n">rc</span> <span class="o">=</span> <span class="n">rc</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">connack</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_suback</span> <span class="o">*</span><span class="nf">mqtt_packet_suback</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">,</span>
+                                       <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">,</span>
+                                       <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">rcs</span><span class="p">,</span>
+                                       <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">rcslen</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_suback</span> <span class="o">*</span><span class="n">suback</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">suback</span><span class="p">));</span>
+
+    <span class="n">suback</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">byte</span><span class="p">;</span>
+    <span class="n">suback</span><span class="o">-&gt;</span><span class="n">pkt_id</span> <span class="o">=</span> <span class="n">pkt_id</span><span class="p">;</span>
+    <span class="n">suback</span><span class="o">-&gt;</span><span class="n">rcslen</span> <span class="o">=</span> <span class="n">rcslen</span><span class="p">;</span>
+    <span class="n">suback</span><span class="o">-&gt;</span><span class="n">rcs</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">rcslen</span><span class="p">);</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="n">suback</span><span class="o">-&gt;</span><span class="n">rcs</span><span class="p">,</span> <span class="n">rcs</span><span class="p">,</span> <span class="n">rcslen</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">suback</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+
+<span class="k">struct</span> <span class="n">mqtt_publish</span> <span class="o">*</span><span class="nf">mqtt_packet_publish</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">,</span>
+                                         <span class="kt">size_t</span> <span class="n">topiclen</span><span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">topic</span><span class="p">,</span>
+                                         <span class="kt">size_t</span> <span class="n">payloadlen</span><span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">payload</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_publish</span> <span class="o">*</span><span class="n">publish</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">publish</span><span class="p">));</span>
+
+    <span class="n">publish</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">byte</span><span class="p">;</span>
+    <span class="n">publish</span><span class="o">-&gt;</span><span class="n">pkt_id</span> <span class="o">=</span> <span class="n">pkt_id</span><span class="p">;</span>
+    <span class="n">publish</span><span class="o">-&gt;</span><span class="n">topiclen</span> <span class="o">=</span> <span class="n">topiclen</span><span class="p">;</span>
+    <span class="n">publish</span><span class="o">-&gt;</span><span class="n">topic</span> <span class="o">=</span> <span class="n">topic</span><span class="p">;</span>
+    <span class="n">publish</span><span class="o">-&gt;</span><span class="n">payloadlen</span> <span class="o">=</span> <span class="n">payloadlen</span><span class="p">;</span>
+    <span class="n">publish</span><span class="o">-&gt;</span><span class="n">payload</span> <span class="o">=</span> <span class="n">payload</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">publish</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">mqtt_packet_release</span><span class="p">(</span><span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="n">type</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">switch</span> <span class="p">(</span><span class="n">type</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="n">CONNECT_TYPE</span><span class="p">:</span>
+            <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">client_id</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">username</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">username</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">password</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">password</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">will</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">will_message</span><span class="p">);</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">will_topic</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="n">SUBSCRIBE_TYPE</span><span class="p">:</span>
+        <span class="k">case</span> <span class="n">UNSUBSCRIBE_TYPE</span><span class="p">:</span>
+            <span class="k">for</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">subscribe</span><span class="p">.</span><span class="n">tuples_len</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">topic</span><span class="p">);</span>
+            <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="n">SUBACK_TYPE</span><span class="p">:</span>
+            <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">suback</span><span class="p">.</span><span class="n">rcs</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="k">case</span> <span class="n">PUBLISH_TYPE</span><span class="p">:</span>
+            <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">topic</span><span class="p">);</span>
+            <span class="n">free</span><span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">payload</span><span class="p">);</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="nl">default:</span>
+            <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>We move on to packing functions now, essentially they reflect unpacking ones,
+but acting in the opposite direction: We start from structs and unions to build a
+bytearray, ready to be written out over a socket.</p>
+
+<p>A sure thing to underline, where you see functions returning pointer to static
+structure, this trick is ok with little structure that can be instantiated on
+the stack and on a single-thread context. Passing to a multithreaded
+environment this approach will surely bite us in the ass, cause every pointer
+to packet built like this will point to the same area of memory, causing
+conflicts and undefined results (different from dreadful undefined behaviour,
+the ultimate frightening beast of C/C++), so for future improvements it will
+probably better to refactor these parts to malloc some bytes for these
+strucutures.</p>
+
+<p>Let’s map them like we’ve done before with the unpacking functions, an array
+where position reflects the packet type. To make the source a little more
+concise we could group pack and unpack handlers into a structure, so it’ll be
+possible to use a single array as they share the same positions.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * MQTT packets packing functions
+ */</span>
+
+<span class="k">typedef</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">mqtt_pack_handler</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+
+<span class="k">static</span> <span class="n">mqtt_pack_handler</span> <span class="o">*</span><span class="n">pack_handlers</span><span class="p">[</span><span class="mi">13</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">pack_mqtt_connack</span><span class="p">,</span>
+    <span class="n">pack_mqtt_publish</span><span class="p">,</span>
+    <span class="n">pack_mqtt_ack</span><span class="p">,</span>
+    <span class="n">pack_mqtt_ack</span><span class="p">,</span>
+    <span class="n">pack_mqtt_ack</span><span class="p">,</span>
+    <span class="n">pack_mqtt_ack</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">pack_mqtt_suback</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">pack_mqtt_ack</span><span class="p">,</span>
+    <span class="nb">NULL</span>
+<span class="p">};</span>
+
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="nf">pack_mqtt_header</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="n">hdr</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">packed</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">MQTT_HEADER_LEN</span><span class="p">);</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">packed</span><span class="p">;</span>
+
+    <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">hdr</span><span class="o">-&gt;</span><span class="n">byte</span><span class="p">);</span>
+
+    <span class="cm">/* Encode 0 length bytes, message like this have only a fixed header */</span>
+    <span class="n">mqtt_encode_length</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">packed</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="nf">pack_mqtt_ack</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">packed</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">MQTT_ACK_LEN</span><span class="p">);</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">packed</span><span class="p">;</span>
+
+    <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">ack</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span><span class="p">);</span>
+    <span class="n">mqtt_encode_length</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">MQTT_HEADER_LEN</span><span class="p">);</span>
+    <span class="n">ptr</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="n">pack_u16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">ack</span><span class="p">.</span><span class="n">pkt_id</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">packed</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="nf">pack_mqtt_connack</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">packed</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">MQTT_ACK_LEN</span><span class="p">);</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">packed</span><span class="p">;</span>
+
+    <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connack</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span><span class="p">);</span>
+    <span class="n">mqtt_encode_length</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">MQTT_HEADER_LEN</span><span class="p">);</span>
+    <span class="n">ptr</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connack</span><span class="p">.</span><span class="n">byte</span><span class="p">);</span>
+    <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connack</span><span class="p">.</span><span class="n">rc</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">packed</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="nf">pack_mqtt_suback</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">size_t</span> <span class="n">pktlen</span> <span class="o">=</span> <span class="n">MQTT_HEADER_LEN</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">)</span> <span class="o">+</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">suback</span><span class="p">.</span><span class="n">rcslen</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">packed</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">pktlen</span> <span class="o">+</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">packed</span><span class="p">;</span>
+
+    <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">suback</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span><span class="p">);</span>
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">)</span> <span class="o">+</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">suback</span><span class="p">.</span><span class="n">rcslen</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">step</span> <span class="o">=</span> <span class="n">mqtt_encode_length</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">len</span><span class="p">);</span>
+    <span class="n">ptr</span> <span class="o">+=</span> <span class="n">step</span><span class="p">;</span>
+
+    <span class="n">pack_u16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">suback</span><span class="p">.</span><span class="n">pkt_id</span><span class="p">);</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">suback</span><span class="p">.</span><span class="n">rcslen</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+        <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">suback</span><span class="p">.</span><span class="n">rcs</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+
+    <span class="k">return</span> <span class="n">packed</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="nf">pack_mqtt_publish</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="cm">/*
+     * We must calculate the total length of the packet including header and
+     * length field of the fixed header part
+     */</span>
+    <span class="kt">size_t</span> <span class="n">pktlen</span> <span class="o">=</span> <span class="n">MQTT_HEADER_LEN</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">)</span> <span class="o">+</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">topiclen</span> <span class="o">+</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">payloadlen</span><span class="p">;</span>
+
+    <span class="c1">// Total len of the packet excluding fixed header len</span>
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="mi">0L</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">qos</span> <span class="o">&gt;</span> <span class="n">AT_MOST_ONCE</span><span class="p">)</span>
+        <span class="n">pktlen</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">packed</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">pktlen</span><span class="p">);</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">packed</span><span class="p">;</span>
+
+    <span class="n">pack_u8</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">byte</span><span class="p">);</span>
+
+    <span class="c1">// Total len of the packet excluding fixed header len</span>
+    <span class="n">len</span> <span class="o">+=</span> <span class="p">(</span><span class="n">pktlen</span> <span class="o">-</span> <span class="n">MQTT_HEADER_LEN</span><span class="p">);</span>
+
+    <span class="cm">/*
+     * TODO handle case where step is &gt; 1, e.g. when a message longer than 128
+     * bytes is published
+     */</span>
+    <span class="kt">int</span> <span class="n">step</span> <span class="o">=</span> <span class="n">mqtt_encode_length</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="n">len</span><span class="p">);</span>
+    <span class="n">ptr</span> <span class="o">+=</span> <span class="n">step</span><span class="p">;</span>
+
+    <span class="c1">// Topic len followed by topic name in bytes</span>
+    <span class="n">pack_u16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">topiclen</span><span class="p">);</span>
+    <span class="n">pack_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">topic</span><span class="p">);</span>
+
+    <span class="c1">// Packet id</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">qos</span> <span class="o">&gt;</span> <span class="n">AT_MOST_ONCE</span><span class="p">)</span>
+        <span class="n">pack_u16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">pkt_id</span><span class="p">);</span>
+
+    <span class="c1">// Finally the payload, same way of topic, payload len -&gt; payload</span>
+    <span class="n">pack_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ptr</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">payload</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">packed</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="nf">pack_mqtt_packet</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="n">type</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">type</span> <span class="o">==</span> <span class="n">PINGREQ_TYPE</span> <span class="o">||</span> <span class="n">type</span> <span class="o">==</span> <span class="n">PINGRESP_TYPE</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pack_mqtt_header</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">header</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">pack_handlers</span><span class="p">[</span><span class="n">type</span><span class="p">](</span><span class="n">pkt</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<h2 id="the-server">The server</h2>
+
+<p>The server we’re gonna create will be a single-threaded TCP server with
+multiplexed I/O by using <strong>epoll</strong> interface. Epoll is the last multiplexing
+mechanism after <strong>select</strong> and <strong>poll</strong> added with kernel 2.5.44, and the most
+performant with high number of connection, it’s counterpart for BSD and
+BSD-like (Mac OSX) systems is <strong>kqueue</strong>.</p>
+
+<p>We’re gonna need some functions to manage our socket descriptor.</p>
+
+<p><strong>src/network.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef NETWORK_H
+#define NETWORK_H
+</span>
+<span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;sys/types.h&gt;
+#include "util.h"
+</span>
+
+<span class="c1">// Socket families</span>
+<span class="cp">#define UNIX    0
+#define INET    1
+</span>
+<span class="cm">/* Set non-blocking socket */</span>
+<span class="kt">int</span> <span class="n">set_nonblocking</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Set TCP_NODELAY flag to true, disabling Nagle's algorithm, no more waiting
+ * for incoming packets on the buffer
+ */</span>
+<span class="kt">int</span> <span class="n">set_tcp_nodelay</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+
+<span class="cm">/* Auxiliary function for creating epoll server */</span>
+<span class="kt">int</span> <span class="n">create_and_bind</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Create a non-blocking socket and make it listen on the specfied address and
+ * port
+ */</span>
+<span class="kt">int</span> <span class="n">make_listen</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+
+<span class="cm">/* Accept a connection and add it to the right epollfd */</span>
+<span class="kt">int</span> <span class="n">accept_connection</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span></code></pre></figure>
+
+<p>Just some well-known helper functions to create and bind socket to listen for
+new connections and to set socket in non-blocking mode (a requirement to use
+<strong>epoll</strong> multiplexing at his best).</p>
+
+<p>I don’t like to have to manage all streams of bytes incoming to and exiting
+from the host, this two functions never fail to appear in every C codebase
+regarding TCP communication:</p>
+
+<ul>
+  <li><code class="highlighter-rouge">ssize_t send_bytes(int, const unsigned char *, size_t)</code> used to send all
+bytes out at once in while loop till no bytes left, by handling EAGAIN and
+EWOUDLBLOCK error codes</li>
+  <li><code class="highlighter-rouge">ssize_t recv_bytes(int, unsigned char *, size_t)</code>, read an arbitrary number
+of bytes in a while loop, again handling correctly EAGAIN and EWOUDLBLOCK
+error codes</li>
+</ul>
+
+<p><strong>src/network.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/* I/O management functions */</span>
+
+<span class="cm">/*
+ * Send all data in a loop, avoiding interruption based on the kernel buffer
+ * availability
+ */</span>
+<span class="kt">ssize_t</span> <span class="n">send_bytes</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Receive (read) an arbitrary number of bytes from a file descriptor and
+ * store them in a buffer
+ */</span>
+<span class="kt">ssize_t</span> <span class="n">recv_bytes</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">);</span>
+
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p>And the implementation on network.c.</p>
+
+<p><strong>src/network.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#define _DEFAULT_SOURCE
+#include &lt;stdlib.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;netdb.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;arpa/inet.h&gt;
+#include &lt;sys/un.h&gt;
+#include &lt;sys/epoll.h&gt;
+#include &lt;sys/timerfd.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;netinet/tcp.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/socket.h&gt;
+#include &lt;sys/eventfd.h&gt;
+#include "network.h"
+#include "config.h"
+</span>
+
+<span class="cm">/* Set non-blocking socket */</span>
+<span class="kt">int</span> <span class="nf">set_nonblocking</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">flags</span><span class="p">,</span> <span class="n">result</span><span class="p">;</span>
+    <span class="n">flags</span> <span class="o">=</span> <span class="n">fcntl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">F_GETFL</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">flags</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">goto</span> <span class="n">err</span><span class="p">;</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">fcntl</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">F_SETFL</span><span class="p">,</span> <span class="n">flags</span> <span class="o">|</span> <span class="n">O_NONBLOCK</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">result</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">goto</span> <span class="n">err</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+
+<span class="nl">err:</span>
+
+    <span class="n">perror</span><span class="p">(</span><span class="s">"set_nonblocking"</span><span class="p">);</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/* Disable Nagle's algorithm by setting TCP_NODELAY */</span>
+<span class="kt">int</span> <span class="nf">set_tcp_nodelay</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">setsockopt</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">IPPROTO_TCP</span><span class="p">,</span> <span class="n">TCP_NODELAY</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="p">{</span><span class="mi">1</span><span class="p">},</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">));</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">create_and_bind_unix</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">sockpath</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">sockaddr_un</span> <span class="n">addr</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">fd</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">((</span><span class="n">fd</span> <span class="o">=</span> <span class="n">socket</span><span class="p">(</span><span class="n">AF_UNIX</span><span class="p">,</span> <span class="n">SOCK_STREAM</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"socket error"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">addr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">addr</span><span class="p">));</span>
+    <span class="n">addr</span><span class="p">.</span><span class="n">sun_family</span> <span class="o">=</span> <span class="n">AF_UNIX</span><span class="p">;</span>
+
+    <span class="n">strncpy</span><span class="p">(</span><span class="n">addr</span><span class="p">.</span><span class="n">sun_path</span><span class="p">,</span> <span class="n">sockpath</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">addr</span><span class="p">.</span><span class="n">sun_path</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">unlink</span><span class="p">(</span><span class="n">sockpath</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">bind</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span><span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">addr</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">addr</span><span class="p">))</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"bind error"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">fd</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">create_and_bind_tcp</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">host</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">port</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">addrinfo</span> <span class="n">hints</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">.</span><span class="n">ai_family</span> <span class="o">=</span> <span class="n">AF_UNSPEC</span><span class="p">,</span>
+        <span class="p">.</span><span class="n">ai_socktype</span> <span class="o">=</span> <span class="n">SOCK_STREAM</span><span class="p">,</span>
+        <span class="p">.</span><span class="n">ai_flags</span> <span class="o">=</span> <span class="n">AI_PASSIVE</span>
+    <span class="p">};</span>
+
+    <span class="k">struct</span> <span class="n">addrinfo</span> <span class="o">*</span><span class="n">result</span><span class="p">,</span> <span class="o">*</span><span class="n">rp</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">sfd</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">getaddrinfo</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">hints</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">result</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"getaddrinfo error"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">rp</span> <span class="o">=</span> <span class="n">result</span><span class="p">;</span> <span class="n">rp</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">;</span> <span class="n">rp</span> <span class="o">=</span> <span class="n">rp</span><span class="o">-&gt;</span><span class="n">ai_next</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">sfd</span> <span class="o">=</span> <span class="n">socket</span><span class="p">(</span><span class="n">rp</span><span class="o">-&gt;</span><span class="n">ai_family</span><span class="p">,</span> <span class="n">rp</span><span class="o">-&gt;</span><span class="n">ai_socktype</span><span class="p">,</span> <span class="n">rp</span><span class="o">-&gt;</span><span class="n">ai_protocol</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">sfd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">continue</span><span class="p">;</span>
+
+        <span class="cm">/* set SO_REUSEADDR so the socket will be reusable after process kill */</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">sfd</span><span class="p">,</span> <span class="n">SOL_SOCKET</span><span class="p">,</span> <span class="n">SO_REUSEADDR</span><span class="p">,</span>
+                       <span class="o">&amp;</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span> <span class="p">{</span> <span class="mi">1</span> <span class="p">},</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">perror</span><span class="p">(</span><span class="s">"SO_REUSEADDR"</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">((</span><span class="n">bind</span><span class="p">(</span><span class="n">sfd</span><span class="p">,</span> <span class="n">rp</span><span class="o">-&gt;</span><span class="n">ai_addr</span><span class="p">,</span> <span class="n">rp</span><span class="o">-&gt;</span><span class="n">ai_addrlen</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="cm">/* Succesful bind */</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="n">close</span><span class="p">(</span><span class="n">sfd</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">rp</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"Could not bind"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">freeaddrinfo</span><span class="p">(</span><span class="n">result</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">sfd</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">create_and_bind</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">host</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">port</span><span class="p">,</span> <span class="kt">int</span> <span class="n">socket_family</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">int</span> <span class="n">fd</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">socket_family</span> <span class="o">==</span> <span class="n">UNIX</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">fd</span> <span class="o">=</span> <span class="n">create_and_bind_unix</span><span class="p">(</span><span class="n">host</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">fd</span> <span class="o">=</span> <span class="n">create_and_bind_tcp</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">fd</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="cm">/*
+ * Create a non-blocking socket and make it listen on the specfied address and
+ * port
+ */</span>
+<span class="kt">int</span> <span class="nf">make_listen</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">host</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">port</span><span class="p">,</span> <span class="kt">int</span> <span class="n">socket_family</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">int</span> <span class="n">sfd</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">((</span><span class="n">sfd</span> <span class="o">=</span> <span class="n">create_and_bind</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">socket_family</span><span class="p">))</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">abort</span><span class="p">();</span>
+
+    <span class="k">if</span> <span class="p">((</span><span class="n">set_nonblocking</span><span class="p">(</span><span class="n">sfd</span><span class="p">))</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">abort</span><span class="p">();</span>
+
+    <span class="c1">// Set TCP_NODELAY only for TCP sockets</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">socket_family</span> <span class="o">==</span> <span class="n">INET</span><span class="p">)</span>
+        <span class="n">set_tcp_nodelay</span><span class="p">(</span><span class="n">sfd</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">((</span><span class="n">listen</span><span class="p">(</span><span class="n">sfd</span><span class="p">,</span> <span class="n">conf</span><span class="o">-&gt;</span><span class="n">tcp_backlog</span><span class="p">))</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"listen"</span><span class="p">);</span>
+        <span class="n">abort</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">sfd</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">accept_connection</span><span class="p">(</span><span class="kt">int</span> <span class="n">serversock</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">int</span> <span class="n">clientsock</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">sockaddr_in</span> <span class="n">addr</span><span class="p">;</span>
+    <span class="n">socklen_t</span> <span class="n">addrlen</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">addr</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">((</span><span class="n">clientsock</span> <span class="o">=</span> <span class="n">accept</span><span class="p">(</span><span class="n">serversock</span><span class="p">,</span>
+                             <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">addr</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addrlen</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+    <span class="n">set_nonblocking</span><span class="p">(</span><span class="n">clientsock</span><span class="p">);</span>
+
+    <span class="c1">// Set TCP_NODELAY only for TCP sockets</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">conf</span><span class="o">-&gt;</span><span class="n">socket_family</span> <span class="o">==</span> <span class="n">INET</span><span class="p">)</span>
+        <span class="n">set_tcp_nodelay</span><span class="p">(</span><span class="n">clientsock</span><span class="p">);</span>
+
+    <span class="kt">char</span> <span class="n">ip_buff</span><span class="p">[</span><span class="n">INET_ADDRSTRLEN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">inet_ntop</span><span class="p">(</span><span class="n">AF_INET</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addr</span><span class="p">.</span><span class="n">sin_addr</span><span class="p">,</span>
+                  <span class="n">ip_buff</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ip_buff</span><span class="p">))</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">close</span><span class="p">(</span><span class="n">clientsock</span><span class="p">);</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">clientsock</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/* Send all bytes contained in buf, updating sent bytes counter */</span>
+<span class="kt">ssize_t</span> <span class="nf">send_bytes</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">size_t</span> <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kt">size_t</span> <span class="n">bytesleft</span> <span class="o">=</span> <span class="n">len</span><span class="p">;</span>
+    <span class="kt">ssize_t</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">total</span> <span class="o">&lt;</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">send</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">buf</span> <span class="o">+</span> <span class="n">total</span><span class="p">,</span> <span class="n">bytesleft</span><span class="p">,</span> <span class="n">MSG_NOSIGNAL</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">errno</span> <span class="o">==</span> <span class="n">EAGAIN</span> <span class="o">||</span> <span class="n">errno</span> <span class="o">==</span> <span class="n">EWOULDBLOCK</span><span class="p">)</span>
+                <span class="k">break</span><span class="p">;</span>
+            <span class="k">else</span>
+                <span class="k">goto</span> <span class="n">err</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="n">total</span> <span class="o">+=</span> <span class="n">n</span><span class="p">;</span>
+        <span class="n">bytesleft</span> <span class="o">-=</span> <span class="n">n</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">total</span><span class="p">;</span>
+
+<span class="nl">err:</span>
+
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">"send(2) - error sending data: %s"</span><span class="p">,</span> <span class="n">strerror</span><span class="p">(</span><span class="n">errno</span><span class="p">));</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Receive a given number of bytes on the descriptor fd, storing the stream of
+ * data into a 2 Mb capped buffer
+ */</span>
+<span class="kt">ssize_t</span> <span class="nf">recv_bytes</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">bufsize</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">ssize_t</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kt">ssize_t</span> <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">total</span> <span class="o">&lt;</span> <span class="p">(</span><span class="kt">ssize_t</span><span class="p">)</span> <span class="n">bufsize</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">((</span><span class="n">n</span> <span class="o">=</span> <span class="n">recv</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">bufsize</span> <span class="o">-</span> <span class="n">total</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">errno</span> <span class="o">==</span> <span class="n">EAGAIN</span> <span class="o">||</span> <span class="n">errno</span> <span class="o">==</span> <span class="n">EWOULDBLOCK</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">break</span><span class="p">;</span>
+            <span class="p">}</span> <span class="k">else</span>
+                <span class="k">goto</span> <span class="n">err</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+
+        <span class="n">buf</span> <span class="o">+=</span> <span class="n">n</span><span class="p">;</span>
+        <span class="n">total</span> <span class="o">+=</span> <span class="n">n</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">total</span><span class="p">;</span>
+
+<span class="nl">err:</span>
+
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">"recv(2) - error reading data: %s"</span><span class="p">,</span> <span class="n">strerror</span><span class="p">(</span><span class="n">errno</span><span class="p">));</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<h2 id="basic-closure-system">Basic closure system</h2>
+
+<p>To make more easy and comfortable the usage of the <strong>epoll</strong> API,with this
+project requiring not so complex operations to handle, I’ve built a simple
+abstraction on top of the multiplexing interface to make it possible to
+register callback functions that will be executed on events happening.</p>
+
+<p>There’re a lot of examples of using epoll on the web, the mojority of them just
+show the basic usage, where we register a set of socket descriptors and start a
+loop to monitor them for incoming events, each time a descriptor is ready for
+reading or writing, a function is called to make use of them, which is surely a
+neat implementation, but a bit limitating. The solution I decided to use,
+leverage the union <code class="highlighter-rouge">epoll_data</code>:</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">typedef</span> <span class="k">union</span> <span class="n">epoll_data</span> <span class="p">{</span>
+   <span class="kt">void</span>        <span class="o">*</span><span class="n">ptr</span><span class="p">;</span>
+   <span class="kt">int</span>          <span class="n">fd</span><span class="p">;</span>
+   <span class="kt">uint32_t</span>     <span class="n">u32</span><span class="p">;</span>
+   <span class="kt">uint64_t</span>     <span class="n">u64</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">epoll_data_t</span><span class="p">;</span></code></pre></figure>
+
+<p>As shown, there is a <code class="highlighter-rouge">void *</code>, an int commonly used to store the descriptor we
+were talking about and two integer of different size. I prefered to use a
+custom structure with the descriptor inside and some other context fields,
+specifically a function pointer and its optional arguments. We’ll register a
+pointer to this structure passing it to the pointer <code class="highlighter-rouge">void *ptr</code>. This way,
+every time an event occur, we’ll have access to the very same structure pointer
+we registered, including the file descriptor associated.</p>
+
+<p>There’s two types of callback which can be defined, the common ones, that will
+be triggered with events and the periodic ones, that will be executed
+automatically every tick of time interval defined. So let’s wrap the epoll loop
+into a dedicated structure, we’ll do the same for the callback functions,
+defining a structure with some fields useful for the execution of the
+callback.</p>
+
+<p><strong>Sequential diagram, for each cycle of epoll_wait on incoming events</strong></p>
+
+<p><br /></p>
+<center>
+<a href="/assets/epoll-sequential-c80acb150d100b0a8578be4ec183bd01b162bb59053d394f49d7c8e871d6ffca.png">
+  <img src="/assets/epoll-sequential-c80acb150d100b0a8578be4ec183bd01b162bb59053d394f49d7c8e871d6ffca.png" alt="Epoll sequential diagram" class="zooming" data-rjs="/assets/epoll-sequential-c80acb150d100b0a8578be4ec183bd01b162bb59053d394f49d7c8e871d6ffca.png" data-zooming-width="907" data-zooming-height="229" />
+</a>
+
+</center>
+<p><br /></p>
+
+<p>We’re going to declare two structures and a function pointer:</p>
+
+<ul>
+  <li><strong>struct evloop</strong>, a wrapper around the epoll instance, encapsulating all
+needed properties</li>
+  <li><strong>struct closure</strong> which abstract a callback and a sort of context with
+arguments and a serialized payload of the results</li>
+  <li><strong>void callback(struct evloop *, void *)</strong>, the heart of the <strong>closure</strong>, it’s
+the prototype of the function we’re gonna pass as callback.</li>
+</ul>
+
+<p>Plus, we’ll declare and implement on the .c file some creation, delete and
+managing functions.</p>
+
+<p><strong>src/network.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/* Event loop wrapper structure, define an EPOLL loop and his status. The
+ * EPOLL instance use EPOLLONESHOT for each event and must be re-armed
+ * manually, in order to allow future uses on a multithreaded architecture.
+ */</span>
+<span class="k">struct</span> <span class="n">evloop</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">epollfd</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">max_events</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">timeout</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">status</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">epoll_event</span> <span class="o">*</span><span class="n">events</span><span class="p">;</span>
+    <span class="cm">/* Dynamic array of periodic tasks, a pair descriptor - closure */</span>
+    <span class="kt">int</span> <span class="n">periodic_maxsize</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">periodic_nr</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="p">{</span>
+        <span class="kt">int</span> <span class="n">timerfd</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">closure</span><span class="p">;</span>
+    <span class="p">}</span> <span class="o">**</span><span class="n">periodic_tasks</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">evloop</span><span class="p">;</span>
+
+
+<span class="k">typedef</span> <span class="kt">void</span> <span class="n">callback</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Callback object, represents a callback function with an associated
+ * descriptor if needed, args is a void pointer which can be a structure
+ * pointing to callback parameters and closure_id is a UUID for the closure
+ * itself.
+ * The last two fields are payload, a serialized version of the result of
+ * a callback, ready to be sent through wire and a function pointer to the
+ * callback function to execute.
+ */</span>
+<span class="k">struct</span> <span class="n">closure</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">fd</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">obj</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">args</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">closure_id</span><span class="p">[</span><span class="n">UUID_LEN</span><span class="p">];</span>
+    <span class="k">struct</span> <span class="n">bytestring</span> <span class="o">*</span><span class="n">payload</span><span class="p">;</span>
+    <span class="n">callback</span> <span class="o">*</span><span class="n">call</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">evloop_create</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">evloop_init</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">evloop_free</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Blocks in a while(1) loop awaiting for events to be raised on monitored
+ * file descriptors and executing the paired callback previously registered
+ */</span>
+<span class="kt">int</span> <span class="n">evloop_wait</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Register a closure with a function to be executed every time the
+ * paired descriptor is re-armed.
+ */</span>
+<span class="kt">void</span> <span class="n">evloop_add_callback</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Register a periodic closure with a function to be executed every
+ * defined interval of time.
+ */</span>
+<span class="kt">void</span> <span class="n">evloop_add_periodic_task</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span>
+                              <span class="kt">int</span><span class="p">,</span>
+                              <span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span><span class="p">,</span>
+                              <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Unregister a closure by removing the associated descriptor from the
+ * EPOLL loop
+ */</span>
+<span class="kt">int</span> <span class="n">evloop_del_callback</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Rearm the file descriptor associated with a closure for read action,
+ * making the event loop to monitor the callback for reading events
+ */</span>
+<span class="kt">int</span> <span class="n">evloop_rearm_callback_read</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Rearm the file descriptor associated with a closure for write action,
+ * making the event loop to monitor the callback for writing events
+ */</span>
+<span class="kt">int</span> <span class="n">evloop_rearm_callback_write</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Epoll management functions */</span>
+<span class="kt">int</span> <span class="n">epoll_add</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Modify an epoll-monitored descriptor, automatically set EPOLLONESHOT in
+ * addition to the other flags, which can be EPOLLIN for read and EPOLLOUT for
+ * write
+ */</span>
+<span class="kt">int</span> <span class="n">epoll_mod</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Remove a descriptor from an epoll descriptor, making it no-longer monitored
+ * for events
+ */</span>
+<span class="kt">int</span> <span class="n">epoll_del</span><span class="p">(</span><span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span></code></pre></figure>
+
+<p>After some declarations on the header for network utility we can move on to the
+implementation of the functions.</p>
+
+<p>We start with simple creation, init and deletion of the previously declared
+structure <code class="highlighter-rouge">evloop</code>, consisting in a file descriptor for the epoll loop, a
+number of events to monitor, a timeout in milliseconds that defines the time
+we’ll block the loop, the status of the loop (will probably contain error codes
+for faulting cases) and finally a dynamic array of periodic tasks that will be
+executed.</p>
+
+<p><strong>src/network.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/******************************
+ *         EPOLL APIS         *
+ ******************************/</span>
+
+
+<span class="cp">#define EVLOOP_INITIAL_SIZE 4
+</span>
+
+<span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="nf">evloop_create</span><span class="p">(</span><span class="kt">int</span> <span class="n">max_events</span><span class="p">,</span> <span class="kt">int</span> <span class="n">timeout</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">loop</span><span class="p">));</span>
+
+    <span class="n">evloop_init</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">max_events</span><span class="p">,</span> <span class="n">timeout</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">loop</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">evloop_init</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">,</span> <span class="kt">int</span> <span class="n">max_events</span><span class="p">,</span> <span class="kt">int</span> <span class="n">timeout</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">max_events</span> <span class="o">=</span> <span class="n">max_events</span><span class="p">;</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">events</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">epoll_event</span><span class="p">)</span> <span class="o">*</span> <span class="n">max_events</span><span class="p">);</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">epollfd</span> <span class="o">=</span> <span class="n">epoll_create1</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span><span class="p">;</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_maxsize</span> <span class="o">=</span> <span class="n">EVLOOP_INITIAL_SIZE</span><span class="p">;</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span> <span class="o">=</span>
+        <span class="n">malloc</span><span class="p">(</span><span class="n">EVLOOP_INITIAL_SIZE</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">));</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">evloop_free</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">);</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+        <span class="n">free</span><span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">);</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">loop</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Now, epoll API is extensively documentated on its manpage, but we’ll need 3
+functions to add, remove and modify monitored descriptors and trigger events,
+using EPOLLET flag, in order to use epoll on edge-triggered bhaviour (the
+default one is Level-triggered, see
+<a href="http://man7.org/linux/man-pages/man7/epoll.7.html">manpage</a> and avoid in a
+future multithreaded implementation to wake up all threads at once every time a
+new event is triggered one or more descriptor are ready to read or write, but
+this is another story, also this explained clearly on the man page.</p>
+
+<p><strong>src/network.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">int</span> <span class="nf">epoll_add</span><span class="p">(</span><span class="kt">int</span> <span class="n">efd</span><span class="p">,</span> <span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="kt">int</span> <span class="n">evs</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">epoll_event</span> <span class="n">ev</span><span class="p">;</span>
+    <span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">fd</span><span class="p">;</span>
+
+    <span class="c1">// Being ev.data a union, in case of data != NULL, fd will be set to random</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">data</span><span class="p">;</span>
+
+    <span class="n">ev</span><span class="p">.</span><span class="n">events</span> <span class="o">=</span> <span class="n">evs</span> <span class="o">|</span> <span class="n">EPOLLET</span> <span class="o">|</span> <span class="n">EPOLLONESHOT</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">epoll_ctl</span><span class="p">(</span><span class="n">efd</span><span class="p">,</span> <span class="n">EPOLL_CTL_ADD</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ev</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">epoll_mod</span><span class="p">(</span><span class="kt">int</span> <span class="n">efd</span><span class="p">,</span> <span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="kt">int</span> <span class="n">evs</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">epoll_event</span> <span class="n">ev</span><span class="p">;</span>
+    <span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">fd</span><span class="p">;</span>
+
+    <span class="c1">// Being ev.data a union, in case of data != NULL, fd will be set to random</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">ptr</span> <span class="o">=</span> <span class="n">data</span><span class="p">;</span>
+
+    <span class="n">ev</span><span class="p">.</span><span class="n">events</span> <span class="o">=</span> <span class="n">evs</span> <span class="o">|</span> <span class="n">EPOLLET</span> <span class="o">|</span> <span class="n">EPOLLONESHOT</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">epoll_ctl</span><span class="p">(</span><span class="n">efd</span><span class="p">,</span> <span class="n">EPOLL_CTL_MOD</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ev</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">epoll_del</span><span class="p">(</span><span class="kt">int</span> <span class="n">efd</span><span class="p">,</span> <span class="kt">int</span> <span class="n">fd</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">epoll_ctl</span><span class="p">(</span><span class="n">efd</span><span class="p">,</span> <span class="n">EPOLL_CTL_DEL</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Two things to be noted:</p>
+
+<ul>
+  <li>
+    <p>First, as previously stated, the main structure <code class="highlighter-rouge">epoll_event</code> contains a
+<code class="highlighter-rouge">union epoll_data</code> inside, which accept a file descriptor or a <code class="highlighter-rouge">void *</code>
+pointer. We’ll use the latter, this way we’ll be able to pass around more
+informations and use our custom closure, the file descriptor will be stored
+inside the structure pointed.</p>
+  </li>
+  <li>
+    <p>Second, our add and mod functions accepts as third parameters a set of
+events, mostly EPOLLIN or EPOLLOUT, but they add EPOLLONESHOT to them,
+in other words after an event if fired for a descriptor, that descriptor will
+be disabled, until manually rearmed.<br />
+This way every time an event is triggered, the descriptor must be manually
+rearmed for read or write events.This is done to maintain some degree of
+control on low level events triggering and to left an open door in case of
+future multithreaded implementation, <a href="https://idea.popcount.org/2017-02-20-epoll-is-fundamentally-broken-12/">this great
+article</a>
+explains wonderfully the advantages (or the broken parts) of the epoll and
+why it’s better to use EPOLLONESHOT flag.</p>
+  </li>
+</ul>
+
+<p>We move forward now to implement the basic closure system and the wait loop for
+read and write events, as well as periodic timed callbacks.</p>
+
+<p><strong>src/network.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">void</span> <span class="nf">evloop_add_callback</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">cb</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">epoll_add</span><span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">epollfd</span><span class="p">,</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="n">EPOLLIN</span><span class="p">,</span> <span class="n">cb</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"Epoll register callback: "</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">evloop_add_periodic_task</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">loop</span><span class="p">,</span>
+                              <span class="kt">int</span> <span class="n">seconds</span><span class="p">,</span>
+                              <span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="n">ns</span><span class="p">,</span>
+                              <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">cb</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">itimerspec</span> <span class="n">timervalue</span><span class="p">;</span>
+
+    <span class="kt">int</span> <span class="n">timerfd</span> <span class="o">=</span> <span class="n">timerfd_create</span><span class="p">(</span><span class="n">CLOCK_MONOTONIC</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+
+    <span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">timervalue</span><span class="p">,</span> <span class="mh">0x00</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">timervalue</span><span class="p">));</span>
+
+    <span class="c1">// Set initial expire time and periodic interval</span>
+    <span class="n">timervalue</span><span class="p">.</span><span class="n">it_value</span><span class="p">.</span><span class="n">tv_sec</span> <span class="o">=</span> <span class="n">seconds</span><span class="p">;</span>
+    <span class="n">timervalue</span><span class="p">.</span><span class="n">it_value</span><span class="p">.</span><span class="n">tv_nsec</span> <span class="o">=</span> <span class="n">ns</span><span class="p">;</span>
+    <span class="n">timervalue</span><span class="p">.</span><span class="n">it_interval</span><span class="p">.</span><span class="n">tv_sec</span> <span class="o">=</span> <span class="n">seconds</span><span class="p">;</span>
+    <span class="n">timervalue</span><span class="p">.</span><span class="n">it_interval</span><span class="p">.</span><span class="n">tv_nsec</span> <span class="o">=</span> <span class="n">ns</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">timerfd_settime</span><span class="p">(</span><span class="n">timerfd</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">timervalue</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"timerfd_settime"</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Add the timer to the event loop</span>
+    <span class="k">struct</span> <span class="n">epoll_event</span> <span class="n">ev</span><span class="p">;</span>
+    <span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span> <span class="o">=</span> <span class="n">timerfd</span><span class="p">;</span>
+    <span class="n">ev</span><span class="p">.</span><span class="n">events</span> <span class="o">=</span> <span class="n">EPOLLIN</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">epoll_ctl</span><span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">epollfd</span><span class="p">,</span> <span class="n">EPOLL_CTL_ADD</span><span class="p">,</span> <span class="n">timerfd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ev</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">perror</span><span class="p">(</span><span class="s">"epoll_ctl(2): EPOLLIN"</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Store it into the event loop */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_maxsize</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_maxsize</span> <span class="o">*=</span> <span class="mi">2</span><span class="p">;</span>
+        <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span> <span class="o">=</span>
+            <span class="n">realloc</span><span class="p">(</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">,</span>
+                    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_maxsize</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">));</span>
+    <span class="p">}</span>
+
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">[</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span><span class="p">]</span> <span class="o">=</span>
+        <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">[</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span><span class="p">]));</span>
+
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">[</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">closure</span> <span class="o">=</span> <span class="n">cb</span><span class="p">;</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">[</span><span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">timerfd</span> <span class="o">=</span> <span class="n">timerfd</span><span class="p">;</span>
+    <span class="n">loop</span><span class="o">-&gt;</span><span class="n">periodic_nr</span><span class="o">++</span><span class="p">;</span>
+
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">evloop_wait</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">el</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">int</span> <span class="n">rc</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">events</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="kt">long</span> <span class="kt">int</span> <span class="n">timer</span> <span class="o">=</span> <span class="mi">0L</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">periodic_done</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">events</span> <span class="o">=</span> <span class="n">epoll_wait</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">epollfd</span><span class="p">,</span> <span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">,</span>
+                            <span class="n">el</span><span class="o">-&gt;</span><span class="n">max_events</span><span class="p">,</span> <span class="n">el</span><span class="o">-&gt;</span><span class="n">timeout</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">events</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+
+            <span class="cm">/* Signals to all threads. Ignore it for now */</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">errno</span> <span class="o">==</span> <span class="n">EINTR</span><span class="p">)</span>
+                <span class="k">continue</span><span class="p">;</span>
+
+            <span class="cm">/* Error occured, break the loop */</span>
+            <span class="n">rc</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+            <span class="n">el</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">=</span> <span class="n">errno</span><span class="p">;</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">events</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+            <span class="cm">/* Check for errors */</span>
+            <span class="k">if</span> <span class="p">((</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">EPOLLERR</span><span class="p">)</span> <span class="o">||</span>
+                <span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">EPOLLHUP</span><span class="p">)</span> <span class="o">||</span>
+                <span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">EPOLLIN</span><span class="p">)</span> <span class="o">&amp;&amp;</span>
+                 <span class="o">!</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">events</span> <span class="o">&amp;</span> <span class="n">EPOLLOUT</span><span class="p">)))</span> <span class="p">{</span>
+
+                <span class="cm">/* An error has occured on this fd, or the socket is not
+                   ready for reading, closing connection */</span>
+                <span class="n">perror</span> <span class="p">(</span><span class="s">"epoll_wait(2)"</span><span class="p">);</span>
+                <span class="n">shutdown</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+                <span class="n">close</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span><span class="p">);</span>
+                <span class="n">el</span><span class="o">-&gt;</span><span class="n">status</span> <span class="o">=</span> <span class="n">errno</span><span class="p">;</span>
+                <span class="k">continue</span><span class="p">;</span>
+            <span class="p">}</span>
+
+            <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">closure</span> <span class="o">=</span> <span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">data</span><span class="p">.</span><span class="n">ptr</span><span class="p">;</span>
+            <span class="n">periodic_done</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+            <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">el</span><span class="o">-&gt;</span><span class="n">periodic_nr</span> <span class="o">&amp;&amp;</span> <span class="n">periodic_done</span> <span class="o">==</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span> <span class="o">==</span> <span class="n">el</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">timerfd</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">c</span> <span class="o">=</span> <span class="n">el</span><span class="o">-&gt;</span><span class="n">periodic_tasks</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">closure</span><span class="p">;</span>
+                    <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="n">read</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">events</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">data</span><span class="p">.</span><span class="n">fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">timer</span><span class="p">,</span> <span class="mi">8</span><span class="p">);</span>
+                    <span class="n">c</span><span class="o">-&gt;</span><span class="n">call</span><span class="p">(</span><span class="n">el</span><span class="p">,</span> <span class="n">c</span><span class="o">-&gt;</span><span class="n">args</span><span class="p">);</span>
+                    <span class="n">periodic_done</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">periodic_done</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="k">continue</span><span class="p">;</span>
+
+            <span class="cm">/* No error events, proceed to run callback */</span>
+            <span class="n">closure</span><span class="o">-&gt;</span><span class="n">call</span><span class="p">(</span><span class="n">el</span><span class="p">,</span> <span class="n">closure</span><span class="o">-&gt;</span><span class="n">args</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">rc</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">evloop_rearm_callback_read</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">el</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">cb</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">epoll_mod</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">epollfd</span><span class="p">,</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="n">EPOLLIN</span><span class="p">,</span> <span class="n">cb</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">evloop_rearm_callback_write</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">el</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">cb</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">epoll_mod</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">epollfd</span><span class="p">,</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">,</span> <span class="n">EPOLLOUT</span><span class="p">,</span> <span class="n">cb</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">evloop_del_callback</span><span class="p">(</span><span class="k">struct</span> <span class="n">evloop</span> <span class="o">*</span><span class="n">el</span><span class="p">,</span> <span class="k">struct</span> <span class="n">closure</span> <span class="o">*</span><span class="n">cb</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">epoll_del</span><span class="p">(</span><span class="n">el</span><span class="o">-&gt;</span><span class="n">epollfd</span><span class="p">,</span> <span class="n">cb</span><span class="o">-&gt;</span><span class="n">fd</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Of all defined functions, <code class="highlighter-rouge">evloop_wait</code> is the most interesting, start an
+<code class="highlighter-rouge">epoll_wait</code> loop and after error check, it proceeds to apply the callback
+registered with that fd, differentiating from periodic task auto-triggered on
+time-basis or normal callback for read/write events.</p>
+
+<p>The codebase is growing, we have added another module, currently it should look
+like this:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">sol/
+ ├── src/
+ │    ├── mqtt.h
+ |    ├── mqtt.c
+ │    ├── network.h
+ │    ├── network.c
+ │    ├── pack.h
+ │    └── pack.c
+ ├── CHANGELOG
+ ├── CMakeLists.txt
+ ├── COPYING
+ └── README.md</code></pre></figure>
+
+<p>The <a href="sol-mqtt-broker-p3">part 3</a> awaits for implementation of the server module.</p>
+
+          </div>
+          <div class="article-share">
+            
+            
+            <a href="https://twitter.com/home?status=Sol+-+An+MQTT+broker+from+scratch.+Part+2+-+Networking%20-%20/posts/sol-mqtt-broker-p2" title="Share on Twitter" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M492 109.5c-17.4 7.7-36 12.9-55.6 15.3 20-12 35.4-31 42.6-53.6 -18.7 11.1-39.4 19.2-61.5 23.5C399.8 75.8 374.6 64 346.8 64c-53.5 0-96.8 43.4-96.8 96.9 0 7.6 0.8 15 2.5 22.1 -80.5-4-151.9-42.6-199.6-101.3 -8.3 14.3-13.1 31-13.1 48.7 0 33.6 17.2 63.3 43.2 80.7C67 210.7 52 206.3 39 199c0 0.4 0 0.8 0 1.2 0 47 33.4 86.1 77.7 95 -8.1 2.2-16.7 3.4-25.5 3.4 -6.2 0-12.3-0.6-18.2-1.8 12.3 38.5 48.1 66.5 90.5 67.3 -33.1 26-74.9 41.5-120.3 41.5 -7.8 0-15.5-0.5-23.1-1.4C62.8 432 113.7 448 168.3 448 346.6 448 444 300.3 444 172.2c0-4.2-0.1-8.4-0.3-12.5C462.6 146 479 129 492 109.5z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=/posts/sol-mqtt-broker-p2" title="Share on Facebook" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M288 192v-38.1c0-17.2 3.8-25.9 30.5-25.9H352V64h-55.9c-68.5 0-91.1 31.4-91.1 85.3V192h-45v64h45v192h83V256h56.4l7.6-64H288z"/></svg>
+            </a>
+            <a href="https://plus.google.com/share?url=/posts/sol-mqtt-broker-p2" title="Share on Google+" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 128 128"><path d="M40.7 55.9v16.1c0 0 15.6 0 22 0C59.2 82.5 53.8 88.2 40.7 88.2c-13.3 0-23.7-10.8-23.7-24.2s10.4-24.2 23.7-24.2c7.1 0 11.6 2.5 15.8 5.9 3.3-3.3 3.1-3.8 11.6-11.9 -7.2-6.6-16.8-10.6-27.4-10.6C18.2 23.3 0 41.5 0 64c0 22.5 18.2 40.7 40.7 40.7 33.6 0 41.8-29.3 39-48.8H40.7zM113.9 56.7V42.6h-10.1v14.1H89.4v10.1h14.5v14.5h10.1V66.8H128V56.7H113.9z"/></svg>
+            </a>
+          </div>
+
+          
+        </article>
+        <footer class="footer scrollappear">
+<p>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+<p>Powered by Jekyll.</p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+
+<script type="text/javascript" src="/assets/vendor-c7660858f86a434b413963ad66674aac04cdf9b172bee75278aa23e144569dde.js"></script>
+
+
+  <script type="text/javascript" src="/assets/webfonts-1d924df3a4c7364cfb23aab219296b7f778337c69c1e9fb531894165a1abcece.js"></script>
+
+
+
+  <script type="text/javascript" src="/assets/scrollappear-e2da8ea567e418637e31266cc5302126eaa79f62a2273739086358b589a89ee6.js"></script>
+
+
+<script type="text/javascript" src="/assets/application-cfde13ac81ddaf4351b2e739603e2baf688d0fcc9aba613fe62bbb1c7b037fb9.js"></script>
+
+</body>
+</html>

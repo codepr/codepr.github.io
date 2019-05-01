@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Ordinary thoughts | Sol - An MQTT broker from scratch. Part 4 - Data structures</title>
+  <meta name="description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Sol - An MQTT broker from scratch. Part 4 - Data structures">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/posts/sol-mqtt-broker-p4">
+  <meta property="og:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta property="og:site_name" content="Ordinary thoughts">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="/posts/sol-mqtt-broker-p4">
+  <meta name="twitter:title" content="Sol - An MQTT broker from scratch. Part 4 - Data structures">
+  <meta name="twitter:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+
+  
+    <meta property="og:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+    <meta name="twitter:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+  
+
+  <link href="/feed.xml" type="application/rss+xml" rel="alternate" title="Ordinary thoughts Last 10 blog posts" />
+
+  
+
+  
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-light-a98c41efc5ed9fcc06ac664c9e2f7a9b3c3b2e0a52357d221fe382f6f4abc8fc.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon-light-87d1f2a3a19b1500e5c1626a0492025ca5f7f97d24540dc5900288e92112925a.png">
+    <link rel="stylesheet" type="text/css" href="/assets/light-273261f5acf40d5e75642b11aff49ad206e80876a27b830f96aa43304000296d.css">
+  
+</head>
+
+<body>
+  <main>
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav scrollappear">
+  <ul class="header-links">
+    
+    <li>
+        <a href="/projects" title="Projects">
+            Projects
+        </a>
+    </li>
+    
+    
+      <li>
+        <a href="/about" title="About me">
+            Resume
+        </a>
+      </li>
+    
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/codepr" rel="noreferrer noopener" target="_blank" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-github">
+  <use href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github" xlink:href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      <li>
+        <a href="mailto:a.g.baldan@gmail.com" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-email">
+  <use href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email" xlink:href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+  </ul>
+  <a href="/" class="header-logo" title="Ordinary thoughts">Ordinary thoughts
+      <p class='subtitle'>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+  </a>
+
+
+</nav>
+
+        <article class="article scrollappear">
+          <header class="article-header">
+            <h1>Sol - An MQTT broker from scratch. Part 4 - Data structures</h1>
+            <p>Writing an MQTT broker from scratch, to really understand something you have to build it.</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                March 7, 2019
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  27 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+                  <a href="/tag/c">c</a>
+                
+                  <a href="/tag/unix">unix</a>
+                
+                  <a href="/tag/tutorial">tutorial</a>
+                
+                  <a href="/tag/structures">structures</a>
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <p>Before proceeding to the implementation of all command handlers, we’re going to
+design and implement some of the most common data structures needed to the
+correct functioning of the server, namely <strong>hashtable</strong>, <strong>list</strong> and a <strong>trie</strong>.
+The last one, being not strictly necessary at this point of the development,
+will be crucial to manage the abstraction named <strong>topic</strong>.</p>
+
+<p>Maybe all these data structures are a bit of an overkill for such a low-size
+project, but I like to have generic containers and data structures available
+when I start a project longer than a bunch of lines, for convenience and for
+future increments and implementations where they could make it handy to add
+new features. And of course, there’s the learning and exploration side of
+this activity which I found very valuable.</p>
+
+<p>Let’s start with a simple hashtable, essentially an array that uses a hashing
+function to obtain a valid index to store our information, trying to minimize
+the collisions (e.g. keys that compute to the same hash) as much as possible.</p>
+
+<p><br /></p>
+<center>
+<a href="/assets/hashtable-1804dbe79ddce515804a9ead4102ff38472e5ade33f6f4c9a4f9f5ccce8919b9.png">
+  <img src="/assets/hashtable-1804dbe79ddce515804a9ead4102ff38472e5ade33f6f4c9a4f9f5ccce8919b9.png" alt="Hashtable representation" class="zooming" data-rjs="/assets/hashtable-1804dbe79ddce515804a9ead4102ff38472e5ade33f6f4c9a4f9f5ccce8919b9.png" data-zooming-width="809" data-zooming-height="330" />
+</a>
+
+</center>
+<p><br /></p>
+
+<p>Buckets is the array, usually dynamic, which will store the information
+associated to the keys.</p>
+
+<p><strong>src/hashtable.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef HASHTABLE_H
+#define HASHTABLE_H
+</span>
+
+<span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;stdbool.h&gt;
+</span>
+
+<span class="cp">#define HASHTABLE_OK   0
+#define HASHTABLE_ERR  1
+#define HASHTABLE_OOM  2
+#define HASHTABLE_FULL 3
+</span>
+
+<span class="cm">/* We need to keep keys and values */</span>
+<span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="p">{</span>
+    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">val</span><span class="p">;</span>
+    <span class="n">bool</span> <span class="n">taken</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="cm">/*
+ * An HashTable has some maximum size and current size, as well as the data to
+ * hold.
+ */</span>
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">hashtable</span> <span class="n">HashTable</span><span class="p">;</span>
+
+<span class="cm">/*
+ * HashTable API to create a new `HashTable`, it require a function pointer to
+ * define a custom destructor, which can be NULL in case of bytes stream or
+ * simple pointers as values
+ */</span>
+<span class="n">HashTable</span> <span class="o">*</span><span class="n">hashtable_create</span><span class="p">(</span><span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">destructor</span><span class="p">)(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="p">));</span>
+
+<span class="cm">/* Destroy the hashtable by calling functor `destructor` on every
+ * `struct hashtable_entry`, thus it needs to have a defined destructor function
+ * for each different data-type inserted. In case of a NULL destructor, it' ll call
+ * normal free.
+ */</span>
+<span class="kt">void</span> <span class="n">hashtable_release</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Return hashtable size */</span>
+<span class="kt">size_t</span> <span class="n">hashtable_size</span><span class="p">(</span><span class="k">const</span> <span class="n">HashTable</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Check if a key is already stored in the hashtable */</span>
+<span class="kt">int</span> <span class="n">hashtable_exists</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Insert a new key-value pair into the hashtable, accept a const char * as
+ * key and a void * for value
+ */</span>
+<span class="kt">int</span> <span class="n">hashtable_put</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Retrieve a value from the hashtable, accept a const char * as key. */</span>
+<span class="kt">void</span> <span class="o">*</span><span class="n">hashtable_get</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Remove a key-value pair from the hashtable, accept a const char * as key. */</span>
+<span class="kt">int</span> <span class="n">hashtable_del</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Iterate through all key-value pairs in the hashtable, accept a functor as
+ * parameter to apply function to each pair
+ */</span>
+<span class="kt">int</span> <span class="n">hashtable_map</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="p">,</span> <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">func</span><span class="p">)(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="p">));</span>
+
+<span class="cm">/*
+ * Iterate through all key-value pairs in the hashtable, accept a functor as
+ * parameter to apply function to each pair with an additional parameter
+ */</span>
+<span class="kt">int</span> <span class="n">hashtable_map2</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="p">,</span>
+        <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">func</span><span class="p">)(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">),</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p>We define some sort of encapsulation by defining the structure in the source
+file instead od the header, this way it will be only accessible through
+functions (like methods in a class).</p>
+
+<p><strong>src/hashtable.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;assert.h&gt;
+#include "util.h"
+#include "hashtable.h"
+</span>
+<span class="cm">/* Hashtable definition */</span>
+<span class="k">struct</span> <span class="n">hashtable</span> <span class="p">{</span>
+    <span class="kt">size_t</span> <span class="n">table_size</span><span class="p">;</span>
+    <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">destructor</span><span class="p">)(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="p">);</span>
+    <span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="n">entries</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="k">const</span> <span class="kt">int</span> <span class="n">INITIAL_SIZE</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
+
+<span class="k">const</span> <span class="kt">int</span> <span class="n">MAX_CHAIN_LENGTH</span> <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>
+
+<span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">KNUTH_PRIME</span> <span class="o">=</span> <span class="mi">2654435761</span><span class="p">;</span>
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">crc32</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Hashing function for a string
+ */</span>
+<span class="k">static</span> <span class="kt">uint64_t</span> <span class="nf">hashtable_hash_int</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">m</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">keystr</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">m</span> <span class="o">&amp;&amp;</span> <span class="n">keystr</span><span class="p">);</span>
+
+    <span class="kt">uint64_t</span> <span class="n">key</span> <span class="o">=</span> <span class="n">crc32</span><span class="p">(</span><span class="n">keystr</span><span class="p">,</span> <span class="n">strlen</span><span class="p">((</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">keystr</span><span class="p">));</span>
+
+    <span class="cm">/* Robert Jenkins' 32 bit Mix Function */</span>
+    <span class="n">key</span> <span class="o">+=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&lt;&lt;</span> <span class="mi">12</span><span class="p">);</span>
+    <span class="n">key</span> <span class="o">^=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&gt;&gt;</span> <span class="mi">22</span><span class="p">);</span>
+    <span class="n">key</span> <span class="o">+=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&lt;&lt;</span> <span class="mi">4</span><span class="p">);</span>
+    <span class="n">key</span> <span class="o">^=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&gt;&gt;</span> <span class="mi">9</span><span class="p">);</span>
+    <span class="n">key</span> <span class="o">+=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&lt;&lt;</span> <span class="mi">10</span><span class="p">);</span>
+    <span class="n">key</span> <span class="o">^=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&gt;&gt;</span> <span class="mi">2</span><span class="p">);</span>
+    <span class="n">key</span> <span class="o">+=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&lt;&lt;</span> <span class="mi">7</span><span class="p">);</span>
+    <span class="n">key</span> <span class="o">^=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&gt;&gt;</span> <span class="mi">12</span><span class="p">);</span>
+
+    <span class="cm">/* Knuth's Multiplicative Method */</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">key</span> <span class="o">&gt;&gt;</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">KNUTH_PRIME</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">key</span> <span class="o">%</span> <span class="n">m</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Return the integer of the location in entries to store the point to the item
+ * or -HASHTABLE_FULL.
+ */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">hashtable_hash</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">,</span> <span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">table</span> <span class="o">&amp;&amp;</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="cm">/* If full, return immediately */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_FULL</span><span class="p">;</span>
+
+    <span class="cm">/* Find the best index */</span>
+    <span class="kt">uint64_t</span> <span class="n">curr</span> <span class="o">=</span> <span class="n">hashtable_hash_int</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">key</span><span class="p">);</span>
+    <span class="kt">char</span> <span class="o">*</span><span class="n">k</span><span class="p">,</span> <span class="o">*</span><span class="n">currk</span><span class="p">;</span>
+
+    <span class="cm">/* Linear probing */</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">MAX_CHAIN_LENGTH</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">false</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">curr</span><span class="p">;</span>
+
+        <span class="n">k</span> <span class="o">=</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">key</span><span class="p">;</span>
+        <span class="n">currk</span> <span class="o">=</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">key</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">true</span> <span class="o">&amp;&amp;</span>
+            <span class="n">STREQ</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">currk</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">k</span><span class="p">))</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">curr</span><span class="p">;</span>
+
+        <span class="n">curr</span> <span class="o">=</span> <span class="p">(</span><span class="n">curr</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_FULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Doubles the size of the hashtable, and rehashes all the elements
+ */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">hashtable_rehash</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">table</span><span class="p">);</span>
+
+    <span class="kt">size_t</span> <span class="n">old_size</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="n">curr</span><span class="p">;</span>
+
+    <span class="cm">/* Setup the new elements */</span>
+    <span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="n">temp</span> <span class="o">=</span>
+        <span class="n">calloc</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">temp</span><span class="p">));</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">temp</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_ERR</span><span class="p">;</span>
+
+    <span class="cm">/* Update the array */</span>
+    <span class="n">curr</span> <span class="o">=</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">;</span>
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span> <span class="o">=</span> <span class="n">temp</span><span class="p">;</span>
+
+    <span class="cm">/* Update the size */</span>
+    <span class="n">old_size</span> <span class="o">=</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span>
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span>
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="kt">int</span> <span class="n">status</span><span class="p">;</span>
+
+    <span class="cm">/* Rehash the elements */</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">old_size</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">curr</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">false</span><span class="p">)</span>
+            <span class="k">continue</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">((</span><span class="n">status</span> <span class="o">=</span> <span class="n">hashtable_put</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">curr</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">key</span><span class="p">,</span>
+                                    <span class="n">curr</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">val</span><span class="p">))</span> <span class="o">!=</span> <span class="n">HASHTABLE_OK</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">status</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">curr</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">HASHTABLE_OK</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/* callback function used with iterate to clean up the hashtable */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">destroy_entry</span><span class="p">(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="n">entry</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">entry</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_ERR</span><span class="p">;</span>
+
+    <span class="c1">// free key field</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">entry</span><span class="o">-&gt;</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">free</span><span class="p">((</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span> <span class="n">entry</span><span class="o">-&gt;</span><span class="n">key</span><span class="p">);</span>
+
+    <span class="c1">// free value field</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">entry</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">)</span>
+        <span class="n">free</span><span class="p">(</span><span class="n">entry</span><span class="o">-&gt;</span><span class="n">val</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">HASHTABLE_OK</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="cm">/*
+ * Return an empty hashtable, or NULL on failure. The newly create HashTable is
+ * dynamically allocated on the heap memory, so it must be released manually.
+ */</span>
+<span class="n">HashTable</span> <span class="o">*</span><span class="nf">hashtable_create</span><span class="p">(</span><span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">destructor</span><span class="p">)(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="p">))</span> <span class="p">{</span>
+
+    <span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">HashTable</span><span class="p">));</span>
+    <span class="k">if</span><span class="p">(</span><span class="o">!</span><span class="n">table</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span> <span class="o">=</span> <span class="n">calloc</span><span class="p">(</span><span class="n">INITIAL_SIZE</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">hashtable_entry</span><span class="p">));</span>
+    <span class="k">if</span><span class="p">(</span><span class="o">!</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">hashtable_release</span><span class="p">(</span><span class="n">table</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">destructor</span> <span class="o">=</span> <span class="n">destructor</span> <span class="o">?</span> <span class="n">destructor</span> <span class="o">:</span> <span class="n">destroy_entry</span><span class="p">;</span>
+
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span> <span class="o">=</span> <span class="n">INITIAL_SIZE</span><span class="p">;</span>
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">table</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">size_t</span> <span class="nf">hashtable_size</span><span class="p">(</span><span class="k">const</span> <span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">int</span> <span class="nf">hashtable_exists</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">ret</span> <span class="o">=</span> <span class="n">hashtable_get</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">key</span><span class="p">);</span>
+    <span class="k">return</span> <span class="o">!</span><span class="n">ret</span> <span class="o">?</span> <span class="mi">0</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/* Add a new key-value pair into the hashtable entries array, use chaining in
+   case of collision. */</span>
+<span class="kt">int</span> <span class="nf">hashtable_put</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">val</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">table</span> <span class="o">&amp;&amp;</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="cm">/* Find a place to put our value */</span>
+    <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">hashtable_hash</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">)</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">index</span> <span class="o">==</span> <span class="o">-</span><span class="n">HASHTABLE_FULL</span><span class="p">){</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">hashtable_rehash</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="n">HASHTABLE_ERR</span><span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_ERR</span><span class="p">;</span>
+
+        <span class="n">index</span> <span class="o">=</span> <span class="n">hashtable_hash</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">)</span> <span class="n">key</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Set the entries */</span>
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">val</span> <span class="o">=</span> <span class="n">val</span><span class="p">;</span>
+    <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="p">;</span>
+
+    <span class="cm">/* Update taken flag, if it was false, update the size also */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">false</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">taken</span> <span class="o">=</span> <span class="nb">true</span><span class="p">;</span>
+        <span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">HASHTABLE_OK</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="cm">/*
+ * Get the value void pointer out of the hashtable associated to a key
+ */</span>
+<span class="kt">void</span> <span class="o">*</span><span class="nf">hashtable_get</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">table</span> <span class="o">&amp;&amp;</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="cm">/* Find data location */</span>
+    <span class="kt">uint64_t</span> <span class="n">curr</span> <span class="o">=</span> <span class="n">hashtable_hash_int</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">)</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="cm">/* Linear probing, if necessary */</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">MAX_CHAIN_LENGTH</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">){</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">STREQ</span><span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">key</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">key</span><span class="p">))</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">val</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="n">curr</span> <span class="o">=</span> <span class="p">(</span><span class="n">curr</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Not found */</span>
+    <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Remove an element with that key from the hashtable
+ */</span>
+<span class="kt">int</span> <span class="nf">hashtable_del</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">table</span> <span class="o">&amp;&amp;</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="cm">/* Find key */</span>
+    <span class="kt">uint64_t</span> <span class="n">curr</span> <span class="o">=</span> <span class="n">hashtable_hash_int</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">)</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="cm">/* Linear probing, if necessary */</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">MAX_CHAIN_LENGTH</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="c1">// check wether the position in array is in use</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">STREQ</span><span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">key</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">key</span><span class="p">))</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+
+                <span class="cm">/* Blank out the fields */</span>
+                <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">].</span><span class="n">taken</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+
+                <span class="cm">/* Reduce the size */</span>
+                <span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span><span class="o">--</span><span class="p">;</span>
+
+                <span class="cm">/* Destroy the entry */</span>
+                <span class="n">table</span><span class="o">-&gt;</span><span class="n">destructor</span><span class="p">(</span><span class="o">&amp;</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">curr</span><span class="p">]);</span>
+
+                <span class="k">return</span> <span class="n">HASHTABLE_OK</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+
+        <span class="n">curr</span> <span class="o">=</span> <span class="p">(</span><span class="n">curr</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Data not found */</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_ERR</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Iterate the function parameter over each element in the hashmap. The unique
+ * void * argument is passed to the function as its first argument,
+ * representing the key-value pair structure.
+ */</span>
+<span class="kt">int</span> <span class="nf">hashtable_map</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">,</span> <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">func</span><span class="p">)(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="p">))</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">func</span><span class="p">);</span>
+
+    <span class="cm">/* On empty hashmap, return immediately */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">table</span> <span class="o">||</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_ERR</span><span class="p">;</span>
+
+    <span class="cm">/* Linear probing */</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+
+            <span class="cm">/* Apply function to the key-value entry */</span>
+            <span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="n">data</span> <span class="o">=</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+            <span class="kt">int</span> <span class="n">status</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">&amp;</span><span class="n">data</span><span class="p">);</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">status</span> <span class="o">!=</span> <span class="n">HASHTABLE_OK</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">status</span><span class="p">;</span>
+
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">HASHTABLE_OK</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Iterate through all key-value pairs in the hashtable, accept a functor as
+ * parameter to apply function to each pair with an additional parameter
+ */</span>
+<span class="kt">int</span> <span class="nf">hashtable_map2</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">,</span>
+                   <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">func</span><span class="p">)(</span><span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">),</span>
+                   <span class="kt">void</span> <span class="o">*</span><span class="n">param</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">func</span><span class="p">);</span>
+
+    <span class="cm">/* On empty hashmap, return immediately */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">table</span> <span class="o">||</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">HASHTABLE_ERR</span><span class="p">;</span>
+
+    <span class="cm">/* Linear probing */</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">table_size</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">taken</span> <span class="o">==</span> <span class="nb">true</span><span class="p">)</span> <span class="p">{</span>
+
+            <span class="cm">/* Apply function to the key-value entry */</span>
+            <span class="k">struct</span> <span class="n">hashtable_entry</span> <span class="n">data</span> <span class="o">=</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+            <span class="kt">int</span> <span class="n">status</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">&amp;</span><span class="n">data</span><span class="p">,</span> <span class="n">param</span><span class="p">);</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">status</span> <span class="o">!=</span> <span class="n">HASHTABLE_OK</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">status</span><span class="p">;</span>
+
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">HASHTABLE_OK</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Deallocate the hashtable using the defined destructor, if the destructor is
+ * NULL it call normal free on key-value pairs.
+ */</span>
+<span class="kt">void</span> <span class="n">hashtable_release</span><span class="p">(</span><span class="n">HashTable</span> <span class="o">*</span><span class="n">table</span><span class="p">){</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">table</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="n">hashtable_map</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">table</span><span class="o">-&gt;</span><span class="n">destructor</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">table</span> <span class="o">||</span> <span class="o">!</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">table</span><span class="o">-&gt;</span><span class="n">entries</span><span class="p">);</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">table</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cm">/* The implementation here was originally done by Gary S. Brown. Slighltly
+ * modified by Pete Warden, without any imposition on the reuse of the code.
+ */</span>
+
+<span class="cm">/* ============================================================= */</span>
+<span class="cm">/*  COPYRIGHT (C) 1986 Gary S. Brown.  You may use this program, or       */</span>
+<span class="cm">/*  code or tables extracted from it, as desired without restriction.     */</span>
+<span class="cm">/*                                                                        */</span>
+<span class="cm">/*  First, the polynomial itself and its table of feedback terms.  The    */</span>
+<span class="cm">/*  polynomial is                                                         */</span>
+<span class="cm">/*  X^32+X^26+X^23+X^22+X^16+X^12+X^11+X^10+X^8+X^7+X^5+X^4+X^2+X^1+X^0   */</span>
+<span class="cm">/*                                                                        */</span>
+<span class="cm">/*  Note that we take it "backwards" and put the highest-order term in    */</span>
+<span class="cm">/*  the lowest-order bit.  The X^32 term is "implied"; the LSB is the     */</span>
+<span class="cm">/*  X^31 term, etc.  The X^0 term (usually shown as "+1") results in      */</span>
+<span class="cm">/*  the MSB being 1.                                                      */</span>
+<span class="cm">/*                                                                        */</span>
+<span class="cm">/*  Note that the usual hardware shift register implementation, which     */</span>
+<span class="cm">/*  is what we're using (we're merely optimizing it by doing eight-bit    */</span>
+<span class="cm">/*  chunks at a time) shifts bits into the lowest-order term.  In our     */</span>
+<span class="cm">/*  implementation, that means shifting towards the right.  Why do we     */</span>
+<span class="cm">/*  do it this way?  Because the calculated CRC must be transmitted in    */</span>
+<span class="cm">/*  order from highest-order term to lowest-order term.  UARTs transmit   */</span>
+<span class="cm">/*  characters in order from LSB to MSB.  By storing the CRC this way,    */</span>
+<span class="cm">/*  we hand it to the UART in the order low-byte to high-byte; the UART   */</span>
+<span class="cm">/*  sends each low-bit to hight-bit; and the result is transmission bit   */</span>
+<span class="cm">/*  by bit from highest- to lowest-order term without requiring any bit   */</span>
+<span class="cm">/*  shuffling on our part.  Reception works similarly.                    */</span>
+<span class="cm">/*                                                                        */</span>
+<span class="cm">/*  The feedback terms table consists of 256, 32-bit entries.  Notes:     */</span>
+<span class="cm">/*                                                                        */</span>
+<span class="cm">/*      The table can be generated at runtime if desired; code to do so   */</span>
+<span class="cm">/*      is shown later.  It might not be obvious, but the feedback        */</span>
+<span class="cm">/*      terms simply represent the results of eight shift/xor opera-      */</span>
+<span class="cm">/*      tions for all combinations of data and CRC register values.       */</span>
+<span class="cm">/*                                                                        */</span>
+<span class="cm">/*      The values must be right-shifted by eight bits by the "updcrc"    */</span>
+<span class="cm">/*      logic; the shift must be unsigned (bring in zeroes).  On some     */</span>
+<span class="cm">/*      hardware you could probably optimize the shift in assembler by    */</span>
+<span class="cm">/*      using byte-swap instructions.                                     */</span>
+<span class="cm">/*      polynomial $edb88320                                              */</span>
+<span class="cm">/*                                                                        */</span>
+<span class="cm">/*  --------------------------------------------------------------------  */</span>
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">crc32_tab</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="mh">0x00000000L</span><span class="p">,</span> <span class="mh">0x77073096L</span><span class="p">,</span> <span class="mh">0xee0e612cL</span><span class="p">,</span> <span class="mh">0x990951baL</span><span class="p">,</span> <span class="mh">0x076dc419L</span><span class="p">,</span>
+    <span class="mh">0x706af48fL</span><span class="p">,</span> <span class="mh">0xe963a535L</span><span class="p">,</span> <span class="mh">0x9e6495a3L</span><span class="p">,</span> <span class="mh">0x0edb8832L</span><span class="p">,</span> <span class="mh">0x79dcb8a4L</span><span class="p">,</span>
+    <span class="mh">0xe0d5e91eL</span><span class="p">,</span> <span class="mh">0x97d2d988L</span><span class="p">,</span> <span class="mh">0x09b64c2bL</span><span class="p">,</span> <span class="mh">0x7eb17cbdL</span><span class="p">,</span> <span class="mh">0xe7b82d07L</span><span class="p">,</span>
+    <span class="mh">0x90bf1d91L</span><span class="p">,</span> <span class="mh">0x1db71064L</span><span class="p">,</span> <span class="mh">0x6ab020f2L</span><span class="p">,</span> <span class="mh">0xf3b97148L</span><span class="p">,</span> <span class="mh">0x84be41deL</span><span class="p">,</span>
+    <span class="mh">0x1adad47dL</span><span class="p">,</span> <span class="mh">0x6ddde4ebL</span><span class="p">,</span> <span class="mh">0xf4d4b551L</span><span class="p">,</span> <span class="mh">0x83d385c7L</span><span class="p">,</span> <span class="mh">0x136c9856L</span><span class="p">,</span>
+    <span class="mh">0x646ba8c0L</span><span class="p">,</span> <span class="mh">0xfd62f97aL</span><span class="p">,</span> <span class="mh">0x8a65c9ecL</span><span class="p">,</span> <span class="mh">0x14015c4fL</span><span class="p">,</span> <span class="mh">0x63066cd9L</span><span class="p">,</span>
+    <span class="mh">0xfa0f3d63L</span><span class="p">,</span> <span class="mh">0x8d080df5L</span><span class="p">,</span> <span class="mh">0x3b6e20c8L</span><span class="p">,</span> <span class="mh">0x4c69105eL</span><span class="p">,</span> <span class="mh">0xd56041e4L</span><span class="p">,</span>
+    <span class="mh">0xa2677172L</span><span class="p">,</span> <span class="mh">0x3c03e4d1L</span><span class="p">,</span> <span class="mh">0x4b04d447L</span><span class="p">,</span> <span class="mh">0xd20d85fdL</span><span class="p">,</span> <span class="mh">0xa50ab56bL</span><span class="p">,</span>
+    <span class="mh">0x35b5a8faL</span><span class="p">,</span> <span class="mh">0x42b2986cL</span><span class="p">,</span> <span class="mh">0xdbbbc9d6L</span><span class="p">,</span> <span class="mh">0xacbcf940L</span><span class="p">,</span> <span class="mh">0x32d86ce3L</span><span class="p">,</span>
+    <span class="mh">0x45df5c75L</span><span class="p">,</span> <span class="mh">0xdcd60dcfL</span><span class="p">,</span> <span class="mh">0xabd13d59L</span><span class="p">,</span> <span class="mh">0x26d930acL</span><span class="p">,</span> <span class="mh">0x51de003aL</span><span class="p">,</span>
+    <span class="mh">0xc8d75180L</span><span class="p">,</span> <span class="mh">0xbfd06116L</span><span class="p">,</span> <span class="mh">0x21b4f4b5L</span><span class="p">,</span> <span class="mh">0x56b3c423L</span><span class="p">,</span> <span class="mh">0xcfba9599L</span><span class="p">,</span>
+    <span class="mh">0xb8bda50fL</span><span class="p">,</span> <span class="mh">0x2802b89eL</span><span class="p">,</span> <span class="mh">0x5f058808L</span><span class="p">,</span> <span class="mh">0xc60cd9b2L</span><span class="p">,</span> <span class="mh">0xb10be924L</span><span class="p">,</span>
+    <span class="mh">0x2f6f7c87L</span><span class="p">,</span> <span class="mh">0x58684c11L</span><span class="p">,</span> <span class="mh">0xc1611dabL</span><span class="p">,</span> <span class="mh">0xb6662d3dL</span><span class="p">,</span> <span class="mh">0x76dc4190L</span><span class="p">,</span>
+    <span class="mh">0x01db7106L</span><span class="p">,</span> <span class="mh">0x98d220bcL</span><span class="p">,</span> <span class="mh">0xefd5102aL</span><span class="p">,</span> <span class="mh">0x71b18589L</span><span class="p">,</span> <span class="mh">0x06b6b51fL</span><span class="p">,</span>
+    <span class="mh">0x9fbfe4a5L</span><span class="p">,</span> <span class="mh">0xe8b8d433L</span><span class="p">,</span> <span class="mh">0x7807c9a2L</span><span class="p">,</span> <span class="mh">0x0f00f934L</span><span class="p">,</span> <span class="mh">0x9609a88eL</span><span class="p">,</span>
+    <span class="mh">0xe10e9818L</span><span class="p">,</span> <span class="mh">0x7f6a0dbbL</span><span class="p">,</span> <span class="mh">0x086d3d2dL</span><span class="p">,</span> <span class="mh">0x91646c97L</span><span class="p">,</span> <span class="mh">0xe6635c01L</span><span class="p">,</span>
+    <span class="mh">0x6b6b51f4L</span><span class="p">,</span> <span class="mh">0x1c6c6162L</span><span class="p">,</span> <span class="mh">0x856530d8L</span><span class="p">,</span> <span class="mh">0xf262004eL</span><span class="p">,</span> <span class="mh">0x6c0695edL</span><span class="p">,</span>
+    <span class="mh">0x1b01a57bL</span><span class="p">,</span> <span class="mh">0x8208f4c1L</span><span class="p">,</span> <span class="mh">0xf50fc457L</span><span class="p">,</span> <span class="mh">0x65b0d9c6L</span><span class="p">,</span> <span class="mh">0x12b7e950L</span><span class="p">,</span>
+    <span class="mh">0x8bbeb8eaL</span><span class="p">,</span> <span class="mh">0xfcb9887cL</span><span class="p">,</span> <span class="mh">0x62dd1ddfL</span><span class="p">,</span> <span class="mh">0x15da2d49L</span><span class="p">,</span> <span class="mh">0x8cd37cf3L</span><span class="p">,</span>
+    <span class="mh">0xfbd44c65L</span><span class="p">,</span> <span class="mh">0x4db26158L</span><span class="p">,</span> <span class="mh">0x3ab551ceL</span><span class="p">,</span> <span class="mh">0xa3bc0074L</span><span class="p">,</span> <span class="mh">0xd4bb30e2L</span><span class="p">,</span>
+    <span class="mh">0x4adfa541L</span><span class="p">,</span> <span class="mh">0x3dd895d7L</span><span class="p">,</span> <span class="mh">0xa4d1c46dL</span><span class="p">,</span> <span class="mh">0xd3d6f4fbL</span><span class="p">,</span> <span class="mh">0x4369e96aL</span><span class="p">,</span>
+    <span class="mh">0x346ed9fcL</span><span class="p">,</span> <span class="mh">0xad678846L</span><span class="p">,</span> <span class="mh">0xda60b8d0L</span><span class="p">,</span> <span class="mh">0x44042d73L</span><span class="p">,</span> <span class="mh">0x33031de5L</span><span class="p">,</span>
+    <span class="mh">0xaa0a4c5fL</span><span class="p">,</span> <span class="mh">0xdd0d7cc9L</span><span class="p">,</span> <span class="mh">0x5005713cL</span><span class="p">,</span> <span class="mh">0x270241aaL</span><span class="p">,</span> <span class="mh">0xbe0b1010L</span><span class="p">,</span>
+    <span class="mh">0xc90c2086L</span><span class="p">,</span> <span class="mh">0x5768b525L</span><span class="p">,</span> <span class="mh">0x206f85b3L</span><span class="p">,</span> <span class="mh">0xb966d409L</span><span class="p">,</span> <span class="mh">0xce61e49fL</span><span class="p">,</span>
+    <span class="mh">0x5edef90eL</span><span class="p">,</span> <span class="mh">0x29d9c998L</span><span class="p">,</span> <span class="mh">0xb0d09822L</span><span class="p">,</span> <span class="mh">0xc7d7a8b4L</span><span class="p">,</span> <span class="mh">0x59b33d17L</span><span class="p">,</span>
+    <span class="mh">0x2eb40d81L</span><span class="p">,</span> <span class="mh">0xb7bd5c3bL</span><span class="p">,</span> <span class="mh">0xc0ba6cadL</span><span class="p">,</span> <span class="mh">0xedb88320L</span><span class="p">,</span> <span class="mh">0x9abfb3b6L</span><span class="p">,</span>
+    <span class="mh">0x03b6e20cL</span><span class="p">,</span> <span class="mh">0x74b1d29aL</span><span class="p">,</span> <span class="mh">0xead54739L</span><span class="p">,</span> <span class="mh">0x9dd277afL</span><span class="p">,</span> <span class="mh">0x04db2615L</span><span class="p">,</span>
+    <span class="mh">0x73dc1683L</span><span class="p">,</span> <span class="mh">0xe3630b12L</span><span class="p">,</span> <span class="mh">0x94643b84L</span><span class="p">,</span> <span class="mh">0x0d6d6a3eL</span><span class="p">,</span> <span class="mh">0x7a6a5aa8L</span><span class="p">,</span>
+    <span class="mh">0xe40ecf0bL</span><span class="p">,</span> <span class="mh">0x9309ff9dL</span><span class="p">,</span> <span class="mh">0x0a00ae27L</span><span class="p">,</span> <span class="mh">0x7d079eb1L</span><span class="p">,</span> <span class="mh">0xf00f9344L</span><span class="p">,</span>
+    <span class="mh">0x8708a3d2L</span><span class="p">,</span> <span class="mh">0x1e01f268L</span><span class="p">,</span> <span class="mh">0x6906c2feL</span><span class="p">,</span> <span class="mh">0xf762575dL</span><span class="p">,</span> <span class="mh">0x806567cbL</span><span class="p">,</span>
+    <span class="mh">0x196c3671L</span><span class="p">,</span> <span class="mh">0x6e6b06e7L</span><span class="p">,</span> <span class="mh">0xfed41b76L</span><span class="p">,</span> <span class="mh">0x89d32be0L</span><span class="p">,</span> <span class="mh">0x10da7a5aL</span><span class="p">,</span>
+    <span class="mh">0x67dd4accL</span><span class="p">,</span> <span class="mh">0xf9b9df6fL</span><span class="p">,</span> <span class="mh">0x8ebeeff9L</span><span class="p">,</span> <span class="mh">0x17b7be43L</span><span class="p">,</span> <span class="mh">0x60b08ed5L</span><span class="p">,</span>
+    <span class="mh">0xd6d6a3e8L</span><span class="p">,</span> <span class="mh">0xa1d1937eL</span><span class="p">,</span> <span class="mh">0x38d8c2c4L</span><span class="p">,</span> <span class="mh">0x4fdff252L</span><span class="p">,</span> <span class="mh">0xd1bb67f1L</span><span class="p">,</span>
+    <span class="mh">0xa6bc5767L</span><span class="p">,</span> <span class="mh">0x3fb506ddL</span><span class="p">,</span> <span class="mh">0x48b2364bL</span><span class="p">,</span> <span class="mh">0xd80d2bdaL</span><span class="p">,</span> <span class="mh">0xaf0a1b4cL</span><span class="p">,</span>
+    <span class="mh">0x36034af6L</span><span class="p">,</span> <span class="mh">0x41047a60L</span><span class="p">,</span> <span class="mh">0xdf60efc3L</span><span class="p">,</span> <span class="mh">0xa867df55L</span><span class="p">,</span> <span class="mh">0x316e8eefL</span><span class="p">,</span>
+    <span class="mh">0x4669be79L</span><span class="p">,</span> <span class="mh">0xcb61b38cL</span><span class="p">,</span> <span class="mh">0xbc66831aL</span><span class="p">,</span> <span class="mh">0x256fd2a0L</span><span class="p">,</span> <span class="mh">0x5268e236L</span><span class="p">,</span>
+    <span class="mh">0xcc0c7795L</span><span class="p">,</span> <span class="mh">0xbb0b4703L</span><span class="p">,</span> <span class="mh">0x220216b9L</span><span class="p">,</span> <span class="mh">0x5505262fL</span><span class="p">,</span> <span class="mh">0xc5ba3bbeL</span><span class="p">,</span>
+    <span class="mh">0xb2bd0b28L</span><span class="p">,</span> <span class="mh">0x2bb45a92L</span><span class="p">,</span> <span class="mh">0x5cb36a04L</span><span class="p">,</span> <span class="mh">0xc2d7ffa7L</span><span class="p">,</span> <span class="mh">0xb5d0cf31L</span><span class="p">,</span>
+    <span class="mh">0x2cd99e8bL</span><span class="p">,</span> <span class="mh">0x5bdeae1dL</span><span class="p">,</span> <span class="mh">0x9b64c2b0L</span><span class="p">,</span> <span class="mh">0xec63f226L</span><span class="p">,</span> <span class="mh">0x756aa39cL</span><span class="p">,</span>
+    <span class="mh">0x026d930aL</span><span class="p">,</span> <span class="mh">0x9c0906a9L</span><span class="p">,</span> <span class="mh">0xeb0e363fL</span><span class="p">,</span> <span class="mh">0x72076785L</span><span class="p">,</span> <span class="mh">0x05005713L</span><span class="p">,</span>
+    <span class="mh">0x95bf4a82L</span><span class="p">,</span> <span class="mh">0xe2b87a14L</span><span class="p">,</span> <span class="mh">0x7bb12baeL</span><span class="p">,</span> <span class="mh">0x0cb61b38L</span><span class="p">,</span> <span class="mh">0x92d28e9bL</span><span class="p">,</span>
+    <span class="mh">0xe5d5be0dL</span><span class="p">,</span> <span class="mh">0x7cdcefb7L</span><span class="p">,</span> <span class="mh">0x0bdbdf21L</span><span class="p">,</span> <span class="mh">0x86d3d2d4L</span><span class="p">,</span> <span class="mh">0xf1d4e242L</span><span class="p">,</span>
+    <span class="mh">0x68ddb3f8L</span><span class="p">,</span> <span class="mh">0x1fda836eL</span><span class="p">,</span> <span class="mh">0x81be16cdL</span><span class="p">,</span> <span class="mh">0xf6b9265bL</span><span class="p">,</span> <span class="mh">0x6fb077e1L</span><span class="p">,</span>
+    <span class="mh">0x18b74777L</span><span class="p">,</span> <span class="mh">0x88085ae6L</span><span class="p">,</span> <span class="mh">0xff0f6a70L</span><span class="p">,</span> <span class="mh">0x66063bcaL</span><span class="p">,</span> <span class="mh">0x11010b5cL</span><span class="p">,</span>
+    <span class="mh">0x8f659effL</span><span class="p">,</span> <span class="mh">0xf862ae69L</span><span class="p">,</span> <span class="mh">0x616bffd3L</span><span class="p">,</span> <span class="mh">0x166ccf45L</span><span class="p">,</span> <span class="mh">0xa00ae278L</span><span class="p">,</span>
+    <span class="mh">0xd70dd2eeL</span><span class="p">,</span> <span class="mh">0x4e048354L</span><span class="p">,</span> <span class="mh">0x3903b3c2L</span><span class="p">,</span> <span class="mh">0xa7672661L</span><span class="p">,</span> <span class="mh">0xd06016f7L</span><span class="p">,</span>
+    <span class="mh">0x4969474dL</span><span class="p">,</span> <span class="mh">0x3e6e77dbL</span><span class="p">,</span> <span class="mh">0xaed16a4aL</span><span class="p">,</span> <span class="mh">0xd9d65adcL</span><span class="p">,</span> <span class="mh">0x40df0b66L</span><span class="p">,</span>
+    <span class="mh">0x37d83bf0L</span><span class="p">,</span> <span class="mh">0xa9bcae53L</span><span class="p">,</span> <span class="mh">0xdebb9ec5L</span><span class="p">,</span> <span class="mh">0x47b2cf7fL</span><span class="p">,</span> <span class="mh">0x30b5ffe9L</span><span class="p">,</span>
+    <span class="mh">0xbdbdf21cL</span><span class="p">,</span> <span class="mh">0xcabac28aL</span><span class="p">,</span> <span class="mh">0x53b39330L</span><span class="p">,</span> <span class="mh">0x24b4a3a6L</span><span class="p">,</span> <span class="mh">0xbad03605L</span><span class="p">,</span>
+    <span class="mh">0xcdd70693L</span><span class="p">,</span> <span class="mh">0x54de5729L</span><span class="p">,</span> <span class="mh">0x23d967bfL</span><span class="p">,</span> <span class="mh">0xb3667a2eL</span><span class="p">,</span> <span class="mh">0xc4614ab8L</span><span class="p">,</span>
+    <span class="mh">0x5d681b02L</span><span class="p">,</span> <span class="mh">0x2a6f2b94L</span><span class="p">,</span> <span class="mh">0xb40bbe37L</span><span class="p">,</span> <span class="mh">0xc30c8ea1L</span><span class="p">,</span> <span class="mh">0x5a05df1bL</span><span class="p">,</span>
+    <span class="mh">0x2d02ef8dL</span>
+<span class="p">};</span>
+
+<span class="cm">/* Return a 32-bit CRC of the contents of the buffer. */</span>
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">long</span> <span class="nf">crc32</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">s</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+    <span class="kt">uint64_t</span> <span class="n">crc32val</span><span class="p">;</span>
+
+    <span class="n">crc32val</span> <span class="o">=</span> <span class="mi">0LL</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>  <span class="n">i</span> <span class="o">&lt;</span> <span class="n">len</span><span class="p">;</span>  <span class="n">i</span> <span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">crc32val</span> <span class="o">=</span> <span class="n">crc32_tab</span><span class="p">[(</span><span class="n">crc32val</span> <span class="o">^</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&amp;</span> <span class="mh">0xff</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">crc32val</span> <span class="o">&gt;&gt;</span> <span class="mi">8</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">crc32val</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Our hash function just compute the CRC32 of a given string, using the knuth
+multiplicative method, another valid hash could be the Murmur3, but I won’t
+analyze the best algorithms and implementations around that best work for key
+hashing.</p>
+
+<p>We’ll surely gonna need a list as well, vector could be more performant by
+leveraging his cache-friendly nature, but the gain is not so high for what
+we’re going to do, O(1) in insertion will be good enough for our use-cases.
+Our sequential container will be based on a singly-linked list, with a pointer
+to head and tail, this way we ensure O(1) for insertion on either sides.</p>
+
+<p><strong>src/list.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef LIST_H
+#define LIST_H
+</span>
+
+<span class="k">struct</span> <span class="n">list_node</span> <span class="p">{</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">next</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">list</span> <span class="p">{</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">head</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">tail</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">len</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">destructor</span><span class="p">)(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">);</span>
+<span class="p">}</span> <span class="n">List</span><span class="p">;</span>
+
+
+<span class="cm">/*
+ * Compare function, accept two void * arguments, generally referring a node
+ * and his subsequent
+ */</span>
+<span class="k">typedef</span> <span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">compare_func</span><span class="p">)(</span><span class="kt">void</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Create an empty list */</span>
+<span class="n">List</span> <span class="o">*</span><span class="n">list_create</span><span class="p">(</span><span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">destructor</span><span class="p">)(</span><span class="k">struct</span> <span class="n">list_node</span><span class="o">*</span><span class="p">));</span>
+
+<span class="cm">/*
+ * Release a list, accept a integer flag to control the depth of the free call
+ * (e.g. going to free also data field of every node)
+ */</span>
+<span class="kt">void</span> <span class="n">list_release</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+
+<span class="cm">/* Return list size */</span>
+<span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">list_size</span><span class="p">(</span><span class="k">const</span> <span class="n">List</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Clear out the list without de-allocating it */</span>
+<span class="kt">void</span> <span class="n">list_clear</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span>
+
+<span class="cm">/* Insert data into a node and push it to the front of the list */</span>
+<span class="n">List</span> <span class="o">*</span><span class="n">list_push</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Insert data into a node and push it to the back of the list */</span>
+<span class="n">List</span> <span class="o">*</span><span class="n">list_push_back</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Remove a node from the list based on a compare function that must be
+ * previously defined and passed in as a function pointer, accept two void
+ * *args, which generally means a node and his subsequent
+ */</span>
+<span class="kt">void</span> <span class="n">list_remove</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="p">,</span> <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">,</span> <span class="n">compare_func</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Remove a single node from the list, the first one satisfy compare_func
+ * criteria, without de-allocating it
+ */</span>
+<span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">list_remove_node</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">,</span> <span class="n">compare_func</span><span class="p">);</span>
+
+<span class="cm">/* Comapare function for merge_sort application */</span>
+<span class="k">typedef</span> <span class="kt">int</span> <span class="n">cmp</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Insert a new node into a list while maintaining the order of the elements */</span>
+<span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">list_sort_insert</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">**</span><span class="p">,</span>
+                                   <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">,</span> <span class="n">compare_func</span><span class="p">);</span>
+
+<span class="cm">/* Divide a list in 2 sublists at roughly the middle of the original list */</span>
+<span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">bisect_list</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p><strong>src/list.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#include "list.h"
+#include &lt;stdlib.h&gt;
+</span>
+
+<span class="k">static</span> <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">list_node_remove</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">,</span>
+                                          <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">,</span>
+                                          <span class="n">compare_func</span><span class="p">,</span> <span class="kt">int</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Create a list, initializing all fields
+ */</span>
+<span class="n">List</span> <span class="o">*</span><span class="nf">list_create</span><span class="p">(</span><span class="kt">int</span> <span class="p">(</span><span class="o">*</span><span class="n">destructor</span><span class="p">)(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">))</span> <span class="p">{</span>
+
+    <span class="n">List</span> <span class="o">*</span><span class="n">l</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">List</span><span class="p">));</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">l</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="c1">// set default values to the List structure fields</span>
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">l</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="mi">0L</span><span class="p">;</span>
+    <span class="c1">// TODO if NULL set default destructor</span>
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">destructor</span> <span class="o">=</span> <span class="n">destructor</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">l</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="cm">/*
+ * Destroy a list, releasing all allocated memory
+ */</span>
+<span class="kt">void</span> <span class="nf">list_release</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="n">l</span><span class="p">,</span> <span class="kt">int</span> <span class="n">deep</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">l</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">h</span> <span class="o">=</span> <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">tmp</span><span class="p">;</span>
+
+    <span class="c1">// free all nodes</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span><span class="o">--</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">h</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">l</span><span class="o">-&gt;</span><span class="n">destructor</span><span class="p">)</span>
+            <span class="n">l</span><span class="o">-&gt;</span><span class="n">destructor</span><span class="p">(</span><span class="n">h</span><span class="p">);</span>
+        <span class="k">else</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">h</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">&amp;&amp;</span> <span class="n">deep</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                    <span class="n">free</span><span class="p">(</span><span class="n">h</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">h</span><span class="p">);</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+
+        <span class="n">h</span> <span class="o">=</span> <span class="n">tmp</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// free List structure pointer</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">l</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">unsigned</span> <span class="kt">long</span> <span class="nf">list_size</span><span class="p">(</span><span class="k">const</span> <span class="n">List</span> <span class="o">*</span><span class="n">list</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">list</span><span class="o">-&gt;</span><span class="n">len</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Destroy a list, releasing all allocated memory but the list itself
+ */</span>
+<span class="kt">void</span> <span class="nf">list_clear</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="n">l</span><span class="p">,</span> <span class="kt">int</span> <span class="n">deep</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">l</span> <span class="o">||</span> <span class="o">!</span><span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">h</span> <span class="o">=</span> <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">tmp</span><span class="p">;</span>
+
+    <span class="c1">// free all nodes</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span><span class="o">--</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">h</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">h</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">&amp;&amp;</span> <span class="n">deep</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">h</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+            <span class="n">free</span><span class="p">(</span><span class="n">h</span><span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="n">h</span> <span class="o">=</span> <span class="n">tmp</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">l</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">=</span> <span class="mi">0L</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Insert value at the front of the list
+ * Complexity: O(1)
+ */</span>
+<span class="n">List</span> <span class="o">*</span><span class="nf">list_push</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="n">l</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">val</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">new_node</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span><span class="p">));</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">new_node</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="n">val</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">l</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="n">new_node</span><span class="p">;</span>
+        <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>
+        <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">new_node</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">l</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="cm">/*
+ * Insert value at the back of the list
+ * Complexity: O(1)
+ */</span>
+<span class="n">List</span> <span class="o">*</span><span class="nf">list_push_back</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="n">l</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">val</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">new_node</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span><span class="p">));</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">new_node</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="n">val</span><span class="p">;</span>
+    <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">l</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="n">new_node</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">l</span><span class="o">-&gt;</span><span class="n">tail</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">new_node</span><span class="p">;</span>
+        <span class="n">l</span><span class="o">-&gt;</span><span class="n">tail</span> <span class="o">=</span> <span class="n">new_node</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">l</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">list_remove</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="n">l</span><span class="p">,</span> <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">node</span><span class="p">,</span> <span class="n">compare_func</span> <span class="n">cmp</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">l</span> <span class="o">||</span> <span class="o">!</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="kt">int</span> <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">list_node_remove</span><span class="p">(</span><span class="n">l</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">cmp</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">counter</span><span class="p">);</span>
+
+    <span class="n">l</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">-=</span> <span class="n">counter</span><span class="p">;</span>
+
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">list_node_remove</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">head</span><span class="p">,</span>
+                                          <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">node</span><span class="p">,</span>
+                                          <span class="n">compare_func</span> <span class="n">cmp</span><span class="p">,</span> <span class="kt">int</span> <span class="o">*</span><span class="n">counter</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">head</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">cmp</span><span class="p">(</span><span class="n">head</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">tmp_next</span> <span class="o">=</span> <span class="n">head</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+        <span class="n">free</span><span class="p">(</span><span class="n">head</span><span class="p">);</span>
+        <span class="n">head</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+        <span class="c1">// Update remove counter</span>
+        <span class="p">(</span><span class="o">*</span><span class="n">counter</span><span class="p">)</span><span class="o">++</span><span class="p">;</span>
+
+        <span class="k">return</span> <span class="n">tmp_next</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">head</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">list_node_remove</span><span class="p">(</span><span class="n">head</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">cmp</span><span class="p">,</span> <span class="n">counter</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">head</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">list_remove_single_node</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">head</span><span class="p">,</span>
+                                                 <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">,</span>
+                                                 <span class="k">struct</span> <span class="n">list_node</span> <span class="o">**</span><span class="n">ret</span><span class="p">,</span>
+                                                 <span class="n">compare_func</span> <span class="n">cmp</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">head</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="c1">// We want the first match</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">cmp</span><span class="p">(</span><span class="n">head</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="o">!*</span><span class="n">ret</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">tmp_next</span> <span class="o">=</span> <span class="n">head</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+
+        <span class="o">*</span><span class="n">ret</span> <span class="o">=</span> <span class="n">head</span><span class="p">;</span>
+
+        <span class="k">return</span> <span class="n">tmp_next</span><span class="p">;</span>
+
+    <span class="p">}</span>
+
+    <span class="n">head</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">list_remove_single_node</span><span class="p">(</span><span class="n">head</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">ret</span><span class="p">,</span> <span class="n">cmp</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">head</span><span class="p">;</span>
+
+<span class="p">}</span>
+
+
+<span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">list_remove_node</span><span class="p">(</span><span class="n">List</span> <span class="o">*</span><span class="n">list</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="n">compare_func</span> <span class="n">cmp</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">list</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">||</span> <span class="o">!</span><span class="n">list</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">node</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="n">list_remove_single_node</span><span class="p">(</span><span class="n">list</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">node</span><span class="p">,</span> <span class="n">cmp</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">node</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">list</span><span class="o">-&gt;</span><span class="n">len</span><span class="o">--</span><span class="p">;</span>
+        <span class="n">node</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">node</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/* Insert a new list node in a list maintaining the order of the list */</span>
+<span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">list_sort_insert</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">**</span><span class="n">head</span><span class="p">,</span>
+                                   <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">new</span><span class="p">,</span> <span class="n">cmp</span> <span class="n">cmp_func</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!*</span><span class="n">head</span> <span class="o">||</span> <span class="n">cmp_func</span><span class="p">(</span><span class="o">*</span><span class="n">head</span><span class="p">,</span> <span class="n">new</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">new</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="o">*</span><span class="n">head</span><span class="p">;</span>
+        <span class="o">*</span><span class="n">head</span> <span class="o">=</span> <span class="n">new</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">cur</span><span class="p">;</span>
+        <span class="n">cur</span> <span class="o">=</span> <span class="o">*</span><span class="n">head</span><span class="p">;</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">&amp;&amp;</span> <span class="n">cmp_func</span><span class="p">(</span><span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">,</span> <span class="n">new</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+        <span class="n">new</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+        <span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">new</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="o">*</span><span class="n">head</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Returns a pointer to a node near the middle of the list,
+ * after having truncated the original list before that point.
+ */</span>
+<span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">bisect_list</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">head</span><span class="p">)</span> <span class="p">{</span>
+    <span class="cm">/* The fast pointer moves twice as fast as the slow pointer. */</span>
+    <span class="cm">/* The prev pointer points to the node preceding the slow pointer. */</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">fast</span> <span class="o">=</span> <span class="n">head</span><span class="p">,</span> <span class="o">*</span><span class="n">slow</span> <span class="o">=</span> <span class="n">head</span><span class="p">,</span> <span class="o">*</span><span class="n">prev</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">fast</span> <span class="o">!=</span> <span class="nb">NULL</span> <span class="o">&amp;&amp;</span> <span class="n">fast</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">fast</span> <span class="o">=</span> <span class="n">fast</span><span class="o">-&gt;</span><span class="n">next</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+        <span class="n">prev</span> <span class="o">=</span> <span class="n">slow</span><span class="p">;</span>
+        <span class="n">slow</span> <span class="o">=</span> <span class="n">slow</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">prev</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">)</span>
+        <span class="n">prev</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">slow</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>We have succesfully implemented two classic data structures that offer useful
+features to our project:</p>
+
+<ul>
+  <li>hashtable</li>
+  <li>list</li>
+</ul>
+
+<p>The next structure must be something that allow us to easily manage the topics
+and their hierarchical nature.<br />
+<a href="sol-mqtt-broker-p5">Part 5</a> will focus on a tree implementation that provide
+exactly what we need.</p>
+
+          </div>
+          <div class="article-share">
+            
+            
+            <a href="https://twitter.com/home?status=Sol+-+An+MQTT+broker+from+scratch.+Part+4+-+Data+structures%20-%20/posts/sol-mqtt-broker-p4" title="Share on Twitter" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M492 109.5c-17.4 7.7-36 12.9-55.6 15.3 20-12 35.4-31 42.6-53.6 -18.7 11.1-39.4 19.2-61.5 23.5C399.8 75.8 374.6 64 346.8 64c-53.5 0-96.8 43.4-96.8 96.9 0 7.6 0.8 15 2.5 22.1 -80.5-4-151.9-42.6-199.6-101.3 -8.3 14.3-13.1 31-13.1 48.7 0 33.6 17.2 63.3 43.2 80.7C67 210.7 52 206.3 39 199c0 0.4 0 0.8 0 1.2 0 47 33.4 86.1 77.7 95 -8.1 2.2-16.7 3.4-25.5 3.4 -6.2 0-12.3-0.6-18.2-1.8 12.3 38.5 48.1 66.5 90.5 67.3 -33.1 26-74.9 41.5-120.3 41.5 -7.8 0-15.5-0.5-23.1-1.4C62.8 432 113.7 448 168.3 448 346.6 448 444 300.3 444 172.2c0-4.2-0.1-8.4-0.3-12.5C462.6 146 479 129 492 109.5z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=/posts/sol-mqtt-broker-p4" title="Share on Facebook" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M288 192v-38.1c0-17.2 3.8-25.9 30.5-25.9H352V64h-55.9c-68.5 0-91.1 31.4-91.1 85.3V192h-45v64h45v192h83V256h56.4l7.6-64H288z"/></svg>
+            </a>
+            <a href="https://plus.google.com/share?url=/posts/sol-mqtt-broker-p4" title="Share on Google+" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 128 128"><path d="M40.7 55.9v16.1c0 0 15.6 0 22 0C59.2 82.5 53.8 88.2 40.7 88.2c-13.3 0-23.7-10.8-23.7-24.2s10.4-24.2 23.7-24.2c7.1 0 11.6 2.5 15.8 5.9 3.3-3.3 3.1-3.8 11.6-11.9 -7.2-6.6-16.8-10.6-27.4-10.6C18.2 23.3 0 41.5 0 64c0 22.5 18.2 40.7 40.7 40.7 33.6 0 41.8-29.3 39-48.8H40.7zM113.9 56.7V42.6h-10.1v14.1H89.4v10.1h14.5v14.5h10.1V66.8H128V56.7H113.9z"/></svg>
+            </a>
+          </div>
+
+          
+        </article>
+        <footer class="footer scrollappear">
+<p>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+<p>Powered by Jekyll.</p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+
+<script type="text/javascript" src="/assets/vendor-c7660858f86a434b413963ad66674aac04cdf9b172bee75278aa23e144569dde.js"></script>
+
+
+  <script type="text/javascript" src="/assets/webfonts-1d924df3a4c7364cfb23aab219296b7f778337c69c1e9fb531894165a1abcece.js"></script>
+
+
+
+  <script type="text/javascript" src="/assets/scrollappear-e2da8ea567e418637e31266cc5302126eaa79f62a2273739086358b589a89ee6.js"></script>
+
+
+<script type="text/javascript" src="/assets/application-cfde13ac81ddaf4351b2e739603e2baf688d0fcc9aba613fe62bbb1c7b037fb9.js"></script>
+
+</body>
+</html>

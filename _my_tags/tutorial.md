@@ -1,4 +1,0 @@
----
-slug: tutorial
-name: Tutorial
----

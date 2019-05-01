@@ -1,4 +1,0 @@
----
-slug: unix
-name: Unix
----

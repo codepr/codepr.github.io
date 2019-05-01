@@ -1,20 +1,74 @@
----
----
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="https://www.w3.org/2005/Atom" xmlns:dc="https://purl.org/dc/elements/1.1/">
   <channel>
-    <title>{{ site.name | xml_escape }}</title>
-    <description>{% if site.description %}{{ site.description | xml_escape }}{% endif %}</description>
-    <link>{{ site.url }}</link>
-    <atom:link href="{{ page.path | absolute_url }}" rel="self" type="application/rss+xml" />
-    {% for post in site.posts limit:10 %}
+    <title>Ordinary thoughts</title>
+    <description></description>
+    <link></link>
+    <atom:link href="/feed.xml" rel="self" type="application/rss+xml" />
+    
       <item>
-        <title>{{ post.title | xml_escape }}</title>
-        <description>{{ post.description | xml_escape }}</description>
-        <pubDate>{{ post.date | date_to_rfc822 }}</pubDate>
-        <link>{{ post.url | absolute_url }}</link>
-        <guid isPermaLink="true">{{ post.url | absolute_url }}</guid>
+        <title>Sol - An MQTT broker from scratch. Part 6 - Handlers</title>
+        <description>Writing an MQTT broker from scratch, to really understand something you have to build it.</description>
+        <pubDate>Fri, 08 Mar 2019 00:00:00 +0100</pubDate>
+        <link>/posts/sol-mqtt-broker-p6</link>
+        <guid isPermaLink="true">/posts/sol-mqtt-broker-p6</guid>
       </item>
-    {% endfor %}
+    
+      <item>
+        <title>Sol - An MQTT broker from scratch. Part 5 - Topic abstraction</title>
+        <description>Writing an MQTT broker from scratch, to really understand something you have to build it.</description>
+        <pubDate>Fri, 08 Mar 2019 00:00:00 +0100</pubDate>
+        <link>/posts/sol-mqtt-broker-p5</link>
+        <guid isPermaLink="true">/posts/sol-mqtt-broker-p5</guid>
+      </item>
+    
+      <item>
+        <title>Sol - An MQTT broker from scratch. Part 4 - Data structures</title>
+        <description>Writing an MQTT broker from scratch, to really understand something you have to build it.</description>
+        <pubDate>Thu, 07 Mar 2019 00:00:00 +0100</pubDate>
+        <link>/posts/sol-mqtt-broker-p4</link>
+        <guid isPermaLink="true">/posts/sol-mqtt-broker-p4</guid>
+      </item>
+    
+      <item>
+        <title>Sol - An MQTT broker from scratch. Part 3 - Server</title>
+        <description>Writing an MQTT broker from scratch, to really understand something you have to build it.</description>
+        <pubDate>Wed, 06 Mar 2019 00:00:00 +0100</pubDate>
+        <link>/posts/sol-mqtt-broker-p3</link>
+        <guid isPermaLink="true">/posts/sol-mqtt-broker-p3</guid>
+      </item>
+    
+      <item>
+        <title>Sol - An MQTT broker from scratch. Part 2 - Networking</title>
+        <description>Writing an MQTT broker from scratch, to really understand something you have to build it.</description>
+        <pubDate>Mon, 04 Mar 2019 00:00:00 +0100</pubDate>
+        <link>/posts/sol-mqtt-broker-p2</link>
+        <guid isPermaLink="true">/posts/sol-mqtt-broker-p2</guid>
+      </item>
+    
+      <item>
+        <title>Sol - An MQTT broker from scratch. Part 1 - The protocol</title>
+        <description>Writing an MQTT broker from scratch, to really understand something you have to build it.</description>
+        <pubDate>Sun, 03 Mar 2019 00:00:00 +0100</pubDate>
+        <link>/posts/sol-mqtt-broker</link>
+        <guid isPermaLink="true">/posts/sol-mqtt-broker</guid>
+      </item>
+    
+      <item>
+        <title>Overture</title>
+        <description>Writing down some thoughts on future goals.</description>
+        <pubDate>Sun, 02 Dec 2018 00:00:00 +0100</pubDate>
+        <link>/posts/submerged</link>
+        <guid isPermaLink="true">/posts/submerged</guid>
+      </item>
+    
+      <item>
+        <title>I am</title>
+        <description>Mandatory greeting post.</description>
+        <pubDate>Sun, 02 Dec 2018 00:00:00 +0100</pubDate>
+        <link>/posts/iam</link>
+        <guid isPermaLink="true">/posts/iam</guid>
+      </item>
+    
   </channel>
 </rss>

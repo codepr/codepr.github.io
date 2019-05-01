@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Ordinary thoughts | Sol - An MQTT broker from scratch. Part 5 - Topic abstraction</title>
+  <meta name="description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Sol - An MQTT broker from scratch. Part 5 - Topic abstraction">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/posts/sol-mqtt-broker-p5">
+  <meta property="og:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta property="og:site_name" content="Ordinary thoughts">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="/posts/sol-mqtt-broker-p5">
+  <meta name="twitter:title" content="Sol - An MQTT broker from scratch. Part 5 - Topic abstraction">
+  <meta name="twitter:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+
+  
+    <meta property="og:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+    <meta name="twitter:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+  
+
+  <link href="/feed.xml" type="application/rss+xml" rel="alternate" title="Ordinary thoughts Last 10 blog posts" />
+
+  
+
+  
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-light-a98c41efc5ed9fcc06ac664c9e2f7a9b3c3b2e0a52357d221fe382f6f4abc8fc.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon-light-87d1f2a3a19b1500e5c1626a0492025ca5f7f97d24540dc5900288e92112925a.png">
+    <link rel="stylesheet" type="text/css" href="/assets/light-273261f5acf40d5e75642b11aff49ad206e80876a27b830f96aa43304000296d.css">
+  
+</head>
+
+<body>
+  <main>
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav scrollappear">
+  <ul class="header-links">
+    
+    <li>
+        <a href="/projects" title="Projects">
+            Projects
+        </a>
+    </li>
+    
+    
+      <li>
+        <a href="/about" title="About me">
+            Resume
+        </a>
+      </li>
+    
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/codepr" rel="noreferrer noopener" target="_blank" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-github">
+  <use href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github" xlink:href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      <li>
+        <a href="mailto:a.g.baldan@gmail.com" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-email">
+  <use href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email" xlink:href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+  </ul>
+  <a href="/" class="header-logo" title="Ordinary thoughts">Ordinary thoughts
+      <p class='subtitle'>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+  </a>
+
+
+</nav>
+
+        <article class="article scrollappear">
+          <header class="article-header">
+            <h1>Sol - An MQTT broker from scratch. Part 5 - Topic abstraction</h1>
+            <p>Writing an MQTT broker from scratch, to really understand something you have to build it.</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                March 8, 2019
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  19 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+                  <a href="/tag/c">c</a>
+                
+                  <a href="/tag/unix">unix</a>
+                
+                  <a href="/tag/tutorial">tutorial</a>
+                
+                  <a href="/tag/structures">structures</a>
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <p>In the <a href="sol-mqtt-broker-p4">previous section</a> we explored some useful concepts
+and implemented two data structures on top of those concepts. The MQTT define
+an abstraction named <strong>topic</strong>, in essence, a string that is used to filter
+messages for each client. It has an hierarchical nature, given by some simple
+rules:</p>
+
+<ul>
+  <li>a topic is an UTF-8 encoded string of max length of 65535 bytes</li>
+  <li>a forward <code class="highlighter-rouge">/</code> is used to separate different levels, much like directories in
+a filesystem</li>
+  <li><code class="highlighter-rouge">#</code> can be used as a wildcard for multilevel subscription, to subscribe to
+multiple topics by following the hierarchy, e.g.: <strong>foo/bar/#</strong> will subscribe to:
+    <ul>
+      <li>foo/bar</li>
+      <li>foo/bar/baz</li>
+      <li>foo/bar/bat/yop</li>
+    </ul>
+  </li>
+  <li><code class="highlighter-rouge">+</code> can be used for single level wildcard subscription, e.g: <strong>foo/+/baz</strong> will
+subscribe to:
+    <ul>
+      <li>foo/bar/baz</li>
+      <li>foo/zod/baz</li>
+      <li>foo/nop/baz</li>
+    </ul>
+  </li>
+</ul>
+
+<p>They share some traits with message queues, but way simpler, lightweight and
+less powerfull.</p>
+
+<h2 id="handling-topic-abstraction-the-trie">Handling topic abstraction: the trie</h2>
+
+<p>We move now to the <strong>trie</strong>, the structure of choice to store topics. Trie is a
+kind of trees in which each node is a prefix for a key, the node position
+define the keys and the associated values are set on the last node of each key.
+They provide a big-O runtime complexity of O(m) on worst case, for insertion
+and lookup, where m is the length of the key. The main advantage is the
+possibility to query the tree by prefix, executing range scans in an easy way.</p>
+
+<p><strong>src/trie.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef TRIE_H
+#define TRIE_H
+</span>
+<span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdbool.h&gt;
+#include "list.h"
+</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">trie</span> <span class="n">Trie</span><span class="p">;</span>
+
+<span class="cm">/*
+ * Trie node, it contains a fixed size array (every node can have at max the
+ * alphabet length size of children), a flag defining if the node represent
+ * the end of a word and then if it contains a value defined by data.
+ */</span>
+<span class="k">struct</span> <span class="n">trie_node</span> <span class="p">{</span>
+    <span class="kt">char</span> <span class="n">chr</span><span class="p">;</span>
+    <span class="n">List</span> <span class="o">*</span><span class="n">children</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="cm">/*
+ * Trie ADT, it is formed by a root struct trie_node, and the total size of the
+ * Trie
+ */</span>
+<span class="k">struct</span> <span class="n">trie</span> <span class="p">{</span>
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">root</span><span class="p">;</span>
+    <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="c1">// Returns new trie node (initialized to NULLs)</span>
+<span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">trie_create_node</span><span class="p">(</span><span class="kt">char</span><span class="p">);</span>
+
+<span class="c1">// Returns a new Trie, which is formed by a root node and a size</span>
+<span class="k">struct</span> <span class="n">trie</span> <span class="o">*</span><span class="n">trie_create</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">trie_init</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="c1">// Return the size of the trie</span>
+<span class="kt">size_t</span> <span class="n">trie_size</span><span class="p">(</span><span class="k">const</span> <span class="n">Trie</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * The leaf represents the node with the associated data
+ *           .
+ *          / \
+ *         h   s: s -&gt; value
+ *        / \
+ *       e   k: hk -&gt; value
+ *      /
+ *     l: hel -&gt; value
+ *
+ * Here we got 3 &lt;key:value&gt; pairs:
+ * - s   -&gt; value
+ * - hk  -&gt; value
+ * - hel -&gt; value
+ */</span>
+<span class="kt">void</span> <span class="o">*</span><span class="n">trie_insert</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="n">bool</span> <span class="n">trie_delete</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Returns true if key presents in trie, else false, the last pointer to
+   pointer is used to store the value associated with the searched key, if
+   present */</span>
+<span class="n">bool</span> <span class="n">trie_find</span><span class="p">(</span><span class="k">const</span> <span class="n">Trie</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">**</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">trie_node_free</span><span class="p">(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">trie_release</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Remove all keys matching a given prefix in a less than linear time
+   complexity */</span>
+<span class="kt">void</span> <span class="n">trie_prefix_delete</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Apply a given function to all ndoes which keys match a given prefix. The
+ * function accepts two arguments, a struct trie_node pointer which correspond
+ * to each node on the trie after the prefix node and a void pointer, used for
+ * additional data which can be useful to the execution of `mapfunc`.
+ */</span>
+<span class="kt">void</span> <span class="n">trie_prefix_map_tuple</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                           <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">mapfunc</span><span class="p">)(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">),</span> <span class="kt">void</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p>Implementation of this data structure is a bit tricky and there’re lot of
+different approaches, the most simple one would involve the use of a fixed
+length array on each node of the trie, with the complete alphabet size as
+length.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#define ALPHABET_SIZE 94
+</span>
+<span class="cm">/* Trie node, it contains a fixed size array (every node can have at max the
+   alphabet length size of children), a flag defining if the node represent
+   the end of a word and then if it contains a value defined by data. */</span>
+
+<span class="k">struct</span> <span class="n">trie_node</span> <span class="p">{</span>
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">children</span><span class="p">[</span><span class="n">ALPHABET_SIZE</span><span class="p">];</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+<span class="p">};</span></code></pre></figure>
+
+<p>The biggest advantage of the trie, beside the possibility of applying range
+queries on the keyspace (this one will come handy for wildcard subscriptions
+and management of topics), is in terms of average performances over hashtables
+or B-Trees, it gives in fact on worst case O(L) insert, delete and search time
+complexity where L is the length of the key. This comes at a cost, the main
+drawback is that the structure itself, following this imlementation is really
+memory hungry. In the example case with an alphabet of size 96, starting from
+the <code class="highlighter-rouge">&lt;space&gt;</code> character and ending with the <code class="highlighter-rouge">~</code> each node has 96 NULL pointer
+to their children, this means that on a 64 bit arch machine with 8 bytes per
+pointer we effectively have 768 bytes of allocated space per node. Let’s
+briefly analyze a case:</p>
+
+<ul>
+  <li>insert key foo</li>
+  <li>insert key foot</li>
+</ul>
+
+<p>So we have the root f which have 1 non-null pointer o, the children have
+another 1 non-null pointer o, here lies our first value for key foo, and the
+last children o have 1 non-null pointer for t, which will also store our second
+value for foot key. So we have a total of 4 nodes, that means 4 * 96 = 384
+pointers, of which only 4 are used. Now that’s a lot of wasted space! There’s
+some techniques to mitigate this homongous amount of wasting bytes while
+maintaining good time-complexity performances, called compressed trie and
+adaptive trie.</p>
+
+<p>Without going too deep into these concepts, best solutions so far seems three:</p>
+
+<ul>
+  <li>
+    <p>Use a single dynamic array (vector) in the Trie structure, each node must have
+a pointer to that vector and an array char children_idx[ALPHABET_SIZE] which
+store the index in the main vector for each children;</p>
+  </li>
+  <li>
+    <p>Use sized node based on the number of children and adapting lookup
+algorithm accordingly e.g.  with # children &lt;= 4 use a fixed length array
+of 4 pointers and linear search for children, growing up set fixed steps of
+size and use a different mapping for characters on the array of children
+pointers.</p>
+  </li>
+  <li>
+    <p>Replace the fixed length array on each node with a singly-linked <strong>linked list</strong>,
+maintained sorted on each insertion, this way there’s an average performance of
+O(n/2) on each search, which is the best case possible with the linked list
+data structure.</p>
+  </li>
+</ul>
+
+<p>Luckily we just written a <strong>linked list</strong> before (Perhaps I knew the answer? :P) but
+also a <strong>vector</strong> could do well.</p>
+
+<p>Let’s implement our trie with the third solution:</p>
+
+<p><strong>src/trie.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#include &lt;assert.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include "list.h"
+#include "trie.h"
+</span>
+
+<span class="k">static</span> <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">merge_tnode_list</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">list1</span><span class="p">,</span>
+                                          <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">list2</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="n">dummy_head</span> <span class="o">=</span> <span class="p">{</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span> <span class="p">},</span> <span class="o">*</span><span class="n">tail</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">dummy_head</span><span class="p">;</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">list1</span> <span class="o">&amp;&amp;</span> <span class="n">list2</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="cm">/* cast to cluster_node */</span>
+        <span class="kt">char</span> <span class="n">chr1</span> <span class="o">=</span> <span class="p">((</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">)</span> <span class="n">list1</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">chr</span><span class="p">;</span>
+        <span class="kt">char</span> <span class="n">chr2</span> <span class="o">=</span> <span class="p">((</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">)</span> <span class="n">list2</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">chr</span><span class="p">;</span>
+
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">**</span><span class="n">min</span> <span class="o">=</span> <span class="n">chr1</span> <span class="o">&lt;=</span> <span class="n">chr2</span> <span class="o">?</span> <span class="o">&amp;</span><span class="n">list1</span> <span class="o">:</span> <span class="o">&amp;</span><span class="n">list2</span><span class="p">;</span>
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">next</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">min</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+        <span class="n">tail</span> <span class="o">=</span> <span class="n">tail</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="o">*</span><span class="n">min</span><span class="p">;</span>
+        <span class="o">*</span><span class="n">min</span> <span class="o">=</span> <span class="n">next</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">tail</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">list1</span> <span class="o">?</span> <span class="n">list1</span> <span class="o">:</span> <span class="n">list2</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">dummy_head</span><span class="p">.</span><span class="n">next</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">merge_sort_tnode</span><span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">head</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">list1</span> <span class="o">=</span> <span class="n">head</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">list1</span> <span class="o">||</span> <span class="o">!</span><span class="n">list1</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">list1</span><span class="p">;</span>
+
+    <span class="cm">/* find the middle */</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">list2</span> <span class="o">=</span> <span class="n">bisect_list</span><span class="p">(</span><span class="n">list1</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">merge_tnode_list</span><span class="p">(</span><span class="n">merge_sort_tnode</span><span class="p">(</span><span class="n">list1</span><span class="p">),</span> <span class="n">merge_sort_tnode</span><span class="p">(</span><span class="n">list2</span><span class="p">));</span>
+<span class="p">}</span>
+
+<span class="cm">/* Search for a given node based on a comparison of char stored in structure
+ * and a value, O(n) at worst
+ */</span>
+<span class="k">static</span> <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="nf">linear_search</span><span class="p">(</span><span class="k">const</span> <span class="n">List</span> <span class="o">*</span><span class="n">list</span><span class="p">,</span> <span class="kt">int</span> <span class="n">value</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">list</span> <span class="o">||</span> <span class="n">list</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">cur</span> <span class="o">=</span> <span class="n">list</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span> <span class="n">cur</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">;</span> <span class="n">cur</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(((</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">)</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">chr</span> <span class="o">==</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">cur</span><span class="p">;</span>
+        <span class="k">else</span> <span class="k">if</span> <span class="p">(((</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">)</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">chr</span> <span class="o">&gt;</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/* Auxiliary comparison function, uses on list searches, this one compare the
+ * char field stored in each struct trie_node structure contained in each node of the
+ * list.
+ */</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">with_char</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">arg1</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">arg2</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">tn1</span> <span class="o">=</span> <span class="p">((</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">)</span> <span class="n">arg1</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">tn2</span> <span class="o">=</span> <span class="p">((</span><span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="p">)</span> <span class="n">arg2</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">tn1</span><span class="o">-&gt;</span><span class="n">chr</span> <span class="o">==</span> <span class="n">tn2</span><span class="o">-&gt;</span><span class="n">chr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Check for children in a struct trie_node, if a node has no children is considered</span>
+<span class="c1">// free</span>
+<span class="k">static</span> <span class="n">bool</span> <span class="nf">trie_is_free_node</span><span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">node</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">?</span> <span class="nb">true</span> <span class="o">:</span> <span class="nb">false</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="nf">trie_node_find</span><span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">node</span><span class="p">,</span>
+                                        <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">prefix</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">retnode</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">)</span> <span class="n">node</span><span class="p">;</span>
+
+    <span class="c1">// Move to the end of the prefix first</span>
+    <span class="k">for</span> <span class="p">(;</span> <span class="o">*</span><span class="n">prefix</span><span class="p">;</span> <span class="n">prefix</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="c1">// O(n), the best we can have</span>
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">child</span> <span class="o">=</span> <span class="n">linear_search</span><span class="p">(</span><span class="n">retnode</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">,</span> <span class="o">*</span><span class="n">prefix</span><span class="p">);</span>
+
+        <span class="c1">// No key with the full prefix in the trie</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">child</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">NULL</span><span class="p">;</span>
+
+        <span class="n">retnode</span> <span class="o">=</span> <span class="n">child</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">retnode</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Returns new trie node (initialized to NULL)</span>
+<span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="nf">trie_create_node</span><span class="p">(</span><span class="kt">char</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">new_node</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">new_node</span><span class="p">));</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">new_node</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">chr</span> <span class="o">=</span> <span class="n">c</span><span class="p">;</span>
+        <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+        <span class="n">new_node</span><span class="o">-&gt;</span><span class="n">children</span> <span class="o">=</span> <span class="n">list_create</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">new_node</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Returns new Trie, with a NULL root and 0 size</span>
+<span class="n">Trie</span> <span class="o">*</span><span class="nf">trie_create</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">trie</span><span class="p">));</span>
+    <span class="n">trie_init</span><span class="p">(</span><span class="n">trie</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">trie</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">trie_init</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span> <span class="o">=</span> <span class="n">trie_create_node</span><span class="p">(</span><span class="sc">' '</span><span class="p">);</span>
+    <span class="n">trie</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">size_t</span> <span class="nf">trie_size</span><span class="p">(</span><span class="k">const</span> <span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">trie</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * If not present, inserts key into trie, if the key is prefix of trie node,
+ * just marks leaf node by assigning the new data pointer. Returns a pointer
+ * to the new inserted data.
+ *
+ * Being a Trie, it should guarantees O(m) performance for insertion on the
+ * worst case, where `m` is the length of the key.
+ */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="o">*</span><span class="nf">trie_node_insert</span><span class="p">(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">root</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span>
+                              <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">,</span> <span class="kt">size_t</span> <span class="o">*</span><span class="n">size</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">cursor</span> <span class="o">=</span> <span class="n">root</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">cur_node</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">tmp</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="c1">// Iterate through the key char by char</span>
+    <span class="k">for</span> <span class="p">(;</span> <span class="o">*</span><span class="n">key</span><span class="p">;</span> <span class="n">key</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="cm">/*
+         * We can use a linear search as on a linked list O(n) is the best find
+         * algorithm we can use, as binary search would have the same if not
+         * worse performance by not having direct access to node like in an
+         * array.
+         *
+         * Anyway we expect to have an average O(n/2) cause at every insertion
+         * the list is sorted so we expect to find our char in the middle on
+         * average.
+         *
+         * As a future improvement it's advisable to substitute list with a
+         * B-tree or RBTree to improve searching complexity to O(logn) at best,
+         * avg and worst while maintaining O(n) space complexity, but it really
+         * depends also on the size of the alphabet.
+         */</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">linear_search</span><span class="p">(</span><span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">,</span> <span class="o">*</span><span class="n">key</span><span class="p">);</span>
+
+        <span class="c1">// No match, we add a new node and sort the list with the new added link</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">tmp</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">cur_node</span> <span class="o">=</span> <span class="n">trie_create_node</span><span class="p">(</span><span class="o">*</span><span class="n">key</span><span class="p">);</span>
+            <span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span> <span class="o">=</span> <span class="n">list_push</span><span class="p">(</span><span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">,</span> <span class="n">cur_node</span><span class="p">);</span>
+            <span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span><span class="o">-&gt;</span><span class="n">head</span> <span class="o">=</span> <span class="n">merge_sort_tnode</span><span class="p">(</span><span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">);</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="c1">// Match found, no need to sort the list, the child already exists</span>
+            <span class="n">cur_node</span> <span class="o">=</span> <span class="n">tmp</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">cur_node</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="cm">/*
+     * Clear out if already taken (e.g. we are in a leaf node), rc = 0 to not
+     * change the trie size, otherwise 1 means that we added a new node,
+     * effectively changing the size
+     */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">cursor</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span>
+        <span class="p">(</span><span class="o">*</span><span class="n">size</span><span class="p">)</span><span class="o">++</span><span class="p">;</span>
+
+    <span class="n">cursor</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span> <span class="n">data</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">cursor</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Private function, iterate recursively through the trie structure starting
+ * from a given node, deleting the target value
+ */</span>
+<span class="k">static</span> <span class="n">bool</span> <span class="nf">trie_node_recursive_delete</span><span class="p">(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">node</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span>
+                                       <span class="kt">size_t</span> <span class="o">*</span><span class="n">size</span><span class="p">,</span> <span class="n">bool</span> <span class="o">*</span><span class="n">found</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+
+    <span class="c1">// Base case</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">key</span> <span class="o">==</span> <span class="sc">'\0'</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+
+            <span class="c1">// Update found flag</span>
+            <span class="o">*</span><span class="n">found</span> <span class="o">=</span> <span class="nb">true</span><span class="p">;</span>
+
+            <span class="c1">// Free resources, covering the case of a sub-prefix</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">free</span><span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+                <span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">free</span><span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+            <span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+            <span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="p">(</span><span class="o">*</span><span class="n">size</span><span class="p">)</span><span class="o">--</span><span class="p">;</span>
+
+            <span class="c1">// If empty, node to be deleted</span>
+            <span class="k">return</span> <span class="n">trie_is_free_node</span><span class="p">(</span><span class="n">node</span><span class="p">);</span>
+        <span class="p">}</span>
+
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+
+        <span class="c1">// O(n), the best we can have</span>
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">cur</span> <span class="o">=</span> <span class="n">linear_search</span><span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">,</span> <span class="o">*</span><span class="n">key</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">cur</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+
+        <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">child</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">trie_node_recursive_delete</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">key</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">found</span><span class="p">))</span> <span class="p">{</span>
+
+            <span class="c1">// Messy solution, requiring probably avoidable allocations</span>
+            <span class="k">struct</span> <span class="n">trie_node</span> <span class="n">t</span> <span class="o">=</span> <span class="p">{</span><span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">};</span>
+            <span class="k">struct</span> <span class="n">list_node</span> <span class="n">tmp</span> <span class="o">=</span> <span class="p">{</span><span class="o">&amp;</span><span class="n">t</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">};</span>
+            <span class="n">list_remove</span><span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">tmp</span><span class="p">,</span> <span class="n">with_char</span><span class="p">);</span>
+
+            <span class="c1">// last node marked, delete it</span>
+            <span class="n">trie_node_free</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">size</span><span class="p">);</span>
+
+            <span class="c1">// recursively climb up, and delete eligible nodes</span>
+            <span class="k">return</span> <span class="p">(</span><span class="o">!</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">&amp;&amp;</span> <span class="n">trie_is_free_node</span><span class="p">(</span><span class="n">node</span><span class="p">));</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Returns true if key is present in trie, else false. Also for lookup the
+ * big-O runtime is guaranteed O(m) with `m` as length of the key.
+ */</span>
+<span class="k">static</span> <span class="n">bool</span> <span class="nf">trie_node_search</span><span class="p">(</span><span class="k">const</span> <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">root</span><span class="p">,</span>
+                             <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="kt">void</span> <span class="o">**</span><span class="n">ret</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="c1">// Walk the trie till the end of the key</span>
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">cursor</span> <span class="o">=</span> <span class="n">trie_node_find</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="o">*</span><span class="n">ret</span> <span class="o">=</span> <span class="p">(</span><span class="n">cursor</span> <span class="o">&amp;&amp;</span> <span class="n">cursor</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span> <span class="o">?</span> <span class="n">cursor</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">:</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="c1">// Return false if no complete key found, true otherwise</span>
+    <span class="k">return</span> <span class="o">!*</span><span class="n">ret</span> <span class="o">?</span> <span class="nb">false</span> <span class="o">:</span> <span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Insert a new key-value pair in the Trie structure, returning a pointer to
+ * the new inserted data in order to simplify some operations as the addition
+ * of expiring keys with a set TTL.
+ */</span>
+<span class="kt">void</span> <span class="o">*</span><span class="nf">trie_insert</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">trie</span> <span class="o">&amp;&amp;</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">trie_node_insert</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="n">bool</span> <span class="nf">trie_delete</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">trie</span> <span class="o">&amp;&amp;</span> <span class="n">key</span><span class="p">);</span>
+
+    <span class="n">bool</span> <span class="n">found</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">trie_node_recursive_delete</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">),</span> <span class="o">&amp;</span><span class="n">found</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">found</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="n">bool</span> <span class="nf">trie_find</span><span class="p">(</span><span class="k">const</span> <span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">key</span><span class="p">,</span> <span class="kt">void</span> <span class="o">**</span><span class="n">ret</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">assert</span><span class="p">(</span><span class="n">trie</span> <span class="o">&amp;&amp;</span> <span class="n">key</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">trie_node_search</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">ret</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Remove and delete all keys matching a given prefix in the trie
+ * e.g. hello*
+ * - hello
+ * hellot
+ * helloworld
+ * hello
+ */</span>
+<span class="kt">void</span> <span class="nf">trie_prefix_delete</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">prefix</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">trie</span> <span class="o">&amp;&amp;</span> <span class="n">prefix</span><span class="p">);</span>
+
+    <span class="c1">// Walk the trie till the end of the key</span>
+    <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">cursor</span> <span class="o">=</span> <span class="n">trie_node_find</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span><span class="p">,</span> <span class="n">prefix</span><span class="p">);</span>
+
+    <span class="c1">// No complete key found</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">cursor</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="c1">// Simply remove the key if it has no children, no need to clear the list</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span><span class="o">-&gt;</span><span class="n">len</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">trie_delete</span><span class="p">(</span><span class="n">trie</span><span class="p">,</span> <span class="n">prefix</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">cur</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>
+    <span class="c1">// Clear out all possible sub-paths</span>
+    <span class="k">for</span> <span class="p">(;</span> <span class="n">cur</span><span class="p">;</span> <span class="n">cur</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">trie_node_free</span><span class="p">(</span><span class="n">cur</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">));</span>
+        <span class="n">cur</span><span class="o">-&gt;</span><span class="n">data</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Set the current node (the one storing the last character of the prefix)</span>
+    <span class="c1">// as a leaf and delete the prefix key as well</span>
+    <span class="n">trie_delete</span><span class="p">(</span><span class="n">trie</span><span class="p">,</span> <span class="n">prefix</span><span class="p">);</span>
+
+    <span class="n">list_clear</span><span class="p">(</span><span class="n">cursor</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cm">/* Iterate through children of each node starting from a given node, applying
+   a defined function which take a struct trie_node as argument */</span>
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">trie_prefix_map_func2</span><span class="p">(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">node</span><span class="p">,</span>
+                                  <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">mapfunc</span><span class="p">)(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">),</span> <span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">trie_is_free_node</span><span class="p">(</span><span class="n">node</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">mapfunc</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">arg</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">child</span> <span class="o">=</span> <span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(;</span> <span class="n">child</span><span class="p">;</span> <span class="n">child</span> <span class="o">=</span> <span class="n">child</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span>
+        <span class="n">trie_prefix_map_func2</span><span class="p">(</span><span class="n">child</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="n">mapfunc</span><span class="p">,</span> <span class="n">arg</span><span class="p">);</span>
+
+    <span class="n">mapfunc</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">arg</span><span class="p">);</span>
+
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Apply a function to every key below a given prefix, if prefix is null the
+ * function will be applied to all the trie. The function applied accepts an
+ * additional arguments for optional extra data.
+ */</span>
+<span class="kt">void</span> <span class="nf">trie_prefix_map_tuple</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">prefix</span><span class="p">,</span>
+                           <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">mapfunc</span><span class="p">)(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="p">),</span> <span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="n">trie</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">prefix</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">trie_prefix_map_func2</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span><span class="p">,</span> <span class="n">mapfunc</span><span class="p">,</span> <span class="n">arg</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+
+        <span class="c1">// Walk the trie till the end of the key</span>
+        <span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">node</span> <span class="o">=</span> <span class="n">trie_node_find</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span><span class="p">,</span> <span class="n">prefix</span><span class="p">);</span>
+
+        <span class="c1">// No complete key found</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">node</span><span class="p">)</span>
+            <span class="k">return</span><span class="p">;</span>
+
+        <span class="c1">// Check all possible sub-paths and add to count where there is a leaf</span>
+        <span class="n">trie_prefix_map_func2</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">mapfunc</span><span class="p">,</span> <span class="n">arg</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+
+<span class="cm">/* Release memory of a node while updating size of the trie */</span>
+<span class="kt">void</span> <span class="nf">trie_node_free</span><span class="p">(</span><span class="k">struct</span> <span class="n">trie_node</span> <span class="o">*</span><span class="n">node</span><span class="p">,</span> <span class="kt">size_t</span> <span class="o">*</span><span class="n">size</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="c1">// Base case</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="c1">// Recursive call to all children of the node</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">struct</span> <span class="n">list_node</span> <span class="o">*</span><span class="n">cur</span> <span class="o">=</span> <span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span><span class="o">-&gt;</span><span class="n">head</span><span class="p">;</span>
+        <span class="k">for</span> <span class="p">(;</span> <span class="n">cur</span><span class="p">;</span> <span class="n">cur</span> <span class="o">=</span> <span class="n">cur</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">)</span>
+            <span class="n">trie_node_free</span><span class="p">(</span><span class="n">cur</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">,</span> <span class="n">size</span><span class="p">);</span>
+        <span class="n">list_release</span><span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+        <span class="n">node</span><span class="o">-&gt;</span><span class="n">children</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Release memory on data stored on the node</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">free</span><span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="p">(</span><span class="o">*</span><span class="n">size</span><span class="p">)</span><span class="o">--</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">free</span><span class="p">(</span><span class="n">node</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">*</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="p">(</span><span class="o">*</span><span class="n">size</span><span class="p">)</span><span class="o">--</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Release the node itself</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">node</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">trie_release</span><span class="p">(</span><span class="n">Trie</span> <span class="o">*</span><span class="n">trie</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">trie</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">;</span>
+
+    <span class="n">trie_node_free</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">root</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">(</span><span class="n">trie</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">));</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">trie</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Well, we have enough in our plate for now, our project should now have 3 more
+modules:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">sol/
+ ├── src/
+ │    ├── mqtt.h
+ |    ├── mqtt.c
+ │    ├── network.h
+ │    ├── network.c
+ │    ├── list.h
+ │    ├── list.c
+ │    ├── hashtable.h
+ │    ├── hashtable.c
+ │    ├── trie.h
+ │    ├── trie.c
+ │    ├── util.h
+ │    ├── util.c
+ │    ├── pack.h
+ │    └── pack.c
+ ├── CHANGELOG
+ ├── CMakeLists.txt
+ ├── COPYING
+ └── README.md</code></pre></figure>
+
+<p>The <a href="sol-mqtt-broker-p6">part 6</a> awaits with the server side handlers.</p>
+
+          </div>
+          <div class="article-share">
+            
+            
+            <a href="https://twitter.com/home?status=Sol+-+An+MQTT+broker+from+scratch.+Part+5+-+Topic+abstraction%20-%20/posts/sol-mqtt-broker-p5" title="Share on Twitter" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M492 109.5c-17.4 7.7-36 12.9-55.6 15.3 20-12 35.4-31 42.6-53.6 -18.7 11.1-39.4 19.2-61.5 23.5C399.8 75.8 374.6 64 346.8 64c-53.5 0-96.8 43.4-96.8 96.9 0 7.6 0.8 15 2.5 22.1 -80.5-4-151.9-42.6-199.6-101.3 -8.3 14.3-13.1 31-13.1 48.7 0 33.6 17.2 63.3 43.2 80.7C67 210.7 52 206.3 39 199c0 0.4 0 0.8 0 1.2 0 47 33.4 86.1 77.7 95 -8.1 2.2-16.7 3.4-25.5 3.4 -6.2 0-12.3-0.6-18.2-1.8 12.3 38.5 48.1 66.5 90.5 67.3 -33.1 26-74.9 41.5-120.3 41.5 -7.8 0-15.5-0.5-23.1-1.4C62.8 432 113.7 448 168.3 448 346.6 448 444 300.3 444 172.2c0-4.2-0.1-8.4-0.3-12.5C462.6 146 479 129 492 109.5z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=/posts/sol-mqtt-broker-p5" title="Share on Facebook" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M288 192v-38.1c0-17.2 3.8-25.9 30.5-25.9H352V64h-55.9c-68.5 0-91.1 31.4-91.1 85.3V192h-45v64h45v192h83V256h56.4l7.6-64H288z"/></svg>
+            </a>
+            <a href="https://plus.google.com/share?url=/posts/sol-mqtt-broker-p5" title="Share on Google+" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 128 128"><path d="M40.7 55.9v16.1c0 0 15.6 0 22 0C59.2 82.5 53.8 88.2 40.7 88.2c-13.3 0-23.7-10.8-23.7-24.2s10.4-24.2 23.7-24.2c7.1 0 11.6 2.5 15.8 5.9 3.3-3.3 3.1-3.8 11.6-11.9 -7.2-6.6-16.8-10.6-27.4-10.6C18.2 23.3 0 41.5 0 64c0 22.5 18.2 40.7 40.7 40.7 33.6 0 41.8-29.3 39-48.8H40.7zM113.9 56.7V42.6h-10.1v14.1H89.4v10.1h14.5v14.5h10.1V66.8H128V56.7H113.9z"/></svg>
+            </a>
+          </div>
+
+          
+        </article>
+        <footer class="footer scrollappear">
+<p>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+<p>Powered by Jekyll.</p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+
+<script type="text/javascript" src="/assets/vendor-c7660858f86a434b413963ad66674aac04cdf9b172bee75278aa23e144569dde.js"></script>
+
+
+  <script type="text/javascript" src="/assets/webfonts-1d924df3a4c7364cfb23aab219296b7f778337c69c1e9fb531894165a1abcece.js"></script>
+
+
+
+  <script type="text/javascript" src="/assets/scrollappear-e2da8ea567e418637e31266cc5302126eaa79f62a2273739086358b589a89ee6.js"></script>
+
+
+<script type="text/javascript" src="/assets/application-cfde13ac81ddaf4351b2e739603e2baf688d0fcc9aba613fe62bbb1c7b037fb9.js"></script>
+
+</body>
+</html>

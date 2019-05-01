@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Ordinary thoughts | Pet projects</title>
+  <meta name="description" content="Personal pet projects, mostly learning experiences. As a side note, these are just a part of all the code I produced in the last years, being it for a significant part experimental work.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Pet projects">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/projects">
+  <meta property="og:description" content="Personal pet projects, mostly learning experiences. As a side note, these are just a part of all the code I produced in the last years, being it for a significant part experimental work.">
+  <meta property="og:site_name" content="Ordinary thoughts">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="/projects">
+  <meta name="twitter:title" content="Pet projects">
+  <meta name="twitter:description" content="Personal pet projects, mostly learning experiences. As a side note, these are just a part of all the code I produced in the last years, being it for a significant part experimental work.">
+
+  
+    <meta property="og:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+    <meta name="twitter:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+  
+
+  <link href="/feed.xml" type="application/rss+xml" rel="alternate" title="Ordinary thoughts Last 10 blog posts" />
+
+  
+
+  
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-light-a98c41efc5ed9fcc06ac664c9e2f7a9b3c3b2e0a52357d221fe382f6f4abc8fc.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon-light-87d1f2a3a19b1500e5c1626a0492025ca5f7f97d24540dc5900288e92112925a.png">
+    <link rel="stylesheet" type="text/css" href="/assets/light-273261f5acf40d5e75642b11aff49ad206e80876a27b830f96aa43304000296d.css">
+  
+</head>
+
+<body>
+  <main>
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav scrollappear">
+  <ul class="header-links">
+    
+    <li>
+        <a href="/projects" title="Projects">
+            Projects
+        </a>
+    </li>
+    
+    
+      <li>
+        <a href="/about" title="About me">
+            Resume
+        </a>
+      </li>
+    
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/codepr" rel="noreferrer noopener" target="_blank" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-github">
+  <use href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github" xlink:href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      <li>
+        <a href="mailto:a.g.baldan@gmail.com" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-email">
+  <use href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email" xlink:href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+  </ul>
+  <a href="/" class="header-logo" title="Ordinary thoughts">Ordinary thoughts
+      <p class='subtitle'>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+  </a>
+
+
+</nav>
+
+        <article class="article scrollappear">
+          <header class="article-header">
+            <h1>Pet projects</h1>
+            <p>Personal pet projects, mostly learning experiences. As a side note, these are just a part of all the code I produced in the last years, being it for a significant part experimental work.</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  3 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <h2 id="sol---lightweight-mqtt-broker--c-"><a href="https://github.com/codepr/sol.git" target="_blank" class="pname">Sol</a> - <span class="psub">Lightweight MQTT broker </span><span class="lang"> [C] </span></h2>
+<p>Oversimplified MQTT broker written from scratch, which mimick mosquitto
+features. Implemented for learning how the protocol works, for now it supports
+almost all MQTT v3.1.1 commands on linux platform; it relies on EPOLL interface
+introduced on kernel 2.5.44.</p>
+
+<h2 id="tasq---a-brokerless-distributed-task-queue--python-"><a href="https://github.com/codepr/tasq.git" target="_blank" class="pname">Tasq</a> - <span class="psub">A brokerless distributed task queue </span><span class="lang"> [Python] </span></h2>
+
+<p>Very simple broker-less distributed Task queue that allow the scheduling of job
+functions to be executed on local or remote workers. Can be seen as a Proof of
+Concept leveraging ZMQ sockets and cloudpickle serialization capabilities as
+well as a very basic actor system to handle different loads of work from
+connecting clients.</p>
+
+<h2 id="tritedb---key-value-store-based-on-a-trie-data-structure-to-handle-the-keyspace-c-"><a href="https://github.com/codepr/tritedb.git" target="_blank" class="pname">TriteDB</a> - <span class="psub">Key-value store based on a trie data structure to handle the keyspace</span><span class="lang"> [C] </span></h2>
+
+<p>Single threaded Key-value store based on a Trie data structure. Trie is a kind
+of trees in which each node is a prefix for a key, the node position define the
+keys and the associated values are set on the last node of each key. They
+provide a big-O runtime complexity of O(m) on worst case, for insertion and
+lookup, where m is the length of the key. The main advantage is the possibility
+to query the tree by prefix, executing range scans in an easy way.</p>
+
+<p>Almost all commands supported has a “prefix” version which apply the command
+itself on a prefix instead of a full key.</p>
+
+<h2 id="vessel----epoll-tcp-server-library-supporting-ssl---c-"><a href="https://github.com/codepr/vessel.git" target="_blank" class="pname">Vessel</a> - <span class="psub"> Epoll TCP server library supporting SSl </span> <span class="lang"> [C] </span></h2>
+
+<p>Lightweight library to easily create and use a multithreaded epoll server. It
+aims to make it simple to create pre-defined handler for the main
+macro-operations that every server must fulfill: accepting new clients,
+handling request and reply to clients.</p>
+
+<h2 id="aiotunnel----https-tunneling-for-local-and-remote-port-forwarding---python-"><a href="https://github.com/codepr/aiotunnel.git" target="_blank" class="pname">Aiotunnel</a> - <span class="psub"> HTTPS Tunneling for local and remote port-forwarding </span> <span class="lang"> [Python] </span></h2>
+
+<p>Yet another HTTP tunnel, supports two modes; a direct one which open a local
+port on the host machine and redirect all TCP data to the remote side of the
+tunnel, which actually connect to the desired URL. A second one which require
+the client part to be run on the target system we want to expose, the server
+side on a (arguably) public machine (e.g. an AWS EC2) which expose a port to
+communicate to our target system through HTTP.</p>
+
+<h2 id="memento----remote-hashmap-over-epoll-tcp-server---c-"><a href="https://github.com/codepr/memento.git" target="_blank" class="pname">Memento</a> - <span class="psub"> Remote hashmap over epoll tcp server </span> <span class="lang"> [C] </span></h2>
+
+<p>Fairly simple hashmap implementation built on top of an epoll TCP server. A toy
+project just for learning purpose, fascinated by the topic, i decided to try to
+make a simpler version of redis/memcached to better understand how it works.
+The project is a minimal Redis-like implementation with a text based protocol,
+and like Redis, can be used as key-value in-memory store.</p>
+
+<h2 id="orestes----basic-key-value-store---haskell-"><a href="https://github.com/codepr/orestes.git" target="_blank" class="pname">Orestes</a> - <span class="psub"> Basic key-value store </span> <span class="lang"> [Haskell] </span></h2>
+
+<p>Simple implementation of a distributed key-value server, aimed to learn basic
+concepts of functional programming through Haskell. For the distribution it
+uses cloud-haskell libraries, based on asynchronous message protocol like
+Erlang distribution actor model. It works on both a cluster of machines or on a
+single one according to a master-slave topology. It currently support just the
+common operations <code class="highlighter-rouge">PUT</code>, <code class="highlighter-rouge">GET</code> and <code class="highlighter-rouge">DEL</code> and it lacks a suitable communication
+protocol, on the other side it is perfectly usable by using a generic TCP
+client like Telnet or Netcat issuing commands as strings.</p>
+
+<h2 id="jas----actor-model-with-java-rmi---java-"><a href="https://github.com/codepr/jas.git" target="_blank" class="pname">Jas</a> - <span class="psub"> Actor model with java RMI </span> <span class="lang"> [Java] </span></h2>
+
+<p>A system that abstract a simplified implementation of the actor model.
+Originally started as a university project for a concurrent and distributed
+programming course, I proceeded to add some features like support for remote
+actors and a basic cluster system based on legacy RMI technology.</p>
+
+<p>Still under development, and likely bugged, it’s not recommended to try it in a
+real case of use.</p>
+
+          </div>
+          <div class="article-share">
+            
+            
+            <a href="https://twitter.com/home?status=Pet+projects%20-%20/projects" title="Share on Twitter" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M492 109.5c-17.4 7.7-36 12.9-55.6 15.3 20-12 35.4-31 42.6-53.6 -18.7 11.1-39.4 19.2-61.5 23.5C399.8 75.8 374.6 64 346.8 64c-53.5 0-96.8 43.4-96.8 96.9 0 7.6 0.8 15 2.5 22.1 -80.5-4-151.9-42.6-199.6-101.3 -8.3 14.3-13.1 31-13.1 48.7 0 33.6 17.2 63.3 43.2 80.7C67 210.7 52 206.3 39 199c0 0.4 0 0.8 0 1.2 0 47 33.4 86.1 77.7 95 -8.1 2.2-16.7 3.4-25.5 3.4 -6.2 0-12.3-0.6-18.2-1.8 12.3 38.5 48.1 66.5 90.5 67.3 -33.1 26-74.9 41.5-120.3 41.5 -7.8 0-15.5-0.5-23.1-1.4C62.8 432 113.7 448 168.3 448 346.6 448 444 300.3 444 172.2c0-4.2-0.1-8.4-0.3-12.5C462.6 146 479 129 492 109.5z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=/projects" title="Share on Facebook" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M288 192v-38.1c0-17.2 3.8-25.9 30.5-25.9H352V64h-55.9c-68.5 0-91.1 31.4-91.1 85.3V192h-45v64h45v192h83V256h56.4l7.6-64H288z"/></svg>
+            </a>
+            <a href="https://plus.google.com/share?url=/projects" title="Share on Google+" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 128 128"><path d="M40.7 55.9v16.1c0 0 15.6 0 22 0C59.2 82.5 53.8 88.2 40.7 88.2c-13.3 0-23.7-10.8-23.7-24.2s10.4-24.2 23.7-24.2c7.1 0 11.6 2.5 15.8 5.9 3.3-3.3 3.1-3.8 11.6-11.9 -7.2-6.6-16.8-10.6-27.4-10.6C18.2 23.3 0 41.5 0 64c0 22.5 18.2 40.7 40.7 40.7 33.6 0 41.8-29.3 39-48.8H40.7zM113.9 56.7V42.6h-10.1v14.1H89.4v10.1h14.5v14.5h10.1V66.8H128V56.7H113.9z"/></svg>
+            </a>
+          </div>
+
+          
+        </article>
+        <footer class="footer scrollappear">
+<p>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+<p>Powered by Jekyll.</p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+
+<script type="text/javascript" src="/assets/vendor-c7660858f86a434b413963ad66674aac04cdf9b172bee75278aa23e144569dde.js"></script>
+
+
+  <script type="text/javascript" src="/assets/webfonts-1d924df3a4c7364cfb23aab219296b7f778337c69c1e9fb531894165a1abcece.js"></script>
+
+
+
+  <script type="text/javascript" src="/assets/scrollappear-e2da8ea567e418637e31266cc5302126eaa79f62a2273739086358b589a89ee6.js"></script>
+
+
+<script type="text/javascript" src="/assets/application-cfde13ac81ddaf4351b2e739603e2baf688d0fcc9aba613fe62bbb1c7b037fb9.js"></script>
+
+</body>
+</html>

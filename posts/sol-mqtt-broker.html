@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>Ordinary thoughts | Sol - An MQTT broker from scratch. Part 1 - The protocol</title>
+  <meta name="description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta property="og:title" content="Sol - An MQTT broker from scratch. Part 1 - The protocol">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/posts/sol-mqtt-broker">
+  <meta property="og:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+  <meta property="og:site_name" content="Ordinary thoughts">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="/posts/sol-mqtt-broker">
+  <meta name="twitter:title" content="Sol - An MQTT broker from scratch. Part 1 - The protocol">
+  <meta name="twitter:description" content="Writing an MQTT broker from scratch, to really understand something you have to build it.">
+
+  
+    <meta property="og:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+    <meta name="twitter:image" content="/assets/og-image-ee46bbc61b334e821e81534b1fd43f3fee6f020ec174b3c2114445695fd48c01.jpg">
+  
+
+  <link href="/feed.xml" type="application/rss+xml" rel="alternate" title="Ordinary thoughts Last 10 blog posts" />
+
+  
+
+  
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-light-a98c41efc5ed9fcc06ac664c9e2f7a9b3c3b2e0a52357d221fe382f6f4abc8fc.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon-light-87d1f2a3a19b1500e5c1626a0492025ca5f7f97d24540dc5900288e92112925a.png">
+    <link rel="stylesheet" type="text/css" href="/assets/light-273261f5acf40d5e75642b11aff49ad206e80876a27b830f96aa43304000296d.css">
+  
+</head>
+
+<body>
+  <main>
+    <div class="grid grid-centered">
+      <div class="grid-cell">
+        <nav class="header-nav scrollappear">
+  <ul class="header-links">
+    
+    <li>
+        <a href="/projects" title="Projects">
+            Projects
+        </a>
+    </li>
+    
+    
+      <li>
+        <a href="/about" title="About me">
+            Resume
+        </a>
+      </li>
+    
+    
+    
+    
+    
+      <li>
+        <a href="https://github.com/codepr" rel="noreferrer noopener" target="_blank" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-github">
+  <use href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github" xlink:href="/assets/github-094f81040819f34343ee6ffff0980f17e2807b08b595eaaf66ae3554934fd78d.svg#icon-github"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      <li>
+        <a href="mailto:a.g.baldan@gmail.com" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-email">
+  <use href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email" xlink:href="/assets/email-782473193bf750036fdb90e8daa075508a20509d01854c09f3237c144a3f0601.svg#icon-email"></use>
+</svg>
+
+        </a>
+      </li>
+    
+    
+  </ul>
+  <a href="/" class="header-logo" title="Ordinary thoughts">Ordinary thoughts
+      <p class='subtitle'>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+  </a>
+
+
+</nav>
+
+        <article class="article scrollappear">
+          <header class="article-header">
+            <h1>Sol - An MQTT broker from scratch. Part 1 - The protocol</h1>
+            <p>Writing an MQTT broker from scratch, to really understand something you have to build it.</p>
+            <div class="article-list-footer">
+              <span class="article-list-date">
+                March 3, 2019
+              </span>
+              <span class="article-list-divider">-</span>
+              <span class="article-list-minutes">
+                
+                
+                  30 minute read
+                
+              </span>
+              <span class="article-list-divider">-</span>
+              <div class="article-list-tags">
+                
+                  <a href="/tag/c">c</a>
+                
+                  <a href="/tag/unix">unix</a>
+                
+                  <a href="/tag/tutorial">tutorial</a>
+                
+              </div>
+            </div>
+          </header>
+
+          <div class="article-content">
+            <p>It’s been a while that for my daily work I have to deal with IoT architectures
+and researching best patterns to develop such systems, including diving through
+standards and protocols like MQTT; as I always been craving for new ideas to
+learn and refine my programming skills, I thought that going a little deeper on
+the topic would be cool and useful too. So once again I <code class="highlighter-rouge">git init</code> a low-level
+project on my box to deepen my knowledge on the MQTT protocol, and I wanted to
+push myself a little further by sharing my steps; instead of the usual
+Key-Value store, which happens to be my favourite pet-project of choice when it
+comes to learn a new language or to dusting out on low-level system programming
+on UNIX.</p>
+
+<p><strong>Sol</strong> will be a C project, a super-simple MQTT broker for Linux platform
+which will support version 3.1.1 of the protocol, skipping on older protocols
+for now, very similar to a lightweight mosquitto (which is already a
+lightweight piece of software anyway), and with the abundance of MQTT clients
+out there, testing will be also easier. The final result will be a base for
+something more clean and with more features, what we’re going to create have to
+be considered a minimal implementation, an MVP. As a side note, the name
+decision is a 50/50 for the elegance i feel for short names and the martian day
+(The Martian docet). Or maybe it stands for Shitty Obnoxious Laxative. Tastes.</p>
+
+<p><strong>Note</strong>: the project won’t compile till the very end of the series, following
+all steps, to test single parts and modules I suggest to provide a main by
+yourself and stop to make experiments, change parts etc.</p>
+
+<p>Going per steps, I usually init my C projects in order to have all sources
+in a single folder:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">sol/
+ ├── src/
+ ├── CHANGELOG
+ ├── CMakeLists.txt
+ ├── COPYING
+ └── README.md</code></pre></figure>
+
+<p>Here the repository on Github
+<a href="https://github.com/codepr/sol.git">https://github.com/codepr/sol.git</a>.  I’ll
+try to describe step by step my journey into the development of the software,
+without being too much verbose, and listing lot of code directly with brief
+explanation of its purpose. The best way still remains to write it down,
+compile it and play/modify it.<br />
+This will be a series of posts, each one tackling and mostly implementing a single
+concept/module of the project:</p>
+
+<ul>
+  <li><a href="sol-mqtt-broker">Part 1 - Protocol</a>, lays the foundations to handle the MQTT protocol packets</li>
+  <li><a href="sol-mqtt-broker-p2">Part 2 - Networking</a>, utility module, focus on network communication</li>
+  <li><a href="sol-mqtt-broker-p3">Part 3 - Server</a>, the main entry point of the program</li>
+  <li><a href="sol-mqtt-broker-p4">Part 4 - Data structures</a>, utility and educational modules</li>
+  <li><a href="sol-mqtt-broker-p5">Part 5 - Topic abstraction</a>, handling the main scaling and grouping abstraction of the broker</li>
+  <li><a href="sol-mqtt-broker-p6">Part 6 - Handlers</a>, server completion, for each packet there’s a handler dedicated</li>
+</ul>
+
+<p>I’d like to underline that the resulting software will be a fully functioning
+broker, but with large space for improvements and optimization as well as code
+quality improvements and probably, with some hidden features as well (aka bugs
+:P).</p>
+
+<h3 id="general-architecture">General architecture</h3>
+
+<p>In essence a broker is a middleware, a software that accepts input from
+multiple clients (producers) and forward it to a set of destinatary clients
+(consumers) using an abstraction to define and manage these groups of clients
+in the form of a channel or <strong>topic</strong> as it’s called by the protocol standards.
+Much like an IRC channel or equivalent in a generic chart, each consumer client
+can subscribe to <strong>topics</strong> in order to receive all messages published by other
+clients to those <strong>topics</strong>.</p>
+
+<p>The first idea coming to mind is a server built on top of a data structure
+of some kind that allow to easily manage these <strong>topics</strong> and connected
+clients, being them producers or consumers. Each message received by a client
+must be forwarded to all other connected clients that are subscribed to the
+specified topic of the message.</p>
+
+<p>Let’s try this way, a TCP server and a module to handle binary communication
+through the wire. There are many ways to implement a server, threads, fork
+processes and multiplexing I/O, which is the way I’d like to explore the most.
+We’ll start with a single-threaded multiplexing I/O server, with the possibility
+on future to scale it out using threads, <strong>epoll</strong> interface for multiplexing in
+fact is thread-safe by implementation.</p>
+
+<h3 id="the-mqtt-protocol">The MQTT protocol</h3>
+
+<p>First of all, we have to model some structures to handle MQTT packets, by
+following specifications on the <a href="http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/errata01/os/mqtt-v3.1.1-errata01-os-complete.html">official
+documentation</a>.
+Starting from the opcode table and the MQTT header, according to the docs every packet
+consists of 3 parts:</p>
+<ul>
+  <li>Fixed Header (mandatory)</li>
+  <li>Variable Header (optional)</li>
+  <li>Payload (optional)</li>
+</ul>
+
+<p>The Fixed Header part consists of the first byte for command type and flags,
+and a second to fifth byte to store the remaining length of the packet.</p>
+
+<figure class="highlight"><pre><code class="language-markdown" data-lang="markdown"><span class="gh"># Fixed Header</span>
+
+ | Bit    | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+ |--------|---------------|---------------|
+ | Byte 1 | MQTT type     |  Flags        |
+ |--------|-------------------------------|
+ | Byte 2 |                               |
+ |  .     |      Remaning Length          |
+ |  .     |                               |
+ | Byte 5 |                               |</code></pre></figure>
+
+<p>Flags are not all mandatory, just the 4 bits block MQTT Control Type, the
+others are:</p>
+
+<ul>
+  <li>Dup flag, used when a message is sent more than one time</li>
+  <li>QoS level, can be AT_MOST_ONCE, AT_LEAST_ONCE and EXACTLY_ONCE, 0,
+1, 2 respectively</li>
+  <li>Retain flag, if a message should be retained, in other words, when a
+message is published on a topic, it is saved and future connecting clients
+will receive it. It can be updated with another retained message.</li>
+</ul>
+
+<p>So fire up Vim (or your favourite editor) and start writing <code class="highlighter-rouge">mqtt.h</code> header
+file containing the Control Packet Types and a struct to handle the Fixed
+Header:</p>
+
+<p><strong>src/mqtt.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef MQTT_H
+#define MQTT_H
+</span>
+<span class="cp">#include &lt;stdio.h&gt;
+</span>
+
+<span class="cp">#define MQTT_HEADER_LEN 2
+#define MQTT_ACK_LEN    4
+</span>
+
+<span class="cm">/* Message types */</span>
+<span class="k">enum</span> <span class="n">message_opcode</span> <span class="p">{</span>
+    <span class="n">CONNECT</span>     <span class="o">=</span> <span class="mh">0x10</span><span class="p">,</span>
+    <span class="n">CONNACK</span>     <span class="o">=</span> <span class="mh">0x20</span><span class="p">,</span>
+    <span class="n">PUBLISH</span>     <span class="o">=</span> <span class="mh">0x30</span><span class="p">,</span>
+    <span class="n">PUBACK</span>      <span class="o">=</span> <span class="mh">0x40</span><span class="p">,</span>
+    <span class="n">PUBREC</span>      <span class="o">=</span> <span class="mh">0x50</span><span class="p">,</span>
+    <span class="n">PUBREL</span>      <span class="o">=</span> <span class="mh">0x60</span><span class="p">,</span>
+    <span class="n">PUBCOMP</span>     <span class="o">=</span> <span class="mh">0x70</span><span class="p">,</span>
+    <span class="n">SUBSCRIBE</span>   <span class="o">=</span> <span class="mh">0x80</span><span class="p">,</span>
+    <span class="n">SUBACK</span>      <span class="o">=</span> <span class="mh">0x90</span><span class="p">,</span>
+    <span class="n">UNSUBSCRIBE</span> <span class="o">=</span> <span class="mh">0xA0</span><span class="p">,</span>
+    <span class="n">UNSUBACK</span>    <span class="o">=</span> <span class="mh">0xB0</span><span class="p">,</span>
+    <span class="n">PINGREQ</span>     <span class="o">=</span> <span class="mh">0xC0</span><span class="p">,</span>
+    <span class="n">PINGRESP</span>    <span class="o">=</span> <span class="mh">0xD0</span><span class="p">,</span>
+    <span class="n">DISCONNECT</span>  <span class="o">=</span> <span class="mh">0xE0</span>
+<span class="p">};</span>
+
+
+<span class="k">enum</span> <span class="n">message_type</span> <span class="p">{</span>
+    <span class="n">CONNECT_TYPE</span>     <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">CONNACK_TYPE</span>     <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">PUBLISH_TYPE</span>     <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="n">PUBACK_TYPE</span>      <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="n">PUBREC_TYPE</span>      <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="n">PUBREL_TYPE</span>      <span class="o">=</span> <span class="mi">6</span><span class="p">,</span>
+    <span class="n">PUBCOMP_TYPE</span>     <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
+    <span class="n">SUBSCRIBE_TYPE</span>   <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="n">SUBACK_TYPE</span>      <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
+    <span class="n">UNSUBSCRIBE_TYPE</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">UNSUBACK_TYPE</span>    <span class="o">=</span> <span class="mi">11</span><span class="p">,</span>
+    <span class="n">PINGREQ_TYPE</span>     <span class="o">=</span> <span class="mi">12</span><span class="p">,</span>
+    <span class="n">PINGRESP_TYPE</span>    <span class="o">=</span> <span class="mi">13</span><span class="p">,</span>
+    <span class="n">DISCONNECT_TYPE</span>  <span class="o">=</span> <span class="mi">14</span>
+<span class="p">};</span>
+
+
+<span class="k">enum</span> <span class="n">qos_level</span> <span class="p">{</span> <span class="n">AT_MOST_ONCE</span><span class="p">,</span> <span class="n">AT_LEAST_ONCE</span><span class="p">,</span> <span class="n">EXACTLY_ONCE</span> <span class="p">};</span>
+
+
+<span class="k">union</span> <span class="n">mqtt_header</span> <span class="p">{</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="p">{</span>
+        <span class="kt">unsigned</span> <span class="n">retain</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="n">qos</span> <span class="o">:</span> <span class="mi">2</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="n">dup</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="n">type</span> <span class="o">:</span> <span class="mi">4</span><span class="p">;</span>
+    <span class="p">}</span> <span class="n">bits</span><span class="p">;</span>
+
+<span class="p">};</span></code></pre></figure>
+
+<p>The first 2 <code class="highlighter-rouge">#define</code> refers to fixed sizes of the MQTT Fixed Header and of
+every type of MQTT ACK packets, set for convenience, we’ll use those later.</p>
+
+<p>As shown, we leverage the <strong>union</strong>, a value that may have any of several
+representations withing the same position in memory, to represent a byte. In
+other words, inside unions, in contrast to normal <strong>struct</strong>, there can be only
+one field with a value. Their position in memory are shared, this way using
+<strong>bitfields</strong> we can effectively manipulate single bits or portions of a byte.</p>
+
+<p>The first Control Packet we’re going to define is the CONNECT. The
+CONNECT is the first packet that must be sent when a client establish a new
+connection and it must be extactly one, more than one CONNECT per client must
+be treated as a violation of the protocol and the client must be dropped.<br />
+At each CONNECT must be followed in response a CONNACK.</p>
+
+<p><strong>src/mqtt.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">struct</span> <span class="n">mqtt_connect</span> <span class="p">{</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="k">union</span> <span class="p">{</span>
+
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">;</span>
+
+        <span class="k">struct</span> <span class="p">{</span>
+            <span class="kt">int</span> <span class="n">reserverd</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="kt">unsigned</span> <span class="n">clean_session</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="kt">unsigned</span> <span class="n">will</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="kt">unsigned</span> <span class="n">will_qos</span> <span class="o">:</span> <span class="mi">2</span><span class="p">;</span>
+            <span class="kt">unsigned</span> <span class="n">will_retain</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="kt">unsigned</span> <span class="n">password</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="kt">unsigned</span> <span class="n">username</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="p">}</span> <span class="n">bits</span><span class="p">;</span>
+    <span class="p">};</span>
+
+    <span class="k">struct</span> <span class="p">{</span>
+        <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">keepalive</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">client_id</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">username</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">password</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">will_topic</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">will_message</span><span class="p">;</span>
+    <span class="p">}</span> <span class="n">payload</span><span class="p">;</span>
+
+<span class="p">};</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_connack</span> <span class="p">{</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="k">union</span> <span class="p">{</span>
+
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">byte</span><span class="p">;</span>
+
+        <span class="k">struct</span> <span class="p">{</span>
+            <span class="kt">unsigned</span> <span class="n">session_present</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+            <span class="kt">unsigned</span> <span class="n">reserverd</span> <span class="o">:</span> <span class="mi">7</span><span class="p">;</span>
+        <span class="p">}</span> <span class="n">bits</span><span class="p">;</span>
+    <span class="p">};</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">rc</span><span class="p">;</span>
+<span class="p">};</span></code></pre></figure>
+
+<p>From now on, the definition of other packets are trivial by reproducing the
+pattern, accordingly to the documentation of MQTT v3.1.1.</p>
+
+<p>We proceed with SUBSCRIBE, UNSUBSCRIBE and PUBLISH. SUBSCRIBE is the
+only packet with a dedicated packet definition SUBACK, the other can be
+defined as generic ACK, and typenamed using <strong>typedef</strong> for semantic
+separation.</p>
+
+<p><strong>src/mqtt.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">struct</span> <span class="n">mqtt_subscribe</span> <span class="p">{</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">tuples_len</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="p">{</span>
+        <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">topic_len</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">topic</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="n">qos</span><span class="p">;</span>
+    <span class="p">}</span> <span class="o">*</span><span class="n">tuples</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_unsubscribe</span> <span class="p">{</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">tuples_len</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="p">{</span>
+        <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">topic_len</span><span class="p">;</span>
+        <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">topic</span><span class="p">;</span>
+    <span class="p">}</span> <span class="o">*</span><span class="n">tuples</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_suback</span> <span class="p">{</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">rcslen</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">rcs</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_publish</span> <span class="p">{</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">topiclen</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">topic</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">payloadlen</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">payload</span><span class="p">;</span>
+<span class="p">};</span>
+
+
+<span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="p">{</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+
+    <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">pkt_id</span><span class="p">;</span>
+<span class="p">};</span></code></pre></figure>
+
+<p>The remaning ACK packets, namely:</p>
+<ul>
+  <li>PUBACK</li>
+  <li>PUBREC</li>
+  <li>PUBREL</li>
+  <li>PUBCOMP</li>
+  <li>UNSUBACK</li>
+  <li>PINGREQ</li>
+  <li>PINGRESP</li>
+  <li>DISCONNECT</li>
+</ul>
+
+<p>can be obtained by typedef’ing <code class="highlighter-rouge">struct ack</code>, just for semantic separation of
+concerns. The last one, DISCONNECT, is not really an ACK but the format is
+the same.</p>
+
+<p><strong>src/mqtt.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">mqtt_puback</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">mqtt_pubrec</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">mqtt_pubrel</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">mqtt_pubcomp</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">mqtt_unsuback</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">mqtt_pingreq</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">mqtt_pingresp</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">mqtt_disconnect</span><span class="p">;</span></code></pre></figure>
+
+<p>We can finally define a generic MQTT packet as a <code class="highlighter-rouge">union</code> of the previously
+defined packets.</p>
+
+<p><strong>src/mqtt.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">union</span> <span class="n">mqtt_packet</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">ack</span><span class="p">;</span>
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">mqtt_connect</span> <span class="n">connect</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">mqtt_connack</span> <span class="n">connack</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">mqtt_suback</span> <span class="n">suback</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">mqtt_publish</span> <span class="n">publish</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">mqtt_subscribe</span> <span class="n">subscribe</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">mqtt_unsubscribe</span> <span class="n">unsubscribe</span><span class="p">;</span>
+
+<span class="p">};</span></code></pre></figure>
+
+<p>We proceed now with the definition of some public functions, here in the header
+we want to collect only those functions and structure that should be used by
+other modules.</p>
+
+<p>To handle the communication using the MQTT protocol we need essentially 4 functions,
+2 for each direction of the interaction between server and client:</p>
+
+<ul>
+  <li>A packing function (serializing or marshalling, i won’t dive here in a
+dissertion on the correct usage of the terms)</li>
+  <li>An unpacking function (deserializing/unmarshalling)</li>
+</ul>
+
+<p>Supported by 2 functions to handle the encoding and decoding of the
+Remaning Length in the Fixed Header part.</p>
+
+<p><strong>src/mqtt.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">int</span> <span class="n">mqtt_encode_length</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">);</span>
+
+<span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="n">mqtt_decode_length</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">**</span><span class="p">);</span>
+
+<span class="kt">int</span> <span class="n">unpack_mqtt_packet</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pack_mqtt_packet</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">,</span> <span class="kt">unsigned</span><span class="p">);</span></code></pre></figure>
+
+<p>We also add some utility functions to build packets and to release
+heap-alloc’ed ones, nothing special here.</p>
+
+<p><strong>src/mqtt.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="n">mqtt_packet_header</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span><span class="p">);</span>
+
+<span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="o">*</span><span class="n">mqtt_packet_ack</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">short</span><span class="p">);</span>
+
+<span class="k">struct</span> <span class="n">mqtt_connack</span> <span class="o">*</span><span class="n">mqtt_packet_connack</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">char</span> <span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">char</span><span class="p">);</span>
+
+<span class="k">struct</span> <span class="n">mqtt_suback</span> <span class="o">*</span><span class="n">mqtt_packet_suback</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">short</span><span class="p">,</span>
+                                       <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">short</span><span class="p">);</span>
+
+<span class="k">struct</span> <span class="n">mqtt_publish</span> <span class="o">*</span><span class="n">mqtt_packet_publish</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">short</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">,</span>
+                                         <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                                         <span class="kt">size_t</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="kt">void</span> <span class="n">mqtt_packet_release</span><span class="p">(</span><span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">,</span> <span class="kt">unsigned</span><span class="p">);</span>
+
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p>Fine. We have a decent header module that define all that we need for handling
+the communication using the protocol. Let’s now implement those functions.
+First of all we define some “private” helpers, to pack and unpack each MQTT
+packet, these will be called by the previously defined “public” functions
+<code class="highlighter-rouge">unpack_mqtt_packet</code> and <code class="highlighter-rouge">pack_mqtt_packet</code>.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include "mqtt.h"
+</span>
+
+<span class="k">static</span> <span class="kt">size_t</span> <span class="n">unpack_mqtt_connect</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">size_t</span> <span class="n">unpack_mqtt_publish</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">size_t</span> <span class="n">unpack_mqtt_subscribe</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                                    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="p">,</span>
+                                    <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">size_t</span> <span class="n">unpack_mqtt_unsubscribe</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                                      <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="p">,</span>
+                                      <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">size_t</span> <span class="n">unpack_mqtt_ack</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                              <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="p">,</span>
+                              <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pack_mqtt_header</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pack_mqtt_ack</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pack_mqtt_connack</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pack_mqtt_suback</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pack_mqtt_publish</span><span class="p">(</span><span class="k">const</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span></code></pre></figure>
+
+<h3 id="packing-and-unpacking">Packing and unpacking</h3>
+
+<p>Before continuing with the implementation of all defined functions on
+<code class="highlighter-rouge">src/mqtt.h</code>, we need to implement some helpers functions to ease the pack and
+unpack process of each received packet and also ready for send forged MQTT
+packet.</p>
+
+<p>Let’s go fast here, it’s just simple serialization/deserialization respecting
+the network byte order (endianness, usually network byte order refers to
+Big-endian order, while the majority of machines follow Little-endian
+convention) of the packets.</p>
+
+<p><strong>src/pack.h</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#ifndef PACK_H
+#define PACK_H
+</span>
+<span class="cp">#include &lt;stdio.h&gt;
+#include &lt;stdint.h&gt;
+</span>
+<span class="cm">/* Reading data on const uint8_t pointer */</span>
+<span class="c1">// bytes -&gt; uint8_t</span>
+<span class="kt">uint8_t</span> <span class="n">unpack_u8</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">);</span>
+
+<span class="c1">// bytes -&gt; uint16_t</span>
+<span class="kt">uint16_t</span> <span class="n">unpack_u16</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">);</span>
+
+<span class="c1">// bytes -&gt; uint32_t</span>
+<span class="kt">uint32_t</span> <span class="n">unpack_u32</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">);</span>
+
+<span class="c1">// read a defined len of bytes</span>
+<span class="kt">uint8_t</span> <span class="o">*</span><span class="n">unpack_bytes</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">,</span> <span class="kt">size_t</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/* Write data on const uint8_t pointer */</span>
+<span class="c1">// append a uint8_t -&gt; bytes into the bytestring</span>
+<span class="kt">void</span> <span class="n">pack_u8</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="p">,</span> <span class="kt">uint8_t</span><span class="p">);</span>
+
+<span class="c1">// append a uint16_t -&gt; bytes into the bytestring</span>
+<span class="kt">void</span> <span class="n">pack_u16</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="p">,</span> <span class="kt">uint16_t</span><span class="p">);</span>
+
+<span class="c1">// append a uint32_t -&gt; bytes into the bytestring</span>
+<span class="kt">void</span> <span class="n">pack_u32</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="p">,</span> <span class="kt">uint32_t</span><span class="p">);</span>
+
+<span class="c1">// append len bytes into the bytestring</span>
+<span class="kt">void</span> <span class="n">pack_bytes</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="p">);</span>
+
+
+<span class="cp">#endif</span></code></pre></figure>
+
+<p>And the corresponding implementation</p>
+
+<p><strong>src/pack.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#include &lt;string.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;arpa/inet.h&gt;
+#include "pack.h"
+</span>
+<span class="c1">// Reading data</span>
+<span class="kt">uint8_t</span> <span class="nf">unpack_u8</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">uint8_t</span> <span class="n">val</span> <span class="o">=</span> <span class="o">**</span><span class="n">buf</span><span class="p">;</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="o">++</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">val</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="kt">uint16_t</span> <span class="nf">unpack_u16</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">uint16_t</span> <span class="n">val</span><span class="p">;</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">val</span><span class="p">,</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">));</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">ntohs</span><span class="p">(</span><span class="n">val</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">uint32_t</span> <span class="nf">unpack_u32</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">uint32_t</span> <span class="n">val</span><span class="p">;</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">val</span><span class="p">,</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">));</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">ntohl</span><span class="p">(</span><span class="n">val</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">uint8_t</span> <span class="o">*</span><span class="nf">unpack_bytes</span><span class="p">(</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">len</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">str</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="n">memcpy</span><span class="p">(</span><span class="n">str</span><span class="p">,</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="n">len</span><span class="p">);</span>
+    <span class="n">str</span><span class="p">[</span><span class="n">len</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'\0'</span><span class="p">;</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span> <span class="o">+=</span> <span class="n">len</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">str</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Write data</span>
+<span class="kt">void</span> <span class="nf">pack_u8</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="n">val</span><span class="p">)</span> <span class="p">{</span>
+    <span class="o">**</span><span class="n">buf</span> <span class="o">=</span> <span class="n">val</span><span class="p">;</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint8_t</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">pack_u16</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">,</span> <span class="kt">uint16_t</span> <span class="n">val</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">uint16_t</span> <span class="n">htonsval</span> <span class="o">=</span> <span class="n">htons</span><span class="p">(</span><span class="n">val</span><span class="p">);</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">htonsval</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">));</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">pack_u32</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">,</span> <span class="kt">uint32_t</span> <span class="n">val</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">uint32_t</span> <span class="n">htonlval</span> <span class="o">=</span> <span class="n">htonl</span><span class="p">(</span><span class="n">val</span><span class="p">);</span>
+    <span class="n">memcpy</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">htonlval</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">));</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">);</span>
+<span class="p">}</span>
+
+
+<span class="kt">void</span> <span class="nf">pack_bytes</span><span class="p">(</span><span class="kt">uint8_t</span> <span class="o">**</span><span class="n">buf</span><span class="p">,</span> <span class="kt">uint8_t</span> <span class="o">*</span><span class="n">str</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="n">strlen</span><span class="p">((</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">str</span><span class="p">);</span>
+
+    <span class="n">memcpy</span><span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="n">str</span><span class="p">,</span> <span class="n">len</span><span class="p">);</span>
+    <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span> <span class="o">+=</span> <span class="n">len</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>This allow us to handle incoming stream of bytes and forge them to respond to
+connected clients. Let’s move one.</p>
+
+<h3 id="back-to-srcmqttc">Back to src/mqtt.c</h3>
+
+<p>After the creation of <code class="highlighter-rouge">pack</code> module we should include it into the <code class="highlighter-rouge">mqtt</code> source:</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cp">#include "pack.h"</span></code></pre></figure>
+
+<p>The first step will be the implemetation of the Fixed Header Remaning Length
+functions. The MQTT documentation suggests a pseudo-code implementation in one
+of the first paragraphs, we’ll stick to that, it’s fairly simple and clear.
+We’ll see why and how after the first byte of the Fixed Header, the next 1 or
+2 or 3 or 4 bytes are used to encode the remainig bytes of the packet.</p>
+
+<blockquote>
+  <p>The Remaining Length is the number of bytes remaining within the current
+packet, including data in the variable header and the payload. The Remaining
+Length does not include the bytes used to encode the Remaining Length.</p>
+
+  <p>The Remaining Length is encoded using a variable length encoding scheme which
+uses a single byte for values up to 127. Larger values are handled as
+follows. The least significant seven bits of each byte encode the data, and
+the most significant bit is used to indicate that there are following bytes
+in the representation. Thus each byte encodes 128 values and a “continuation
+bit”. The maximum number of bytes in the Remaining Length field is four.</p>
+</blockquote>
+
+<p>No need for further explanation, the MQTT documentation is crystal clear.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * MQTT v3.1.1 standard, Remaining length field on the fixed header can be at
+ * most 4 bytes.
+ */</span>
+<span class="k">static</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">MAX_LEN_BYTES</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
+
+<span class="cm">/*
+ * Encode Remaining Length on a MQTT packet header, comprised of Variable
+ * Header and Payload if present. It does not take into account the bytes
+ * required to store itself. Refer to MQTT v3.1.1 algorithm for the
+ * implementation.
+ */</span>
+<span class="kt">int</span> <span class="nf">mqtt_encode_length</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">len</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">int</span> <span class="n">bytes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">do</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">bytes</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">MAX_LEN_BYTES</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">bytes</span><span class="p">;</span>
+
+        <span class="kt">char</span> <span class="n">d</span> <span class="o">=</span> <span class="n">len</span> <span class="o">%</span> <span class="mi">128</span><span class="p">;</span>
+        <span class="n">len</span> <span class="o">/=</span> <span class="mi">128</span><span class="p">;</span>
+
+        <span class="cm">/* if there are more digits to encode, set the top bit of this digit */</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">len</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">d</span> <span class="o">|=</span> <span class="mh">0x80</span><span class="p">;</span>
+
+        <span class="n">buf</span><span class="p">[</span><span class="n">bytes</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">;</span>
+
+    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="n">len</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">bytes</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/*
+ * Decode Remaining Length comprised of Variable Header and Payload if
+ * present. It does not take into account the bytes for storing length. Refer
+ * to MQTT v3.1.1 algorithm for the implementation suggestion.
+ *
+ * TODO Handle case where multiplier &gt; 128 * 128 * 128
+ */</span>
+<span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="nf">mqtt_decode_length</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">**</span><span class="n">buf</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">char</span> <span class="n">c</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">multiplier</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">long</span> <span class="n">value</span> <span class="o">=</span> <span class="mi">0LL</span><span class="p">;</span>
+
+    <span class="k">do</span> <span class="p">{</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="o">**</span><span class="n">buf</span><span class="p">;</span>
+        <span class="n">value</span> <span class="o">+=</span> <span class="p">(</span><span class="n">c</span> <span class="o">&amp;</span> <span class="mi">127</span><span class="p">)</span> <span class="o">*</span> <span class="n">multiplier</span><span class="p">;</span>
+        <span class="n">multiplier</span> <span class="o">*=</span> <span class="mi">128</span><span class="p">;</span>
+        <span class="p">(</span><span class="o">*</span><span class="n">buf</span><span class="p">)</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">while</span> <span class="p">((</span><span class="n">c</span> <span class="o">&amp;</span> <span class="mi">128</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">value</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Now we can read the first header byte and the total length of the packet. Let’s
+move on with the unpacking of the CONNECT packet.
+It’s the packet with more flags and the second one in length behind only the
+PUBLISH packet.</p>
+
+<p>It consists in:</p>
+<ul>
+  <li>A fixed header with MQTT Control packet type 1 on the first 4 most
+significant bits (MSB from now on) and unused (reserved for future
+implementation) for the 4 least significant bits (LSB).</li>
+  <li>The Remaining Length of the packet</li>
+  <li>The Variable Header which consists of four fields:
+    <ul>
+      <li>Protocol Name</li>
+      <li>Protocol Level</li>
+      <li>Connect Flags</li>
+      <li>Keep Alive</li>
+    </ul>
+  </li>
+</ul>
+
+<blockquote>
+  <p>The Protocol Name is a UTF-8 encoded string that represents the protocol name
+“MQTT”, capitalized. The string, its offset and length will not be changed by
+future versions of the MQTT specification.</p>
+</blockquote>
+
+<p>For version 3.1.1 the Protocol Name is ‘M’ ‘Q’ ‘T’ ‘T’, 4 bytes in total, we
+will ignore for now what is the name for older versions.<br />
+Connect flags byte contains some indications on the behaviour of the client and
+the presence or absence of fields in the payload:</p>
+
+<ul>
+  <li>Username flag</li>
+  <li>Password flag</li>
+  <li>Will retain</li>
+  <li>Will QoS</li>
+  <li>Will flag</li>
+  <li>Clean Session</li>
+</ul>
+
+<p>The last bit is reserved for future implementations. All other flags are
+intended as booleans, on the payload part of the packet, according to those
+flags there are also the corresponding fields, so let’s say we have username
+and password at true, on the payload we’ll find a 2 bytes field representing
+username length, followed by the username itself, and the same for the password.</p>
+
+<p>To clarify the concept, let’s suppose we receive a CONNECT packet with:</p>
+
+<ul>
+  <li>username and password flag to 1</li>
+  <li>username = “hello”</li>
+  <li>password = “nacho”</li>
+  <li>client ID = “danzan”</li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field        </th>
+      <th style="text-align: center">size (bytes)       </th>
+      <th style="text-align: center">offset (byte position)       </th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Packet type</td>
+      <td style="text-align: center">1 (4 bits)</td>
+      <td style="text-align: center">0</td>
+      <td>Connect type</td>
+    </tr>
+    <tr>
+      <td>Length</td>
+      <td style="text-align: center">1</td>
+      <td style="text-align: center">1</td>
+      <td>32 bytes length, being it &lt; 127 bytes, it requires only 1 byte</td>
+    </tr>
+    <tr>
+      <td>Protocol name length</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">2</td>
+      <td>4 bytes length</td>
+    </tr>
+    <tr>
+      <td>Protocol name (MQTT)</td>
+      <td style="text-align: center">4</td>
+      <td style="text-align: center">4</td>
+      <td>‘M’ ‘Q’ ‘T’ ‘T’</td>
+    </tr>
+    <tr>
+      <td>Protocol level</td>
+      <td style="text-align: center">1</td>
+      <td style="text-align: center">8</td>
+      <td>For version 3.1.1 the level is 4</td>
+    </tr>
+    <tr>
+      <td>Connect flags</td>
+      <td style="text-align: center">1</td>
+      <td style="text-align: center">9</td>
+      <td>Username, password, will retain, will QoS, will flag, clean session</td>
+    </tr>
+    <tr>
+      <td>Keepalive</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">10</td>
+      <td>16-bit word, maximum value is 18 hr 12 min 15 seconds</td>
+    </tr>
+    <tr>
+      <td>Client ID length</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">12</td>
+      <td>2 bytes, 6 is the length of the Client ID (danzan)</td>
+    </tr>
+    <tr>
+      <td>Client ID</td>
+      <td style="text-align: center">6</td>
+      <td style="text-align: center">14</td>
+      <td>‘d’ ‘a’ ‘n’ ‘z’ ‘a’ ‘n’</td>
+    </tr>
+    <tr>
+      <td>Username length</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">20</td>
+      <td>2 bytes, 5 is the length of the username (hello)</td>
+    </tr>
+    <tr>
+      <td>Username</td>
+      <td style="text-align: center">5</td>
+      <td style="text-align: center">22</td>
+      <td>‘h’ ‘e’ ‘l’ ‘l’ ‘o’</td>
+    </tr>
+    <tr>
+      <td>Password length</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">27</td>
+      <td>2 bytes, 5 is the length of the password (nacho)</td>
+    </tr>
+    <tr>
+      <td>Password</td>
+      <td style="text-align: center">5</td>
+      <td style="text-align: center">29</td>
+      <td>‘n’ ‘a’ ‘c’ ‘h’ ‘o’</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><br />
+Having will flags to 0 there’s no need to decode those fields, as they don’t
+even appear. We have as a result a total length 34 bytes packet including fixed
+header.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="cm">/*
+ * MQTT unpacking functions
+ */</span>
+
+<span class="k">static</span> <span class="kt">size_t</span> <span class="nf">unpack_mqtt_connect</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">raw</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="n">hdr</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_connect</span> <span class="n">connect</span> <span class="o">=</span> <span class="p">{</span> <span class="p">.</span><span class="n">header</span> <span class="o">=</span> <span class="o">*</span><span class="n">hdr</span> <span class="p">};</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span> <span class="o">=</span> <span class="n">connect</span><span class="p">;</span>
+
+    <span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">init</span> <span class="o">=</span> <span class="n">raw</span><span class="p">;</span>
+    <span class="cm">/*
+     * Second byte of the fixed header, contains the length of remaining bytes
+     * of the connect packet
+     */</span>
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="n">mqtt_decode_length</span><span class="p">(</span><span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+
+    <span class="cm">/*
+     * For now we ignore checks on protocol name and reserverd bits, just skip
+     * to the 8th byte
+     */</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">init</span> <span class="o">+</span> <span class="mi">8</span><span class="p">;</span>
+
+    <span class="cm">/* Read variable header byte flags */</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">unpack_u8</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+
+    <span class="cm">/* Read keepalive MSB and LSB (2 bytes word) */</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">keepalive</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+
+    <span class="cm">/* Read CID length (2 bytes word) */</span>
+    <span class="kt">uint16_t</span> <span class="n">cid_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+
+    <span class="cm">/* Read the client id */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">cid_len</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">client_id</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">cid_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">cid_len</span><span class="p">,</span>
+                     <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">client_id</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Read the will topic and message if will is set on flags */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">will</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="kt">uint16_t</span> <span class="n">will_topic_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">will_topic</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">will_topic_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">will_topic_len</span><span class="p">,</span>
+                     <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">will_topic</span><span class="p">);</span>
+
+        <span class="kt">uint16_t</span> <span class="n">will_message_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">will_message</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">will_message_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">will_message_len</span><span class="p">,</span>
+                     <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">will_message</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Read the username if username flag is set */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">username</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kt">uint16_t</span> <span class="n">username_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">username_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">username_len</span><span class="p">,</span>
+                     <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">username</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Read the password if password flag is set */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">password</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kt">uint16_t</span> <span class="n">password_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">password_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">password_len</span><span class="p">,</span>
+                     <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">connect</span><span class="p">.</span><span class="n">payload</span><span class="p">.</span><span class="n">password</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">len</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The PUBLISH packet now:</p>
+
+<figure class="highlight"><pre><code class="language-markdown" data-lang="markdown"> |   Bit    |  7  |  6  |  5  |  4  |  3  |  2  |  1  |   0    |  &lt;-- Fixed Header
+ |----------|-----------------------|--------------------------|
+ | Byte 1   |      MQTT type 3      | dup |    QoS    | retain |
+ |----------|--------------------------------------------------|
+ | Byte 2   |                                                  |
+ |  .       |               Remaning Length                    |
+ |  .       |                                                  |
+ | Byte 5   |                                                  |
+ |----------|--------------------------------------------------|  &lt;-- Variable Header
+ | Byte 6   |                Topic len MSB                     |
+ | Byte 7   |                Topic len LSB                     |
+ |-------------------------------------------------------------|
+ | Byte 8   |                                                  |
+ |   .      |                Topic name                        |
+ | Byte N   |                                                  |
+ |----------|--------------------------------------------------|
+ | Byte N+1 |            Packet Identifier MSB                 |
+ | Byte N+2 |            Packet Identifier LSB                 |
+ |----------|--------------------------------------------------|  &lt;-- Payload
+ | Byte N+3 |                   Payload                        |
+ | Byte N+M |                                                  |</code></pre></figure>
+
+<p>Packet identifier MSB and LSB are present in the packet if and only if the QoS
+level is &gt; 0, with a QoS set to <em>at most once</em> there’s no need for a packet ID.
+Payload length is calculated by subtracting the Remaining Length with all the
+other fields already unpacked.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">size_t</span> <span class="nf">unpack_mqtt_publish</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">raw</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="n">hdr</span><span class="p">,</span>
+                                  <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_publish</span> <span class="n">publish</span> <span class="o">=</span> <span class="p">{</span> <span class="p">.</span><span class="n">header</span> <span class="o">=</span> <span class="o">*</span><span class="n">hdr</span> <span class="p">};</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span> <span class="o">=</span> <span class="n">publish</span><span class="p">;</span>
+
+    <span class="cm">/*
+     * Second byte of the fixed header, contains the length of remaining bytes
+     * of the connect packet
+     */</span>
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="n">mqtt_decode_length</span><span class="p">(</span><span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+
+    <span class="cm">/* Read topic length and topic of the soon-to-be-published message */</span>
+    <span class="kt">uint16_t</span> <span class="n">topic_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">topiclen</span> <span class="o">=</span> <span class="n">topic_len</span><span class="p">;</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">topic</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">topic_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">topic_len</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">topic</span><span class="p">);</span>
+
+    <span class="kt">uint16_t</span> <span class="n">message_len</span> <span class="o">=</span> <span class="n">len</span><span class="p">;</span>
+
+    <span class="cm">/* Read packet id */</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">publish</span><span class="p">.</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">qos</span> <span class="o">&gt;</span> <span class="n">AT_MOST_ONCE</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">pkt_id</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">message_len</span> <span class="o">-=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="cm">/*
+     * Message len is calculated subtracting the length of the variable header
+     * from the Remaining Length field that is in the Fixed Header
+     */</span>
+    <span class="n">message_len</span> <span class="o">-=</span> <span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">)</span> <span class="o">+</span> <span class="n">topic_len</span><span class="p">);</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">payloadlen</span> <span class="o">=</span> <span class="n">message_len</span><span class="p">;</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">payload</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">message_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">message_len</span><span class="p">,</span> <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">publish</span><span class="p">.</span><span class="n">payload</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">len</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Subscribe and unsubscribe packets are fairly similar, they reflect the
+PUBLISH packet, but for payload they have a list of tuple consisting in a
+pair (topic, QoS). Their implementation is practically identical, with the
+only difference in the payload part, where UNSUBSCRIBE doesn’t specify QoS
+for each topic.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">size_t</span> <span class="nf">unpack_mqtt_subscribe</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">raw</span><span class="p">,</span>
+                                    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="n">hdr</span><span class="p">,</span>
+                                    <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_subscribe</span> <span class="n">subscribe</span> <span class="o">=</span> <span class="p">{</span> <span class="p">.</span><span class="n">header</span> <span class="o">=</span> <span class="o">*</span><span class="n">hdr</span> <span class="p">};</span>
+
+    <span class="cm">/*
+     * Second byte of the fixed header, contains the length of remaining bytes
+     * of the connect packet
+     */</span>
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="n">mqtt_decode_length</span><span class="p">(</span><span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+    <span class="kt">size_t</span> <span class="n">remaining_bytes</span> <span class="o">=</span> <span class="n">len</span><span class="p">;</span>
+
+    <span class="cm">/* Read packet id */</span>
+    <span class="n">subscribe</span><span class="p">.</span><span class="n">pkt_id</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+    <span class="n">remaining_bytes</span> <span class="o">-=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+
+    <span class="cm">/*
+     * Read in a loop all remaning bytes specified by len of the Fixed Header.
+     * From now on the payload consists of 3-tuples formed by:
+     *  - topic length
+     *  - topic filter (string)
+     *  - qos
+     */</span>
+    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">remaining_bytes</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="cm">/* Read length bytes of the first topic filter */</span>
+        <span class="kt">uint16_t</span> <span class="n">topic_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">remaining_bytes</span> <span class="o">-=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+
+        <span class="cm">/* We have to make room for additional incoming tuples */</span>
+        <span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span> <span class="o">=</span> <span class="n">realloc</span><span class="p">(</span><span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">,</span>
+                                   <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">));</span>
+        <span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">topic_len</span> <span class="o">=</span> <span class="n">topic_len</span><span class="p">;</span>
+        <span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">topic</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">topic_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">topic_len</span><span class="p">,</span>
+                     <span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">topic</span><span class="p">);</span>
+        <span class="n">remaining_bytes</span> <span class="o">-=</span> <span class="n">topic_len</span><span class="p">;</span>
+        <span class="n">subscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">qos</span> <span class="o">=</span> <span class="n">unpack_u8</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">remaining_bytes</span> <span class="o">-=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint8_t</span><span class="p">);</span>
+        <span class="n">i</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">subscribe</span><span class="p">.</span><span class="n">tuples_len</span> <span class="o">=</span> <span class="n">i</span><span class="p">;</span>
+
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">subscribe</span> <span class="o">=</span> <span class="n">subscribe</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">len</span><span class="p">;</span>
+<span class="p">}</span>
+
+
+<span class="k">static</span> <span class="kt">size_t</span> <span class="nf">unpack_mqtt_unsubscribe</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">raw</span><span class="p">,</span>
+                                      <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="n">hdr</span><span class="p">,</span>
+                                      <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_unsubscribe</span> <span class="n">unsubscribe</span> <span class="o">=</span> <span class="p">{</span> <span class="p">.</span><span class="n">header</span> <span class="o">=</span> <span class="o">*</span><span class="n">hdr</span> <span class="p">};</span>
+
+    <span class="cm">/*
+     * Second byte of the fixed header, contains the length of remaining bytes
+     * of the connect packet
+     */</span>
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="n">mqtt_decode_length</span><span class="p">(</span><span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+    <span class="kt">size_t</span> <span class="n">remaining_bytes</span> <span class="o">=</span> <span class="n">len</span><span class="p">;</span>
+
+    <span class="cm">/* Read packet id */</span>
+    <span class="n">unsubscribe</span><span class="p">.</span><span class="n">pkt_id</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+    <span class="n">remaining_bytes</span> <span class="o">-=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+
+    <span class="cm">/*
+     * Read in a loop all remaning bytes specified by len of the Fixed Header.
+     * From now on the payload consists of 2-tuples formed by:
+     *  - topic length
+     *  - topic filter (string)
+     */</span>
+    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">remaining_bytes</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="cm">/* Read length bytes of the first topic filter */</span>
+        <span class="kt">uint16_t</span> <span class="n">topic_len</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+        <span class="n">remaining_bytes</span> <span class="o">-=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">uint16_t</span><span class="p">);</span>
+
+        <span class="cm">/* We have to make room for additional incoming tuples */</span>
+        <span class="n">unsubscribe</span><span class="p">.</span><span class="n">tuples</span> <span class="o">=</span> <span class="n">realloc</span><span class="p">(</span><span class="n">unsubscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">,</span>
+                                     <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="o">*</span><span class="n">unsubscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">));</span>
+        <span class="n">unsubscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">topic_len</span> <span class="o">=</span> <span class="n">topic_len</span><span class="p">;</span>
+        <span class="n">unsubscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">topic</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">topic_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="n">unpack_bytes</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">,</span> <span class="n">topic_len</span><span class="p">,</span>
+                     <span class="n">unsubscribe</span><span class="p">.</span><span class="n">tuples</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">topic</span><span class="p">);</span>
+        <span class="n">remaining_bytes</span> <span class="o">-=</span> <span class="n">topic_len</span><span class="p">;</span>
+
+        <span class="n">i</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">unsubscribe</span><span class="p">.</span><span class="n">tuples_len</span> <span class="o">=</span> <span class="n">i</span><span class="p">;</span>
+
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">unsubscribe</span> <span class="o">=</span> <span class="n">unsubscribe</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">len</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>And finally the ACK. In MQTT doesn’t exists generic acks, but the structure
+of most of the ack-like packets is practically the same for each one, formed by
+a header and a packet ID.</p>
+
+<p>These are:</p>
+
+<ul>
+  <li>PUBACK</li>
+  <li>PUBREC</li>
+  <li>PUBREL</li>
+  <li>PUBCOMP</li>
+  <li>UNSUBACK</li>
+</ul>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">size_t</span> <span class="nf">unpack_mqtt_ack</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">raw</span><span class="p">,</span>
+                              <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="n">hdr</span><span class="p">,</span>
+                              <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">struct</span> <span class="n">mqtt_ack</span> <span class="n">ack</span> <span class="o">=</span> <span class="p">{</span> <span class="p">.</span><span class="n">header</span> <span class="o">=</span> <span class="o">*</span><span class="n">hdr</span> <span class="p">};</span>
+
+    <span class="cm">/*
+     * Second byte of the fixed header, contains the length of remaining bytes
+     * of the connect packet
+     */</span>
+    <span class="kt">size_t</span> <span class="n">len</span> <span class="o">=</span> <span class="n">mqtt_decode_length</span><span class="p">(</span><span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+
+    <span class="n">ack</span><span class="p">.</span><span class="n">pkt_id</span> <span class="o">=</span> <span class="n">unpack_u16</span><span class="p">((</span><span class="k">const</span> <span class="kt">uint8_t</span> <span class="o">**</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">raw</span><span class="p">);</span>
+    <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">ack</span> <span class="o">=</span> <span class="n">ack</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">len</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>We have now all needed helpers functions to implement our only exposed function
+on the header <code class="highlighter-rouge">mqtt_mqtt_packet</code>. It ended up being a fairly short and simple
+function, we’ll use a static array to map all helper functions, making it O(1)
+the selection of the correct unpack function based on the Control Packet type.
+To be noted that in case of a disconnect, a pingreq or pingresp packet we only
+need a single byte, with remaining length 0.</p>
+
+<p><strong>src/mqtt.c</strong></p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">typedef</span> <span class="kt">size_t</span> <span class="n">mqtt_unpack_handler</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="p">,</span>
+                                   <span class="k">union</span> <span class="n">mqtt_header</span> <span class="o">*</span><span class="p">,</span>
+                                   <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="p">);</span>
+
+<span class="cm">/*
+ * Unpack functions mapping unpacking_handlers positioned in the array based
+ * on message type
+ */</span>
+<span class="k">static</span> <span class="n">mqtt_unpack_handler</span> <span class="o">*</span><span class="n">unpack_handlers</span><span class="p">[</span><span class="mi">11</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_connect</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_publish</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_ack</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_ack</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_ack</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_ack</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_subscribe</span><span class="p">,</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="n">unpack_mqtt_unsubscribe</span>
+<span class="p">};</span>
+
+
+<span class="kt">int</span> <span class="nf">unpack_mqtt_packet</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">raw</span><span class="p">,</span> <span class="k">union</span> <span class="n">mqtt_packet</span> <span class="o">*</span><span class="n">pkt</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="kt">int</span> <span class="n">rc</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="cm">/* Read first byte of the fixed header */</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">type</span> <span class="o">=</span> <span class="o">*</span><span class="n">raw</span><span class="p">;</span>
+
+    <span class="k">union</span> <span class="n">mqtt_header</span> <span class="n">header</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">.</span><span class="n">byte</span> <span class="o">=</span> <span class="n">type</span>
+    <span class="p">};</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">DISCONNECT_TYPE</span>
+        <span class="o">||</span> <span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">PINGREQ_TYPE</span>
+        <span class="o">||</span> <span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">PINGRESP_TYPE</span><span class="p">)</span>
+        <span class="n">pkt</span><span class="o">-&gt;</span><span class="n">header</span> <span class="o">=</span> <span class="n">header</span><span class="p">;</span>
+    <span class="k">else</span>
+        <span class="cm">/* Call the appropriate unpack handler based on the message type */</span>
+        <span class="n">rc</span> <span class="o">=</span> <span class="n">unpack_handlers</span><span class="p">[</span><span class="n">header</span><span class="p">.</span><span class="n">bits</span><span class="p">.</span><span class="n">type</span><span class="p">](</span><span class="o">++</span><span class="n">raw</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">header</span><span class="p">,</span> <span class="n">pkt</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">rc</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The first part ends here, at this point we have two modules, one of utility for
+general serialization operations and one to handle the protocol itself accordingly
+to the standard defined by OASIS.</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">sol/
+ ├── src/
+ │    ├── mqtt.h
+ |    ├── mqtt.c
+ │    ├── pack.h
+ │    └── pack.c
+ ├── CHANGELOG
+ ├── CMakeLists.txt
+ ├── COPYING
+ └── README.md</code></pre></figure>
+
+<p>Just <code class="highlighter-rouge">git commit</code> and <code class="highlighter-rouge">git push</code>. Cya.</p>
+
+<p><a href="sol-mqtt-broker-p2">Sol - An MQTT broker from scratch. Part-2</a> will deal with the
+networking utilities needed to setup our communication layer and thus the server.</p>
+
+          </div>
+          <div class="article-share">
+            
+            
+            <a href="https://twitter.com/home?status=Sol+-+An+MQTT+broker+from+scratch.+Part+1+-+The+protocol%20-%20/posts/sol-mqtt-broker" title="Share on Twitter" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M492 109.5c-17.4 7.7-36 12.9-55.6 15.3 20-12 35.4-31 42.6-53.6 -18.7 11.1-39.4 19.2-61.5 23.5C399.8 75.8 374.6 64 346.8 64c-53.5 0-96.8 43.4-96.8 96.9 0 7.6 0.8 15 2.5 22.1 -80.5-4-151.9-42.6-199.6-101.3 -8.3 14.3-13.1 31-13.1 48.7 0 33.6 17.2 63.3 43.2 80.7C67 210.7 52 206.3 39 199c0 0.4 0 0.8 0 1.2 0 47 33.4 86.1 77.7 95 -8.1 2.2-16.7 3.4-25.5 3.4 -6.2 0-12.3-0.6-18.2-1.8 12.3 38.5 48.1 66.5 90.5 67.3 -33.1 26-74.9 41.5-120.3 41.5 -7.8 0-15.5-0.5-23.1-1.4C62.8 432 113.7 448 168.3 448 346.6 448 444 300.3 444 172.2c0-4.2-0.1-8.4-0.3-12.5C462.6 146 479 129 492 109.5z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=/posts/sol-mqtt-broker" title="Share on Facebook" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 512 512"><path d="M288 192v-38.1c0-17.2 3.8-25.9 30.5-25.9H352V64h-55.9c-68.5 0-91.1 31.4-91.1 85.3V192h-45v64h45v192h83V256h56.4l7.6-64H288z"/></svg>
+            </a>
+            <a href="https://plus.google.com/share?url=/posts/sol-mqtt-broker" title="Share on Google+" rel="noreferrer noopener" target="_blank">
+              <svg viewBox="0 0 128 128"><path d="M40.7 55.9v16.1c0 0 15.6 0 22 0C59.2 82.5 53.8 88.2 40.7 88.2c-13.3 0-23.7-10.8-23.7-24.2s10.4-24.2 23.7-24.2c7.1 0 11.6 2.5 15.8 5.9 3.3-3.3 3.1-3.8 11.6-11.9 -7.2-6.6-16.8-10.6-27.4-10.6C18.2 23.3 0 41.5 0 64c0 22.5 18.2 40.7 40.7 40.7 33.6 0 41.8-29.3 39-48.8H40.7zM113.9 56.7V42.6h-10.1v14.1H89.4v10.1h14.5v14.5h10.1V66.8H128V56.7H113.9z"/></svg>
+            </a>
+          </div>
+
+          
+        </article>
+        <footer class="footer scrollappear">
+<p>Unix, Computer Science, imperative and functional programming. In an ordinary way.</p>
+<p>Powered by Jekyll.</p>
+</footer>
+
+      </div>
+    </div>
+  </main>
+  
+
+<script type="text/javascript" src="/assets/vendor-c7660858f86a434b413963ad66674aac04cdf9b172bee75278aa23e144569dde.js"></script>
+
+
+  <script type="text/javascript" src="/assets/webfonts-1d924df3a4c7364cfb23aab219296b7f778337c69c1e9fb531894165a1abcece.js"></script>
+
+
+
+  <script type="text/javascript" src="/assets/scrollappear-e2da8ea567e418637e31266cc5302126eaa79f62a2273739086358b589a89ee6.js"></script>
+
+
+<script type="text/javascript" src="/assets/application-cfde13ac81ddaf4351b2e739603e2baf688d0fcc9aba613fe62bbb1c7b037fb9.js"></script>
+
+</body>
+</html>
