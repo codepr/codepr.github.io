@@ -1,9 +1,12 @@
 ---
 layout: default
-title: "I am"
+title: "Resume"
 description: ""
 ---
-
+<div class="about {% if site.scrollappear_enabled %}scrollappear{% endif %}">
+<object data="{% asset 'CV.pdf' @path %}#toolbar=0&navpanes=0&scrollbar=0"  width="100%" height="1000" type='application/pdf'/>
+</div>
+<!--
 <div class="about {% if site.scrollappear_enabled %}scrollappear{% endif %}">
   <img src="{% asset 'about.jpg' @path %}" alt="About Nielsen Ramon header image" />
   <h1>About me</h1>
@@ -15,3 +18,4 @@ description: ""
     my knowledge.
   </p>
 </div>
+-->
