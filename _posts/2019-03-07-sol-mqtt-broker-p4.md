@@ -2,12 +2,13 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 4 - Data structures"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial, structures]
+categories: c unix tutorial structures
 ---
 
 Before proceeding to the implementation of all command handlers, we're going to
 design and implement some of the most common data structures needed to the
 correct functioning of the server, namely **hashtable**, **list** and a **trie**.
+<!--more-->
 The last one, being not strictly necessary at this point of the development,
 will be crucial to manage the abstraction named **topic**.
 
@@ -23,9 +24,7 @@ function to obtain a valid index to store our information, trying to minimize
 the collisions (e.g. keys that compute to the same hash) as much as possible.
 
 <br>
-<center>
-{% include image.html path="hashtable.png" path-detail="hashtable.png" alt="Hashtable representation" %}
-</center>
+![Hashtable representation]({{site.url}}{{site.baseurl}}/assets/images/hashtable.png)
 <br>
 
 Buckets is the array, usually dynamic, which will store the information
@@ -38,17 +37,14 @@ associated to the keys.
 #ifndef HASHTABLE_H
 #define HASHTABLE_H
 
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-
 
 #define HASHTABLE_OK   0
 #define HASHTABLE_ERR  1
 #define HASHTABLE_OOM  2
 #define HASHTABLE_FULL 3
-
 
 /* We need to keep keys and values */
 struct hashtable_entry {
@@ -108,7 +104,6 @@ int hashtable_map(HashTable *, int (*func)(struct hashtable_entry *));
 int hashtable_map2(HashTable *,
         int (*func)(struct hashtable_entry *, void *), void *);
 
-
 #endif
 
 {% endhighlight %}
@@ -136,7 +131,6 @@ struct hashtable {
     int (*destructor)(struct hashtable_entry *);
     struct hashtable_entry *entries;
 };
-
 
 const int INITIAL_SIZE = 4;
 
@@ -267,7 +261,6 @@ static int destroy_entry(struct hashtable_entry *entry) {
     return HASHTABLE_OK;
 }
 
-
 /*
  * Return an empty hashtable, or NULL on failure. The newly create HashTable is
  * dynamically allocated on the heap memory, so it must be released manually.
@@ -296,7 +289,6 @@ HashTable *hashtable_create(int (*destructor)(struct hashtable_entry *)) {
 size_t hashtable_size(const HashTable *table) {
     return table->size;
 }
-
 
 int hashtable_exists(HashTable *table, const char *key) {
     void *ret = hashtable_get(table, key);
@@ -332,7 +324,6 @@ int hashtable_put(HashTable *table, const char *key, void *val) {
 
     return HASHTABLE_OK;
 }
-
 
 /*
  * Get the value void pointer out of the hashtable associated to a key
@@ -606,12 +597,10 @@ to head and tail, this way we ensure O(1) for insertion on either sides.
 #ifndef LIST_H
 #define LIST_H
 
-
 struct list_node {
     void *data;
     struct list_node *next;
 };
-
 
 typedef struct list {
     struct list_node *head;
@@ -619,7 +608,6 @@ typedef struct list {
     unsigned long len;
     int (*destructor)(struct list_node *);
 } List;
-
 
 /*
  * Compare function, accept two void * arguments, generally referring a node
@@ -682,7 +670,6 @@ struct list_node *bisect_list(struct list_node *);
 #include "list.h"
 #include <stdlib.h>
 
-
 static struct list_node *list_node_remove(struct list_node *,
                                           struct list_node *,
                                           compare_func, int *);
@@ -705,7 +692,6 @@ List *list_create(int (*destructor)(struct list_node *)) {
 
     return l;
 }
-
 
 /*
  * Destroy a list, releasing all allocated memory
@@ -739,7 +725,6 @@ void list_release(List *l, int deep) {
     // free List structure pointer
     free(l);
 }
-
 
 unsigned long list_size(const List *list) {
     return list->len;
@@ -800,7 +785,6 @@ List *list_push(List *l, void *val) {
     return l;
 }
 
-
 /*
  * Insert value at the back of the list
  * Complexity: O(1)
@@ -827,7 +811,6 @@ List *list_push_back(List *l, void *val) {
     return l;
 }
 
-
 void list_remove(List *l, struct list_node *node, compare_func cmp) {
 
     if (!l || !node)
@@ -840,7 +823,6 @@ void list_remove(List *l, struct list_node *node, compare_func cmp) {
     l->len -= counter;
 
 }
-
 
 static struct list_node *list_node_remove(struct list_node *head,
                                           struct list_node *node,
@@ -866,7 +848,6 @@ static struct list_node *list_node_remove(struct list_node *head,
     return head;
 }
 
-
 static struct list_node *list_remove_single_node(struct list_node *head,
                                                  void *data,
                                                  struct list_node **ret,
@@ -891,7 +872,6 @@ static struct list_node *list_remove_single_node(struct list_node *head,
     return head;
 
 }
-
 
 struct list_node *list_remove_node(List *list, void *data, compare_func cmp) {
 
@@ -960,5 +940,5 @@ features to our project:
 
 The next structure must be something that allow us to easily manage the topics
 and their hierarchical nature.<br>
-[Part 5](sol-mqtt-broker-p5) will focus on a tree implementation that provide
-exactly what we need.
+[Part 5]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p5) will focus
+on a tree implementation that provide exactly what we need.

@@ -2,13 +2,14 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 3 - Server"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial]
+categories: c unix tutorial
 ---
 
 This part deal with the implementation of the server part of our application, by
-using the `network` module we drafted on [part 2](sol-mqtt-broker-p2) it should be
-relative easy to handle incoming commands from a MQTT clients respecting 3.1.1
-standards as we defined on [part 1](sol-mqtt-broker).<br>
+using the `network` module we drafted on [part-2]({{site.url}}{{site.baseurl}}/2019/03/04/sol-mqtt-broker-p2)
+it should be relative easy to handle incoming commands from a MQTT clients respecting 3.1.1
+standards as we defined on [part 1]({{site.url}}{{site.baseurl}}/2019/03/03/sol-mqtt-broker).<br>
+<!--more-->
 Our header file will be extremely simple, the only function we want to make
 accessible from the outside will be a transparent `start_server`, accepting
 only two trivial arguments:
@@ -35,7 +36,6 @@ improvements.
 #define EPOLL_MAX_EVENTS    256
 #define EPOLL_TIMEOUT       -1
 
-
 /* Error codes for packet reception, signaling respectively
  * - client disconnection
  * - error reading packet
@@ -52,7 +52,6 @@ improvements.
  */
 #define REARM_R             0
 #define REARM_W             1
-
 
 int start_server(const char *, const char *);
 
@@ -116,23 +115,14 @@ typedef int handler(struct closure *, union mqtt_packet *);
 
 /* Command handler, each one have responsibility over a defined command packet */
 static int connect_handler(struct closure *, union mqtt_packet *);
-
 static int disconnect_handler(struct closure *, union mqtt_packet *);
-
 static int subscribe_handler(struct closure *, union mqtt_packet *);
-
 static int unsubscribe_handler(struct closure *, union mqtt_packet *);
-
 static int publish_handler(struct closure *, union mqtt_packet *);
-
 static int puback_handler(struct closure *, union mqtt_packet *);
-
 static int pubrec_handler(struct closure *, union mqtt_packet *);
-
 static int pubrel_handler(struct closure *, union mqtt_packet *);
-
 static int pubcomp_handler(struct closure *, union mqtt_packet *);
-
 static int pingreq_handler(struct closure *, union mqtt_packet *);
 
 /* Command handler mapped usign their position paired with their type */
@@ -352,7 +342,6 @@ err:
 
 }
 
-
 /* Handle incoming requests, after being accepted or after a reply */
 static void on_read(struct evloop *loop, void *arg) {
 
@@ -443,7 +432,6 @@ errdc:
     return;
 }
 
-
 static void on_write(struct evloop *loop, void *arg) {
 
     struct closure *cb = arg;
@@ -506,11 +494,8 @@ struct bytestring {
  * bytestring, e.g. no resize over a defined size
  */
 struct bytestring *bytestring_create(size_t);
-
 void bytestring_init(struct bytestring *, size_t);
-
 void bytestring_release(struct bytestring *);
-
 void bytestring_reset(struct bytestring *);
 
 {% endhighlight %}
@@ -527,7 +512,6 @@ struct bytestring *bytestring_create(size_t len) {
     return bstring;
 }
 
-
 void bytestring_init(struct bytestring *bstring, size_t size) {
     if (!bstring)
         return;
@@ -536,14 +520,12 @@ void bytestring_init(struct bytestring *bstring, size_t size) {
     bytestring_reset(bstring);
 }
 
-
 void bytestring_release(struct bytestring *bstring) {
     if (!bstring)
         return;
     free(bstring->data);
     free(bstring);
 }
-
 
 void bytestring_reset(struct bytestring *bstring) {
     if (!bstring)
@@ -576,14 +558,10 @@ yet, so I generally add those logging functions to the `util` module.
 #include <stdbool.h>
 #include <strings.h>
 
-
 #define UUID_LEN     37
-
 #define MAX_LOG_SIZE 119
 
-
 enum log_level { DEBUG, INFORMATION, WARNING, ERROR };
-
 
 int number_len(size_t);
 int parse_int(const char *);
@@ -602,9 +580,7 @@ void sol_log(int, const char *, ...);
 #define sol_error(...) log(ERROR, __VA_ARGS__)
 #define sol_info(...) log(INFORMATION, __VA_ARGS__)
 
-
 #define STREQ(s1, s2, len) strncasecmp(s1, s2, len) == 0 ? true : false
-
 
 #endif
 
@@ -629,9 +605,7 @@ strings.
 #include "util.h"
 #include "config.h"
 
-
 static FILE *fh = NULL;
-
 
 void sol_log_init(const char *file) {
     assert(file);
@@ -641,14 +615,12 @@ void sol_log_init(const char *file) {
                (unsigned long) time(NULL), file);
 }
 
-
 void sol_log_close(void) {
     if (fh) {
         fflush(fh);
         fclose(fh);
     }
 }
-
 
 void sol_log(int level, const char *fmt, ...) {
 
@@ -712,7 +684,6 @@ int parse_int(const char *string) {
     return n;
 }
 
-
 char *remove_occur(char *str, char c) {
     char *p = str;
     char *pp = str;
@@ -742,7 +713,6 @@ char *append_string(char *src, char *chunk, size_t chunklen) {
     return ret;
 }
 
-
 int generate_uuid(char *uuid_placeholder) {
 
     /* Generate random uuid */
@@ -767,7 +737,6 @@ global structures and the first closure for accepting incoming connections.
 
 {% highlight c %}
 
-
 /*
  * Statistics topics, published every N seconds defined by configuration
  * interval
@@ -790,7 +759,6 @@ static const char *sys_topics[SYS_TOPICS] = {
     "$SOL/broker/messages/received/",
     "$SOL/broker/memory/used"
 };
-
 
 static void run(struct evloop *loop) {
     if (evloop_wait(loop) < 0) {
@@ -836,7 +804,6 @@ static int closure_destructor(struct hashtable_entry *entry) {
 
     return 0;
 }
-
 
 int start_server(const char *addr, const char *port) {
 
@@ -1086,5 +1053,5 @@ function? What about that `info` structure that we update in `on_write` and
 `on_read`? We can see that those have to do with some calls to `hashtable_*`
 and `sol_topic_*`, which will be plugged-in soon.
 
-Let's move forward to [part 4](sol-mqtt-broker-p4), we'll start implementing
-some handlers for every MQTT command.
+Let's move forward to [part 4]({{site.url}}{{site.baseurl}}/2019/03/07/sol-mqtt-broker-p4),
+we'll start implementing some handlers for every MQTT command.

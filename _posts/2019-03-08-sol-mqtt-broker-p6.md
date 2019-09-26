@@ -2,12 +2,14 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 6 - Handlers"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial]
+categories: c unix tutorial
 ---
 
 This part will focus on the implementation of the handlers, they will be mapped
 one-on-one with MQTT commands in an array, indexed by command type, making it
 trivial to call the correct function depending on the packet type.
+
+<!--more-->
 
 Before starting the main argument of the post, we add some missing parts to make
 the previously written code usable.
@@ -25,7 +27,6 @@ Vim src/core.h:
 #include "list.h"
 #include "hashtable.h"
 
-
 struct topic {
     const char *name;
     List *subscribers;
@@ -40,7 +41,6 @@ struct sol {
     HashTable *closures;
     Trie topics;
 };
-
 
 struct session {
     List *subscriptions;
@@ -57,28 +57,20 @@ struct sol_client {
     struct session session;
 };
 
-
 struct subscriber {
     unsigned qos;
     struct sol_client *client;
 };
 
-
 struct topic *topic_create(const char *);
-
 void topic_init(struct topic *, const char *);
-
 void topic_add_subscriber(struct topic *, struct sol_client *, unsigned, bool);
-
 void topic_del_subscriber(struct topic *, struct sol_client *, bool);
-
 void sol_topic_put(struct sol *, struct topic *);
-
 void sol_topic_del(struct sol *, const char *);
 
 /* Find a topic by name and return it */
 struct topic *sol_topic_get(struct sol *, const char *);
-
 
 #endif
 
@@ -105,12 +97,10 @@ Here the implementation:
 #include <stdlib.h>
 #include "core.h"
 
-
 static int compare_cid(void *c1, void *c2) {
     return strcmp(((struct subscriber *) c1)->client->client_id,
                   ((struct subscriber *) c2)->client->client_id);
 }
-
 
 struct topic *topic_create(const char *name) {
     struct topic *t = malloc(sizeof(*t));
@@ -118,12 +108,10 @@ struct topic *topic_create(const char *name) {
     return t;
 }
 
-
 void topic_init(struct topic *t, const char *name) {
     t->name = name;
     t->subscribers = list_create(NULL);
 }
-
 
 void topic_add_subscriber(struct topic *t,
                           struct sol_client *client,
@@ -141,7 +129,6 @@ void topic_add_subscriber(struct topic *t,
 
 }
 
-
 void topic_del_subscriber(struct topic *t,
                           struct sol_client *client,
                           bool cleansession) {
@@ -150,16 +137,13 @@ void topic_del_subscriber(struct topic *t,
     // TODO remomve in case of cleansession == false
 }
 
-
 void sol_topic_put(struct sol *sol, struct topic *t) {
     trie_insert(&sol->topics, t->name, t);
 }
 
-
 void sol_topic_del(struct sol *sol, const char *name) {
     trie_delete(&sol->topics, name);
 }
-
 
 struct topic *sol_topic_get(struct sol *sol, const char *name) {
     struct topic *ret_topic;
@@ -337,7 +321,6 @@ static void recursive_subscription(struct trie_node *node, void *arg) {
     t->subscribers = list_push(t->subscribers, s);
 }
 
-
 static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     struct sol_client *c = cb->obj;
@@ -418,7 +401,6 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
     return REARM_W;
 }
 
-
 static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     struct sol_client *c = cb->obj;
@@ -436,7 +418,6 @@ static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     return REARM_W;
 }
-
 
 {% endhighlight %}
 
@@ -456,10 +437,7 @@ follow
 **Publish QoS 2 message on a topic with a single subscriber on QoS 1**
 
 <br>
-
-<center>
-{% include image.html path="QoS2-sample.png" path-detail="QoS2-sample.png" alt="QoS2 sequential diagram" %}
-</center>
+![QoS2 sequential diagram]({{site.url}}{{site.baseurl}}/assets/images/QoS2-sample.png)
 <br>
 
 **src/server.c**
@@ -624,7 +602,6 @@ static int puback_handler(struct closure *cb, union mqtt_packet *pkt) {
     return REARM_R;
 }
 
-
 static int pubrec_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     struct sol_client *c = cb->obj;
@@ -644,7 +621,6 @@ static int pubrec_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     return REARM_W;
 }
-
 
 static int pubrel_handler(struct closure *cb, union mqtt_packet *pkt) {
 
@@ -666,7 +642,6 @@ static int pubrel_handler(struct closure *cb, union mqtt_packet *pkt) {
     return REARM_W;
 }
 
-
 static int pubcomp_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     sol_debug("Received PUBCOMP from %s",
@@ -676,7 +651,6 @@ static int pubcomp_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     return REARM_R;
 }
-
 
 static int pingreq_handler(struct closure *cb, union mqtt_packet *pkt) {
 
@@ -768,7 +742,6 @@ So, let's define a new header:
 #define DEFAULT_MAX_REQUEST_SIZE    "2MB"
 #define DEFAULT_STATS_INTERVAL      "10s"
 
-
 struct config {
     /* Sol version <MAJOR.MINOR.PATCH> */
     const char *version;
@@ -799,9 +772,7 @@ struct config {
     size_t stats_pub_interval;
 };
 
-
 extern struct config *conf;
-
 
 void config_set_default(void);
 void config_print(void);
@@ -836,11 +807,9 @@ strucuture:
 #include "config.h"
 #include "network.h"
 
-
 /* The main configuration structure */
 static struct config config;
 struct config *conf;
-
 
 struct llevel {
     const char *lname;
@@ -854,7 +823,6 @@ static const struct llevel lmap[5] = {
     {"INFO", INFORMATION},
     {"INFORMATION", INFORMATION}
 };
-
 
 static size_t read_memory_with_mul(const char *memory_string) {
 
@@ -875,7 +843,6 @@ static size_t read_memory_with_mul(const char *memory_string) {
 
     return num * mul;
 }
-
 
 static size_t read_time_with_mul(const char *time_string) {
 
@@ -1012,12 +979,10 @@ static void add_config_value(const char *key, const char *value) {
     }
 }
 
-
 static inline void strip_spaces(char **str) {
     if (!*str) return;
     while (isspace(**str) && **str) ++(*str);
 }
-
 
 static inline void unpack_bytes(char **str, char *dest) {
 
@@ -1025,7 +990,6 @@ static inline void unpack_bytes(char **str, char *dest) {
 
     while (!isspace(**str) && **str) *dest++ = *(*str)++;
 }
-
 
 int config_load(const char *configpath) {
 
@@ -1085,7 +1049,6 @@ int config_load(const char *configpath) {
     return true;
 }
 
-
 void config_set_default(void) {
 
     // Set the global pointer
@@ -1105,7 +1068,6 @@ void config_set_default(void) {
     config.tcp_backlog = SOMAXCONN;
     config.stats_pub_interval = read_time_with_mul(DEFAULT_STATS_INTERVAL);
 }
-
 
 void config_print(void) {
     if (config.loglevel < WARNING) {
@@ -1153,7 +1115,6 @@ Let's add the last brick, a main:
 #include "util.h"
 #include "config.h"
 #include "server.h"
-
 
 int main (int argc, char **argv) {
 
@@ -1203,7 +1164,6 @@ int main (int argc, char **argv) {
 
     return 0;
 }
-
 
 {% endhighlight %}
 

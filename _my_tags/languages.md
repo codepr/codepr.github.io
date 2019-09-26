@@ -1,4 +1,0 @@
----
-slug: languages
-name: Languages
----

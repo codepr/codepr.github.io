@@ -2,13 +2,16 @@
 layout: post
 title: "Overture"
 description: "Writing down some thoughts on future goals."
-tags: [languages]
+categories: languages
+comments: false
 ---
 
 I've never been a great planner for my life, I can safely say that the only
 planning which I usually make is strictly bound to the life cycle of software,
 well, sometimes not even there to be fair, but now I'm trying to face this
 issue or at least marginally improve in this aspect.
+
+<!--more-->
 
 ## Meaningful self improvement is hard
 
@@ -43,7 +46,7 @@ the other side of the medal is that it is often somewhat painful to find the
 right drive and steadiness on pet projects each time, leading to a great amount
 of dead code and half-finished side-projects that, fortunately, from time to
 time I pick again and blow some dust away from them. As a matter of fact, I'm
-currently developing a tiny [MQTT broker](https://github.com/codepr/sizigy) in
+currently developing a tiny [MQTT broker](https://github.com/codepr/sol) in
 C (low-level as well, remember?) to learn how IoT communication works under the
 hood; I have to say, It is a great exercise which spans a lot of interesting
 fields, from TCP communication, protocol design and low level structures

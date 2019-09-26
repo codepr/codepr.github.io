@@ -2,12 +2,14 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 1 - The protocol"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial]
+categories: c unix tutorial
 ---
 
 It's been a while that for my daily work I have to deal with IoT architectures
 and researching best patterns to develop such systems, including diving through
-standards and protocols like MQTT; as I always been craving for new ideas to
+standards and protocols like MQTT;
+<!--more-->
+as I always been craving for new ideas to
 learn and refine my programming skills, I thought that going a little deeper on
 the topic would be cool and useful too. So once again I `git init` a low-level
 project on my box to deepen my knowledge on the MQTT protocol, and I wanted to
@@ -52,12 +54,12 @@ compile it and play/modify it.<br>
 This will be a series of posts, each one tackling and mostly implementing a single
 concept/module of the project:
 
-- [Part 1 - Protocol](sol-mqtt-broker), lays the foundations to handle the MQTT protocol packets
-- [Part 2 - Networking](sol-mqtt-broker-p2), utility module, focus on network communication
-- [Part 3 - Server](sol-mqtt-broker-p3), the main entry point of the program
-- [Part 4 - Data structures](sol-mqtt-broker-p4), utility and educational modules
-- [Part 5 - Topic abstraction](sol-mqtt-broker-p5), handling the main scaling and grouping abstraction of the broker
-- [Part 6 - Handlers](sol-mqtt-broker-p6), server completion, for each packet there's a handler dedicated
+- [Part 1 - Protocol]({{site.url}}{{site.baseurl}}/2019/03/03/sol-mqtt-broker), lays the foundations to handle the MQTT protocol packets
+- [Part 2 - Networking]({{site.url}}{{site.baseurl}}/2019/03/04/sol-mqtt-broker-p2), utility module, focus on network communication
+- [Part 3 - Server]({{site.url}}{{site.baseurl}}/2019/03/06/sol-mqtt-broker-p3), the main entry point of the program
+- [Part 4 - Data structures]({{site.url}}{{site.baseurl}}/2019/03/07/sol-mqtt-broker-p4), utility and educational modules
+- [Part 5 - Topic abstraction]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p5), handling the main scaling and grouping abstraction of the broker
+- [Part 6 - Handlers]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p6), server completion, for each packet there's a handler dedicated
 
 I'd like to underline that the resulting software will be a fully functioning
 broker, but with large space for improvements and optimization as well as code
@@ -137,10 +139,8 @@ Header:
 
 #include <stdio.h>
 
-
 #define MQTT_HEADER_LEN 2
 #define MQTT_ACK_LEN    4
-
 
 /* Message types */
 enum message_opcode {
@@ -160,7 +160,6 @@ enum message_opcode {
     DISCONNECT  = 0xE0
 };
 
-
 enum message_type {
     CONNECT_TYPE     = 1,
     CONNACK_TYPE     = 2,
@@ -178,21 +177,16 @@ enum message_type {
     DISCONNECT_TYPE  = 14
 };
 
-
 enum qos_level { AT_MOST_ONCE, AT_LEAST_ONCE, EXACTLY_ONCE };
 
-
 union mqtt_header {
-
     unsigned char byte;
-
     struct {
         unsigned retain : 1;
         unsigned qos : 2;
         unsigned dup : 1;
         unsigned type : 4;
     } bits;
-
 };
 
 {% endhighlight %}
@@ -217,13 +211,9 @@ At each CONNECT must be followed in response a CONNACK.
 {% highlight c %}
 
 struct mqtt_connect {
-
     union mqtt_header header;
-
     union {
-
         unsigned char byte;
-
         struct {
             int reserverd : 1;
             unsigned clean_session : 1;
@@ -234,7 +224,6 @@ struct mqtt_connect {
             unsigned username : 1;
         } bits;
     };
-
     struct {
         unsigned short keepalive;
         unsigned char *client_id;
@@ -243,24 +232,17 @@ struct mqtt_connect {
         unsigned char *will_topic;
         unsigned char *will_message;
     } payload;
-
 };
 
-
 struct mqtt_connack {
-
     union mqtt_header header;
-
     union {
-
         unsigned char byte;
-
         struct {
             unsigned session_present : 1;
             unsigned reserverd : 7;
         } bits;
     };
-
     unsigned char rc;
 };
 
@@ -279,13 +261,9 @@ separation.
 {% highlight c %}
 
 struct mqtt_subscribe {
-
     union mqtt_header header;
-
     unsigned short pkt_id;
-
     unsigned short tuples_len;
-
     struct {
         unsigned short topic_len;
         unsigned char *topic;
@@ -293,51 +271,34 @@ struct mqtt_subscribe {
     } *tuples;
 };
 
-
 struct mqtt_unsubscribe {
-
     union mqtt_header header;
-
     unsigned short pkt_id;
-
     unsigned short tuples_len;
-
     struct {
         unsigned short topic_len;
         unsigned char *topic;
     } *tuples;
 };
 
-
 struct mqtt_suback {
-
     union mqtt_header header;
-
     unsigned short pkt_id;
-
     unsigned short rcslen;
-
     unsigned char *rcs;
 };
 
-
 struct mqtt_publish {
-
     union mqtt_header header;
-
     unsigned short pkt_id;
-
     unsigned short topiclen;
     unsigned char *topic;
     unsigned short payloadlen;
     unsigned char *payload;
 };
 
-
 struct mqtt_ack {
-
     union mqtt_header header;
-
     unsigned short pkt_id;
 };
 
@@ -380,7 +341,6 @@ defined packets.
 {% highlight c %}
 
 union mqtt_packet {
-
     struct mqtt_ack ack;
     union mqtt_header header;
     struct mqtt_connect connect;
@@ -389,7 +349,6 @@ union mqtt_packet {
     struct mqtt_publish publish;
     struct mqtt_subscribe subscribe;
     struct mqtt_unsubscribe unsubscribe;
-
 };
 
 {% endhighlight %}
@@ -411,15 +370,10 @@ Remaning Length in the Fixed Header part.
 **src/mqtt.h**
 
 {% highlight c %}
-
 int mqtt_encode_length(unsigned char *, size_t);
-
 unsigned long long mqtt_decode_length(const unsigned char **);
-
 int unpack_mqtt_packet(const unsigned char *, union mqtt_packet *);
-
 unsigned char *pack_mqtt_packet(const union mqtt_packet *, unsigned);
-
 {% endhighlight %}
 
 We also add some utility functions to build packets and to release
@@ -430,22 +384,16 @@ heap-alloc'ed ones, nothing special here.
 {% highlight c %}
 
 union mqtt_header *mqtt_packet_header(unsigned char);
-
 struct mqtt_ack *mqtt_packet_ack(unsigned char , unsigned short);
-
 struct mqtt_connack *mqtt_packet_connack(unsigned char ,
                                          unsigned char ,
                                          unsigned char);
-
 struct mqtt_suback *mqtt_packet_suback(unsigned char, unsigned short,
                                        unsigned char *, unsigned short);
-
 struct mqtt_publish *mqtt_packet_publish(unsigned char, unsigned short, size_t,
                                          unsigned char *,
                                          size_t, unsigned char *);
-
 void mqtt_packet_release(union mqtt_packet *, unsigned);
-
 
 #endif
 
@@ -465,36 +413,25 @@ packet, these will be called by the previously defined "public" functions
 #include <string.h>
 #include "mqtt.h"
 
-
 static size_t unpack_mqtt_connect(const unsigned char *,
                                   union mqtt_header *,
                                   union mqtt_packet *);
-
 static size_t unpack_mqtt_publish(const unsigned char *,
                                   union mqtt_header *,
                                   union mqtt_packet *);
-
 static size_t unpack_mqtt_subscribe(const unsigned char *,
                                     union mqtt_header *,
                                     union mqtt_packet *);
-
 static size_t unpack_mqtt_unsubscribe(const unsigned char *,
                                       union mqtt_header *,
                                       union mqtt_packet *);
-
 static size_t unpack_mqtt_ack(const unsigned char *,
                               union mqtt_header *,
                               union mqtt_packet *);
-
-
 static unsigned char *pack_mqtt_header(const union mqtt_header *);
-
 static unsigned char *pack_mqtt_ack(const union mqtt_packet *);
-
 static unsigned char *pack_mqtt_connack(const union mqtt_packet *);
-
 static unsigned char *pack_mqtt_suback(const union mqtt_packet *);
-
 static unsigned char *pack_mqtt_publish(const union mqtt_packet *);
 
 {% endhighlight %}
@@ -547,7 +484,6 @@ void pack_u32(uint8_t **, uint32_t);
 // append len bytes into the bytestring
 void pack_bytes(uint8_t **, uint8_t *);
 
-
 #endif
 
 {% endhighlight %}
@@ -570,14 +506,12 @@ uint8_t unpack_u8(const uint8_t **buf) {
     return val;
 }
 
-
 uint16_t unpack_u16(const uint8_t **buf) {
     uint16_t val;
     memcpy(&val, *buf, sizeof(uint16_t));
     (*buf) += sizeof(uint16_t);
     return ntohs(val);
 }
-
 
 uint32_t unpack_u32(const uint8_t **buf) {
     uint32_t val;
@@ -586,13 +520,10 @@ uint32_t unpack_u32(const uint8_t **buf) {
     return ntohl(val);
 }
 
-
 uint8_t *unpack_bytes(const uint8_t **buf, size_t len, uint8_t *str) {
-
     memcpy(str, *buf, len);
     str[len] = '\0';
     (*buf) += len;
-
     return str;
 }
 
@@ -602,13 +533,11 @@ void pack_u8(uint8_t **buf, uint8_t val) {
     (*buf) += sizeof(uint8_t);
 }
 
-
 void pack_u16(uint8_t **buf, uint16_t val) {
     uint16_t htonsval = htons(val);
     memcpy(*buf, &htonsval, sizeof(uint16_t));
     (*buf) += sizeof(uint16_t);
 }
-
 
 void pack_u32(uint8_t **buf, uint32_t val) {
     uint32_t htonlval = htonl(val);
@@ -616,11 +545,8 @@ void pack_u32(uint8_t **buf, uint32_t val) {
     (*buf) += sizeof(uint32_t);
 }
 
-
 void pack_bytes(uint8_t **buf, uint8_t *str) {
-
     size_t len = strlen((char *) str);
-
     memcpy(*buf, str, len);
     (*buf) += len;
 }
@@ -678,25 +604,17 @@ static const int MAX_LEN_BYTES = 4;
  * implementation.
  */
 int mqtt_encode_length(unsigned char *buf, size_t len) {
-
     int bytes = 0;
-
     do {
-
         if (bytes + 1 > MAX_LEN_BYTES)
             return bytes;
-
         char d = len % 128;
         len /= 128;
-
         /* if there are more digits to encode, set the top bit of this digit */
         if (len > 0)
             d |= 0x80;
-
         buf[bytes++] = d;
-
     } while (len > 0);
-
     return bytes;
 }
 
@@ -708,18 +626,15 @@ int mqtt_encode_length(unsigned char *buf, size_t len) {
  * TODO Handle case where multiplier > 128 * 128 * 128
  */
 unsigned long long mqtt_decode_length(const unsigned char **buf) {
-
     char c;
     int multiplier = 1;
     unsigned long long value = 0LL;
-
     do {
         c = **buf;
         value += (c & 127) * multiplier;
         multiplier *= 128;
         (*buf)++;
     } while ((c & 128) != 0);
-
     return value;
 }
 
@@ -912,7 +827,6 @@ other fields already unpacked.
 static size_t unpack_mqtt_publish(const unsigned char *raw,
                                   union mqtt_header *hdr,
                                   union mqtt_packet *pkt) {
-
     struct mqtt_publish publish = { .header = *hdr };
     pkt->publish = publish;
 
@@ -963,7 +877,6 @@ for each topic.
 static size_t unpack_mqtt_subscribe(const unsigned char *raw,
                                     union mqtt_header *hdr,
                                     union mqtt_packet *pkt) {
-
     struct mqtt_subscribe subscribe = { .header = *hdr };
 
     /*
@@ -1005,17 +918,14 @@ static size_t unpack_mqtt_subscribe(const unsigned char *raw,
     }
 
     subscribe.tuples_len = i;
-
     pkt->subscribe = subscribe;
 
     return len;
 }
 
-
 static size_t unpack_mqtt_unsubscribe(const unsigned char *raw,
                                       union mqtt_header *hdr,
                                       union mqtt_packet *pkt) {
-
     struct mqtt_unsubscribe unsubscribe = { .header = *hdr };
 
     /*
@@ -1055,7 +965,6 @@ static size_t unpack_mqtt_unsubscribe(const unsigned char *raw,
     }
 
     unsubscribe.tuples_len = i;
-
     pkt->unsubscribe = unsubscribe;
 
     return len;
@@ -1082,7 +991,6 @@ These are:
 static size_t unpack_mqtt_ack(const unsigned char *raw,
                               union mqtt_header *hdr,
                               union mqtt_packet *pkt) {
-
     struct mqtt_ack ack = { .header = *hdr };
 
     /*
@@ -1110,7 +1018,6 @@ need a single byte, with remaining length 0.
 
 {% highlight c %}
 
-
 typedef size_t mqtt_unpack_handler(const unsigned char *,
                                    union mqtt_header *,
                                    union mqtt_packet *);
@@ -1133,18 +1040,14 @@ static mqtt_unpack_handler *unpack_handlers[11] = {
     unpack_mqtt_unsubscribe
 };
 
-
 int unpack_mqtt_packet(const unsigned char *raw, union mqtt_packet *pkt) {
-
     int rc = 0;
 
     /* Read first byte of the fixed header */
     unsigned char type = *raw;
-
     union mqtt_header header = {
         .byte = type
     };
-
     if (header.bits.type == DISCONNECT_TYPE
         || header.bits.type == PINGREQ_TYPE
         || header.bits.type == PINGRESP_TYPE)
@@ -1177,5 +1080,5 @@ sol/
 
 Just `git commit` and `git push`. Cya.
 
-[Sol - An MQTT broker from scratch. Part-2](sol-mqtt-broker-p2) will deal with the
+[Part-2]({{site.url}}{{site.baseurl}}/2019/03/04/sol-mqtt-broker-p2) will deal with the
 networking utilities needed to setup our communication layer and thus the server.

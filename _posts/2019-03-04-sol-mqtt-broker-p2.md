@@ -2,13 +2,14 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 2 - Networking"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial, epoll]
+categories: c unix tutorial epoll
 ---
 
-Let's continue from where we left, in the [part 1](sol-mqtt-broker) we defined
-and roughly modeled the MQTT v3.1.1 protocol and our `src/mqtt.c` module has
-now all unpacking functions, we must add the remaining build helpers and the
-packing functions to serialize packet for output.<br>
+Let's continue from where we left, in the [part 1]({{site.url}}{{site.baseurl}}/2019/03/03/sol-mqtt-broker)
+we defined and roughly modeled the MQTT v3.1.1 protocol and our `src/mqtt.c`
+module has now all unpacking functions, we must add the remaining build helpers
+and the packing functions to serialize packet for output.<br>
+<!--more-->
 As a side note we're probably not going to write perfect and efficient
 memory-wise code, but again, premature optimization is the root of all evil,
 there'll be plenty of time to improve the quality of the software with future
@@ -51,7 +52,6 @@ union mqtt_header *mqtt_packet_header(unsigned char byte) {
     return &header;
 }
 
-
 struct mqtt_ack *mqtt_packet_ack(unsigned char byte, unsigned short pkt_id) {
 
     static struct mqtt_ack ack;
@@ -61,7 +61,6 @@ struct mqtt_ack *mqtt_packet_ack(unsigned char byte, unsigned short pkt_id) {
 
     return &ack;
 }
-
 
 struct mqtt_connack *mqtt_packet_connack(unsigned char byte,
                                          unsigned char cflags,
@@ -75,7 +74,6 @@ struct mqtt_connack *mqtt_packet_connack(unsigned char byte,
 
     return &connack;
 }
-
 
 struct mqtt_suback *mqtt_packet_suback(unsigned char byte,
                                        unsigned short pkt_id,
@@ -92,8 +90,6 @@ struct mqtt_suback *mqtt_packet_suback(unsigned char byte,
 
     return suback;
 }
-
-
 
 struct mqtt_publish *mqtt_packet_publish(unsigned char byte,
                                          unsigned short pkt_id,
@@ -113,7 +109,6 @@ struct mqtt_publish *mqtt_packet_publish(unsigned char byte,
 
     return publish;
 }
-
 
 void mqtt_packet_release(union mqtt_packet *pkt, unsigned type) {
 
@@ -178,7 +173,6 @@ possible to use a single array as they share the same positions.
 
 typedef unsigned char *mqtt_pack_handler(const union mqtt_packet *);
 
-
 static mqtt_pack_handler *pack_handlers[13] = {
     NULL,
     NULL,
@@ -195,7 +189,6 @@ static mqtt_pack_handler *pack_handlers[13] = {
     NULL
 };
 
-
 static unsigned char *pack_mqtt_header(const union mqtt_header *hdr) {
 
     unsigned char *packed = malloc(MQTT_HEADER_LEN);
@@ -208,7 +201,6 @@ static unsigned char *pack_mqtt_header(const union mqtt_header *hdr) {
 
     return packed;
 }
-
 
 static unsigned char *pack_mqtt_ack(const union mqtt_packet *pkt) {
 
@@ -224,7 +216,6 @@ static unsigned char *pack_mqtt_ack(const union mqtt_packet *pkt) {
     return packed;
 }
 
-
 static unsigned char *pack_mqtt_connack(const union mqtt_packet *pkt) {
 
     unsigned char *packed = malloc(MQTT_ACK_LEN);
@@ -239,7 +230,6 @@ static unsigned char *pack_mqtt_connack(const union mqtt_packet *pkt) {
 
     return packed;
 }
-
 
 static unsigned char *pack_mqtt_suback(const union mqtt_packet *pkt) {
 
@@ -258,7 +248,6 @@ static unsigned char *pack_mqtt_suback(const union mqtt_packet *pkt) {
 
     return packed;
 }
-
 
 static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
 
@@ -304,7 +293,6 @@ static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
     return packed;
 }
 
-
 unsigned char *pack_mqtt_packet(const union mqtt_packet *pkt, unsigned type) {
 
     if (type == PINGREQ_TYPE || type == PINGRESP_TYPE)
@@ -337,7 +325,6 @@ We're gonna need some functions to manage our socket descriptor.
 #include <stdint.h>
 #include <sys/types.h>
 #include "util.h"
-
 
 // Socket families
 #define UNIX    0
@@ -400,7 +387,6 @@ ssize_t send_bytes(int, const unsigned char *, size_t);
  */
 ssize_t recv_bytes(int, unsigned char *, size_t);
 
-
 #endif
 
 {% endhighlight %}
@@ -429,7 +415,6 @@ And the implementation on network.c.
 #include "network.h"
 #include "config.h"
 
-
 /* Set non-blocking socket */
 int set_nonblocking(int fd) {
     int flags, result;
@@ -455,7 +440,6 @@ int set_tcp_nodelay(int fd) {
     return setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &(int) {1}, sizeof(int));
 }
 
-
 static int create_and_bind_unix(const char *sockpath) {
 
     struct sockaddr_un addr;
@@ -479,7 +463,6 @@ static int create_and_bind_unix(const char *sockpath) {
 
     return fd;
 }
-
 
 static int create_and_bind_tcp(const char *host, const char *port) {
 
@@ -523,7 +506,6 @@ static int create_and_bind_tcp(const char *host, const char *port) {
     return sfd;
 }
 
-
 int create_and_bind(const char *host, const char *port, int socket_family) {
 
     int fd;
@@ -536,7 +518,6 @@ int create_and_bind(const char *host, const char *port, int socket_family) {
 
     return fd;
 }
-
 
 /*
  * Create a non-blocking socket and make it listen on the specfied address and
@@ -563,7 +544,6 @@ int make_listen(const char *host, const char *port, int socket_family) {
 
     return sfd;
 }
-
 
 int accept_connection(int serversock) {
 
@@ -696,9 +676,7 @@ callback.
 **Sequential diagram, for each cycle of epoll_wait on incoming events**
 
 <br>
-<center>
-{% include image.html path="epoll-sequential.png" path-detail="epoll-sequential.png" alt="Epoll sequential diagram" %}
-</center>
+![Epoll sequential diagram]({{site.url}}{{site.baseurl}}/assets/images/epoll-sequential.png)
 <br>
 
 We're going to declare two structures and a function pointer:
@@ -736,7 +714,6 @@ struct evloop {
     } **periodic_tasks;
 } evloop;
 
-
 typedef void callback(struct evloop *, void *);
 
 /*
@@ -757,11 +734,8 @@ struct closure {
     callback *call;
 };
 
-
 struct evloop *evloop_create(int, int);
-
 void evloop_init(struct evloop *, int, int);
-
 void evloop_free(struct evloop *);
 
 /*
@@ -840,9 +814,7 @@ executed.
  *         EPOLL APIS         *
  ******************************/
 
-
 #define EVLOOP_INITIAL_SIZE 4
-
 
 struct evloop *evloop_create(int max_events, int timeout) {
 
@@ -852,7 +824,6 @@ struct evloop *evloop_create(int max_events, int timeout) {
 
     return loop;
 }
-
 
 void evloop_init(struct evloop *loop, int max_events, int timeout) {
     loop->max_events = max_events;
@@ -865,7 +836,6 @@ void evloop_init(struct evloop *loop, int max_events, int timeout) {
         malloc(EVLOOP_INITIAL_SIZE * sizeof(*loop->periodic_tasks));
     loop->status = 0;
 }
-
 
 void evloop_free(struct evloop *loop) {
     free(loop->events);
@@ -904,7 +874,6 @@ int epoll_add(int efd, int fd, int evs, void *data) {
     return epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
 }
 
-
 int epoll_mod(int efd, int fd, int evs, void *data) {
 
     struct epoll_event ev;
@@ -918,7 +887,6 @@ int epoll_mod(int efd, int fd, int evs, void *data) {
 
     return epoll_ctl(efd, EPOLL_CTL_MOD, fd, &ev);
 }
-
 
 int epoll_del(int efd, int fd) {
     return epoll_ctl(efd, EPOLL_CTL_DEL, fd, NULL);
@@ -958,12 +926,10 @@ void evloop_add_callback(struct evloop *loop, struct closure *cb) {
         perror("Epoll register callback: ");
 }
 
-
 void evloop_add_periodic_task(struct evloop *loop,
                               int seconds,
                               unsigned long long ns,
                               struct closure *cb) {
-
     struct itimerspec timervalue;
 
     int timerfd = timerfd_create(CLOCK_MONOTONIC, 0);
@@ -1005,9 +971,7 @@ void evloop_add_periodic_task(struct evloop *loop,
     loop->periodic_tasks[loop->periodic_nr]->closure = cb;
     loop->periodic_tasks[loop->periodic_nr]->timerfd = timerfd;
     loop->periodic_nr++;
-
 }
-
 
 int evloop_wait(struct evloop *el) {
 
@@ -1073,16 +1037,13 @@ int evloop_wait(struct evloop *el) {
     return rc;
 }
 
-
 int evloop_rearm_callback_read(struct evloop *el, struct closure *cb) {
     return epoll_mod(el->epollfd, cb->fd, EPOLLIN, cb);
 }
 
-
 int evloop_rearm_callback_write(struct evloop *el, struct closure *cb) {
     return epoll_mod(el->epollfd, cb->fd, EPOLLOUT, cb);
 }
-
 
 int evloop_del_callback(struct evloop *el, struct closure *cb) {
     return epoll_del(el->epollfd, cb->fd);
@@ -1113,4 +1074,4 @@ sol/
  └── README.md
 {% endhighlight %}
 
-The [part 3](sol-mqtt-broker-p3) awaits for implementation of the server module.
+The [part 3]({{site.url}}{{site.baseurl}}/2019/03/06/sol-mqtt-broker-p3) awaits for implementation of the server module.

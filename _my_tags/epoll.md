@@ -1,4 +1,0 @@
----
-slug: epoll
-name: Epoll
----

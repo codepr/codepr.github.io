@@ -2,11 +2,16 @@
 layout: post
 title: "Sol - An MQTT broker from scratch. Part 5 - Topic abstraction"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
-tags: [c, unix, tutorial, structures]
+categories: c unix tutorial structures
 ---
 
-In the [previous section](sol-mqtt-broker-p4) we explored some useful concepts
-and implemented two data structures on top of those concepts. The MQTT define
+In the [Part 5]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p5) we
+explored some useful concepts and implemented two data structures on top of
+those concepts.
+
+<!--more-->
+
+The MQTT define
 an abstraction named **topic**, in essence, a string that is used to filter
 messages for each client. It has an hierarchical nature, given by some simple
 rules:
@@ -47,7 +52,6 @@ possibility to query the tree by prefix, executing range scans in an easy way.
 #include <stdio.h>
 #include <stdbool.h>
 #include "list.h"
-
 
 typedef struct trie Trie;
 
@@ -203,7 +207,6 @@ Let's implement our trie with the third solution:
 #include "list.h"
 #include "trie.h"
 
-
 static struct list_node *merge_tnode_list(struct list_node *list1,
                                           struct list_node *list2) {
 
@@ -224,7 +227,6 @@ static struct list_node *merge_tnode_list(struct list_node *list1,
     tail->next = list1 ? list1 : list2;
     return dummy_head.next;
 }
-
 
 struct list_node *merge_sort_tnode(struct list_node *head) {
 
@@ -278,7 +280,6 @@ static bool trie_is_free_node(const struct trie_node *node) {
     return node->children->len == 0 ? true : false;
 }
 
-
 static struct trie_node *trie_node_find(const struct trie_node *node,
                                         const char *prefix) {
 
@@ -322,12 +323,10 @@ Trie *trie_create(void) {
     return trie;
 }
 
-
 void trie_init(Trie *trie) {
     trie->root = trie_create_node(' ');
     trie->size = 0;
 }
-
 
 size_t trie_size(const Trie *trie) {
     return trie->size;
@@ -481,7 +480,6 @@ void *trie_insert(Trie *trie, const char *key, const void *data) {
     return trie_node_insert(trie->root, key, data, &trie->size);
 }
 
-
 bool trie_delete(Trie *trie, const char *key) {
 
     assert(trie && key);
@@ -493,7 +491,6 @@ bool trie_delete(Trie *trie, const char *key) {
 
     return found;
 }
-
 
 bool trie_find(const Trie *trie, const char *key, void **ret) {
     assert(trie && key);
@@ -583,7 +580,6 @@ void trie_prefix_map_tuple(Trie *trie, const char *prefix,
     }
 }
 
-
 /* Release memory of a node while updating size of the trie */
 void trie_node_free(struct trie_node *node, size_t *size) {
 
@@ -614,7 +610,6 @@ void trie_node_free(struct trie_node *node, size_t *size) {
     // Release the node itself
     free(node);
 }
-
 
 void trie_release(Trie *trie) {
 
@@ -654,4 +649,5 @@ sol/
  └── README.md
 {% endhighlight %}
 
-The [part 6](sol-mqtt-broker-p6) awaits with the server side handlers.
+The [Part 6]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p6) awaits
+with the server side handlers.
