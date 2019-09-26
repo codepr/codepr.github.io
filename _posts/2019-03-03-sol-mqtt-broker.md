@@ -46,8 +46,8 @@ sol/
 {% endhighlight %}
 
 Here the repository on Github
-[https://github.com/codepr/sol.git](https://github.com/codepr/sol.git).  I'll
-try to describe step by step my journey into the development of the software,
+[https://github.com/codepr/sol.git](https://github.com/codepr/sol/tree/tutorial).
+I'll try to describe step by step my journey into the development of the software,
 without being too much verbose, and listing lot of code directly with brief
 explanation of its purpose. The best way still remains to write it down,
 compile it and play/modify it.<br>
