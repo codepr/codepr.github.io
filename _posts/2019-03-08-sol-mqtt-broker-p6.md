@@ -196,7 +196,6 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
 
         return -REARM_W;
     }
-
     sol_info("New client connected as %s (c%i, k%u)",
              pkt->connect.payload.client_id,
              pkt->connect.bits.clean_session,
@@ -264,9 +263,7 @@ static int disconnect_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     /* Handle disconnection request from client */
     struct sol_client *c = cb->obj;
-
     sol_debug("Received DISCONNECT from %s", c->client_id);
-
     close(c->fd);
     hashtable_del(sol.clients, c->client_id);
     hashtable_del(sol.closures, cb->closure_id);
@@ -306,23 +303,17 @@ specified topic and answer with an UNSUBACK:
 
 /* Recursive auxiliary function to subscribe to all children of a given topic */
 static void recursive_subscription(struct trie_node *node, void *arg) {
-
     if (!node || !node->data)
         return;
-
     struct list_node *child = node->children->head;
     for (; child; child = child->next)
         recursive_subscription(child->data, arg);
-
     struct topic *t = node->data;
-
     struct subscriber *s = arg;
-
     t->subscribers = list_push(t->subscribers, s);
 }
 
 static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     struct sol_client *c = cb->obj;
     bool wildcard = false;
     bool alloced = false;
@@ -335,7 +326,6 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 
     /* Subscribe packets contains a list of topics and QoS tuples */
     for (unsigned i = 0; i < pkt->subscribe.tuples_len; i++) {
-
         sol_debug("Received SUBSCRIBE from %s", c->client_id);
 
         /*
@@ -343,7 +333,6 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
          * the global map
          */
         char *topic = (char *) pkt->subscribe.tuples[i].topic;
-
         sol_debug("\t%s (QoS %i)", topic, pkt->subscribe.tuples[i].qos);
 
         /* Recursive subscribe to all children topics if the topic ends with "/#" */
@@ -355,11 +344,9 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
             topic = append_string((char *) pkt->subscribe.tuples[i].topic, "/", 1);
             alloced = true;
         }
-
         struct topic *t = sol_topic_get(&sol, topic);
 
         // TODO check for callback correctly set to obj
-
         if (!t) {
             t = topic_create(strdup(topic));
             sol_topic_put(&sol, t);
@@ -373,18 +360,14 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 
         // Clean session true for now
         topic_add_subscriber(t, cb->obj, pkt->subscribe.tuples[i].qos, true);
-
         if (alloced)
             free(topic);
-
         rcs[i] = pkt->subscribe.tuples[i].qos;
     }
-
     struct mqtt_suback *suback = mqtt_packet_suback(SUBACK,
                                                     pkt->subscribe.pkt_id,
                                                     rcs,
                                                     pkt->subscribe.tuples_len);
-
     mqtt_packet_release(pkt, SUBSCRIBE_TYPE);
     pkt->suback = *suback;
     unsigned char *packed = pack_mqtt_packet(pkt, SUBACK_TYPE);
@@ -392,30 +375,21 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
     cb->payload = bytestring_create(len);
     memcpy(cb->payload->data, packed, len);
     free(packed);
-
     mqtt_packet_release(pkt, SUBACK_TYPE);
     free(suback);
-
     sol_debug("Sending SUBACK to %s", c->client_id);
-
     return REARM_W;
 }
 
 static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     struct sol_client *c = cb->obj;
-
     sol_debug("Received UNSUBSCRIBE from %s", c->client_id);
-
     pkt->ack = *mqtt_packet_ack(UNSUBACK, pkt->unsubscribe.pkt_id);
-
     unsigned char *packed = pack_mqtt_packet(pkt, UNSUBACK_TYPE);
     cb->payload = bytestring_create(MQTT_ACK_LEN);
     memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
     free(packed);
-
     sol_debug("Sending UNSUBACK to %s", c->client_id);
-
     return REARM_W;
 }
 
@@ -445,9 +419,7 @@ follow
 {% highlight c %}
 
 static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     struct sol_client *c = cb->obj;
-
     sol_debug("Received PUBLISH from %s (d%i, q%u, r%i, m%u, %s, ... (%i bytes))",
               c->client_id,
               pkt->publish.header.bits.dup,
@@ -456,9 +428,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
               pkt->publish.pkt_id,
               pkt->publish.topic,
               pkt->publish.payloadlen);
-
     info.messages_recv++;
-
     char *topic = (char *) pkt->publish.topic;
     bool alloced = false;
     unsigned char qos = pkt->publish.header.bits.qos;
@@ -477,7 +447,6 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
      * create a new one with the name selected
      */
     struct topic *t = sol_topic_get(&sol, topic);
-
     if (!t) {
         t = topic_create(strdup(topic));
         sol_topic_put(&sol, t);
@@ -486,27 +455,20 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
     // Not the best way to handle this
     if (alloced == true)
         free(topic);
-
     size_t publen;
     unsigned char *pub;
-
     struct list_node *cur = t->subscribers->head;
     for (; cur; cur = cur->next) {
-
         publen = MQTT_HEADER_LEN + sizeof(uint16_t) +
             pkt->publish.topiclen + pkt->publish.payloadlen;
-
         struct subscriber *sub = cur->data;
         struct sol_client *sc = sub->client;
 
         /* Update QoS according to subscriber's one */
         pkt->publish.header.bits.qos = sub->qos;
-
         if (pkt->publish.header.bits.qos > AT_MOST_ONCE)
             publen += sizeof(uint16_t);
-
         pub = pack_mqtt_packet(pkt, PUBLISH_TYPE);
-
         ssize_t sent;
         if ((sent = send_bytes(sc->fd, pub, publen)) < 0)
             sol_error("Error publishing to %s: %s",
@@ -514,7 +476,6 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
 
         // Update information stats
         info.bytes_sent += sent;
-
         sol_debug("Sending PUBLISH to %s (d%i, q%u, r%i, m%u, %s, ... (%i bytes))",
                   sc->client_id,
                   pkt->publish.header.bits.dup,
@@ -523,52 +484,35 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
                   pkt->publish.pkt_id,
                   pkt->publish.topic,
                   pkt->publish.payloadlen);
-
         info.messages_sent++;
-
         free(pub);
     }
 
     // TODO free publish
 
     if (qos == AT_LEAST_ONCE) {
-
         mqtt_puback *puback = mqtt_packet_ack(PUBACK, pkt->publish.pkt_id);
-
         mqtt_packet_release(pkt, PUBLISH_TYPE);
-
         pkt->ack = *puback;
-
         unsigned char *packed = pack_mqtt_packet(pkt, PUBACK_TYPE);
         cb->payload = bytestring_create(MQTT_ACK_LEN);
         memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
         free(packed);
-
         sol_debug("Sending PUBACK to %s", c->client_id);
-
         return REARM_W;
-
     } else if (qos == EXACTLY_ONCE) {
 
         // TODO add to a hashtable to track PUBREC clients last
-
         mqtt_pubrec *pubrec = mqtt_packet_ack(PUBREC, pkt->publish.pkt_id);
-
         mqtt_packet_release(pkt, PUBLISH_TYPE);
-
         pkt->ack = *pubrec;
-
         unsigned char *packed = pack_mqtt_packet(pkt, PUBREC_TYPE);
         cb->payload = bytestring_create(MQTT_ACK_LEN);
         memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
         free(packed);
-
         sol_debug("Sending PUBREC to %s", c->client_id);
-
         return REARM_W;
-
     }
-
     mqtt_packet_release(pkt, PUBLISH_TYPE);
 
     /*
@@ -593,79 +537,56 @@ expects a PINGRESP as answer.
 {% highlight c %}
 
 static int puback_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     sol_debug("Received PUBACK from %s",
               ((struct sol_client *) cb->obj)->client_id);
-
     // TODO Remove from pending PUBACK clients map
-
     return REARM_R;
 }
 
 static int pubrec_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     struct sol_client *c = cb->obj;
-
     sol_debug("Received PUBREC from %s", c->client_id);
-
     mqtt_pubrel *pubrel = mqtt_packet_ack(PUBREL, pkt->publish.pkt_id);
-
     pkt->ack = *pubrel;
-
     unsigned char *packed = pack_mqtt_packet(pkt, PUBREC_TYPE);
     cb->payload = bytestring_create(MQTT_ACK_LEN);
     memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
     free(packed);
-
     sol_debug("Sending PUBREL to %s", c->client_id);
-
     return REARM_W;
 }
 
 static int pubrel_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     sol_debug("Received PUBREL from %s",
               ((struct sol_client *) cb->obj)->client_id);
-
     mqtt_pubcomp *pubcomp = mqtt_packet_ack(PUBCOMP, pkt->publish.pkt_id);
-
     pkt->ack = *pubcomp;
-
     unsigned char *packed = pack_mqtt_packet(pkt, PUBCOMP_TYPE);
     cb->payload = bytestring_create(MQTT_ACK_LEN);
     memcpy(cb->payload->data, packed, MQTT_ACK_LEN);
     free(packed);
-
     sol_debug("Sending PUBCOMP to %s",
               ((struct sol_client *) cb->obj)->client_id);
-
     return REARM_W;
 }
 
 static int pubcomp_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     sol_debug("Received PUBCOMP from %s",
               ((struct sol_client *) cb->obj)->client_id);
-
     // TODO Remove from pending PUBACK clients map
-
     return REARM_R;
 }
 
 static int pingreq_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     sol_debug("Received PINGREQ from %s",
               ((struct sol_client *) cb->obj)->client_id);
-
     pkt->header = *mqtt_packet_header(PINGRESP);
     unsigned char *packed = pack_mqtt_packet(pkt, PINGRESP_TYPE);
     cb->payload = bytestring_create(MQTT_HEADER_LEN);
     memcpy(cb->payload->data, packed, MQTT_HEADER_LEN);
     free(packed);
-
     sol_debug("Sending PINGRESP to %s",
               ((struct sol_client *) cb->obj)->client_id);
-
     return REARM_W;
 }
 
@@ -872,12 +793,9 @@ static size_t read_time_with_mul(const char *time_string) {
 /* Format a memory in bytes to a more human-readable form, e.g. 64b or 18Kb
  * instead of huge numbers like 130230234 bytes */
 char *memory_to_string(size_t memory) {
-
     int numlen = 0;
     int translated_memory = 0;
-
     char *mstring = NULL;
-
     if (memory < 1024) {
         translated_memory = memory;
         numlen = number_len(translated_memory);
@@ -903,19 +821,15 @@ char *memory_to_string(size_t memory) {
         mstring = malloc(numlen + 2);
         snprintf(mstring, numlen + 2, "%dGb", translated_memory);
     }
-
     return mstring;
 }
 
 /* Purely utility function, format a time in seconds to a more human-readable
  * form, e.g. 2m or 4h instead of huge numbers */
 char *time_to_string(size_t time) {
-
     int numlen = 0;
     int translated_time = 0;
-
     char *tstring = NULL;
-
     if (time < 60) {
         translated_time = time;
         numlen = number_len(translated_time);
@@ -941,17 +855,14 @@ char *time_to_string(size_t time) {
         tstring = malloc(numlen + 1);
         snprintf(tstring, numlen + 1, "%dd", translated_time);
     }
-
     return tstring;
 }
 
 /* Set configuration values based on what is read from the persistent
    configuration on disk */
 static void add_config_value(const char *key, const char *value) {
-
     size_t klen = strlen(key);
     size_t vlen = strlen(value);
-
     if (STREQ("log_level", key, klen) == true) {
         for (int i = 0; i < 3; i++) {
             if (STREQ(lmap[i].lname, value, vlen) == true)
@@ -985,67 +896,49 @@ static inline void strip_spaces(char **str) {
 }
 
 static inline void unpack_bytes(char **str, char *dest) {
-
     if (!str || !dest) return;
-
     while (!isspace(**str) && **str) *dest++ = *(*str)++;
 }
 
 int config_load(const char *configpath) {
-
     assert(configpath);
-
     FILE *fh = fopen(configpath, "r");
-
     if (!fh) {
         sol_warning("WARNING: Unable to open conf file %s", configpath);
         sol_warning("To specify a config file run sol -c /path/to/conf");
         return false;
     }
-
     char line[0xff], key[0xff], value[0xff];
     int linenr = 0;
     char *pline, *pkey, *pval;
-
     while (fgets(line, 0xff, fh) != NULL) {
-
         memset(key, 0x00, 0xff);
         memset(value, 0x00, 0xff);
-
         linenr++;
-
         // Skip comments or empty lines
         if (line[0] == '#') continue;
-
         // Remove whitespaces if any before the key
         pline = line;
         strip_spaces(&pline);
-
         if (*pline == '\0') continue;
-
         // Read key
         pkey = key;
         unpack_bytes(&pline, pkey);
-
         // Remove whitespaces if any after the key and before the value
         strip_spaces(&pline);
-
         // Ignore eventually incomplete configuration, but notify it
         if (line[0] == '\0') {
             sol_warning("WARNING: Incomplete configuration '%s' at line %d. "
                         "Fallback to default.", key, linenr);
             continue;
         }
-
         // Read value
         pval = value;
         unpack_bytes(&pline, pval);
-
         // At this point we have key -> value ready to be ingested on the
         // global configuration object
         add_config_value(key, value);
     }
-
     return true;
 }
 
@@ -1117,7 +1010,6 @@ Let's add the last brick, a main:
 #include "server.h"
 
 int main (int argc, char **argv) {
-
     char *addr = DEFAULT_HOSTNAME;
     char *port = DEFAULT_PORT;
     char *confpath = DEFAULT_CONF_PATH;
@@ -1126,7 +1018,6 @@ int main (int argc, char **argv) {
 
     // Set default configuration
     config_set_default();
-
     while ((opt = getopt(argc, argv, "a:c:p:m:vn:")) != -1) {
         switch (opt) {
             case 'a':
@@ -1159,7 +1050,6 @@ int main (int argc, char **argv) {
 
     // Print configuration
     config_print();
-
     start_server(conf->hostname, conf->port);
 
     return 0;

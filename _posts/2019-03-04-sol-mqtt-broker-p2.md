@@ -44,34 +44,25 @@ working, as previously stated time to optimize and refactor will come.
  */
 
 union mqtt_header *mqtt_packet_header(unsigned char byte) {
-
     static union mqtt_header header;
-
     header.byte = byte;
-
     return &header;
 }
 
 struct mqtt_ack *mqtt_packet_ack(unsigned char byte, unsigned short pkt_id) {
-
     static struct mqtt_ack ack;
-
     ack.header.byte = byte;
     ack.pkt_id = pkt_id;
-
     return &ack;
 }
 
 struct mqtt_connack *mqtt_packet_connack(unsigned char byte,
                                          unsigned char cflags,
                                          unsigned char rc) {
-
     static struct mqtt_connack connack;
-
     connack.header.byte = byte;
     connack.byte = cflags;
     connack.rc = rc;
-
     return &connack;
 }
 
@@ -79,15 +70,12 @@ struct mqtt_suback *mqtt_packet_suback(unsigned char byte,
                                        unsigned short pkt_id,
                                        unsigned char *rcs,
                                        unsigned short rcslen) {
-
     struct mqtt_suback *suback = malloc(sizeof(*suback));
-
     suback->header.byte = byte;
     suback->pkt_id = pkt_id;
     suback->rcslen = rcslen;
     suback->rcs = malloc(rcslen);
     memcpy(suback->rcs, rcs, rcslen);
-
     return suback;
 }
 
@@ -97,21 +85,17 @@ struct mqtt_publish *mqtt_packet_publish(unsigned char byte,
                                          unsigned char *topic,
                                          size_t payloadlen,
                                          unsigned char *payload) {
-
     struct mqtt_publish *publish = malloc(sizeof(*publish));
-
     publish->header.byte = byte;
     publish->pkt_id = pkt_id;
     publish->topiclen = topiclen;
     publish->topic = topic;
     publish->payloadlen = payloadlen;
     publish->payload = payload;
-
     return publish;
 }
 
 void mqtt_packet_release(union mqtt_packet *pkt, unsigned type) {
-
     switch (type) {
         case CONNECT_TYPE:
             free(pkt->connect.payload.client_id);
@@ -190,62 +174,47 @@ static mqtt_pack_handler *pack_handlers[13] = {
 };
 
 static unsigned char *pack_mqtt_header(const union mqtt_header *hdr) {
-
     unsigned char *packed = malloc(MQTT_HEADER_LEN);
     unsigned char *ptr = packed;
-
     pack_u8(&ptr, hdr->byte);
 
     /* Encode 0 length bytes, message like this have only a fixed header */
     mqtt_encode_length(ptr, 0);
-
     return packed;
 }
 
 static unsigned char *pack_mqtt_ack(const union mqtt_packet *pkt) {
-
     unsigned char *packed = malloc(MQTT_ACK_LEN);
     unsigned char *ptr = packed;
-
     pack_u8(&ptr, pkt->ack.header.byte);
     mqtt_encode_length(ptr, MQTT_HEADER_LEN);
     ptr++;
-
     pack_u16(&ptr, pkt->ack.pkt_id);
-
     return packed;
 }
 
 static unsigned char *pack_mqtt_connack(const union mqtt_packet *pkt) {
-
     unsigned char *packed = malloc(MQTT_ACK_LEN);
     unsigned char *ptr = packed;
-
     pack_u8(&ptr, pkt->connack.header.byte);
     mqtt_encode_length(ptr, MQTT_HEADER_LEN);
     ptr++;
-
     pack_u8(&ptr, pkt->connack.byte);
     pack_u8(&ptr, pkt->connack.rc);
-
     return packed;
 }
 
 static unsigned char *pack_mqtt_suback(const union mqtt_packet *pkt) {
-
     size_t pktlen = MQTT_HEADER_LEN + sizeof(uint16_t) + pkt->suback.rcslen;
     unsigned char *packed = malloc(pktlen + 0);
     unsigned char *ptr = packed;
-
     pack_u8(&ptr, pkt->suback.header.byte);
     size_t len = sizeof(uint16_t) + pkt->suback.rcslen;
     int step = mqtt_encode_length(ptr, len);
     ptr += step;
-
     pack_u16(&ptr, pkt->suback.pkt_id);
     for (int i = 0; i < pkt->suback.rcslen; i++)
         pack_u8(&ptr, pkt->suback.rcs[i]);
-
     return packed;
 }
 
@@ -260,13 +229,10 @@ static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
 
     // Total len of the packet excluding fixed header len
     size_t len = 0L;
-
     if (pkt->header.bits.qos > AT_MOST_ONCE)
         pktlen += sizeof(uint16_t);
-
     unsigned char *packed = malloc(pktlen);
     unsigned char *ptr = packed;
-
     pack_u8(&ptr, pkt->publish.header.byte);
 
     // Total len of the packet excluding fixed header len
@@ -294,10 +260,8 @@ static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
 }
 
 unsigned char *pack_mqtt_packet(const union mqtt_packet *pkt, unsigned type) {
-
     if (type == PINGREQ_TYPE || type == PINGRESP_TYPE)
         return pack_mqtt_header(&pkt->header);
-
     return pack_handlers[type](pkt);
 }
 
@@ -419,18 +383,13 @@ And the implementation on network.c.
 int set_nonblocking(int fd) {
     int flags, result;
     flags = fcntl(fd, F_GETFL, 0);
-
     if (flags == -1)
         goto err;
-
     result = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     if (result == -1)
         goto err;
-
     return 0;
-
 err:
-
     perror("set_nonblocking");
     return -1;
 }
@@ -441,81 +400,63 @@ int set_tcp_nodelay(int fd) {
 }
 
 static int create_and_bind_unix(const char *sockpath) {
-
     struct sockaddr_un addr;
     int fd;
-
     if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
         perror("socket error");
         return -1;
     }
-
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-
     strncpy(addr.sun_path, sockpath, sizeof(addr.sun_path) - 1);
     unlink(sockpath);
-
     if (bind(fd, (struct sockaddr*) &addr, sizeof(addr)) == -1) {
         perror("bind error");
         return -1;
     }
-
     return fd;
 }
 
 static int create_and_bind_tcp(const char *host, const char *port) {
-
     struct addrinfo hints = {
         .ai_family = AF_UNSPEC,
         .ai_socktype = SOCK_STREAM,
         .ai_flags = AI_PASSIVE
     };
-
     struct addrinfo *result, *rp;
     int sfd;
-
     if (getaddrinfo(host, port, &hints, &result) != 0) {
         perror("getaddrinfo error");
         return -1;
     }
-
     for (rp = result; rp != NULL; rp = rp->ai_next) {
         sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-
         if (sfd == -1) continue;
 
         /* set SO_REUSEADDR so the socket will be reusable after process kill */
         if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,
                        &(int) { 1 }, sizeof(int)) < 0)
             perror("SO_REUSEADDR");
-
         if ((bind(sfd, rp->ai_addr, rp->ai_addrlen)) == 0) {
             /* Succesful bind */
             break;
         }
         close(sfd);
     }
-
     if (rp == NULL) {
         perror("Could not bind");
         return -1;
     }
-
     freeaddrinfo(result);
     return sfd;
 }
 
 int create_and_bind(const char *host, const char *port, int socket_family) {
-
     int fd;
-
-    if (socket_family == UNIX) {
+    if (socket_family == UNIX)
         fd = create_and_bind_unix(host);
-    } else {
+    else
         fd = create_and_bind_tcp(host, port);
-    }
-
     return fd;
 }
 
@@ -524,60 +465,48 @@ int create_and_bind(const char *host, const char *port, int socket_family) {
  * port
  */
 int make_listen(const char *host, const char *port, int socket_family) {
-
     int sfd;
-
     if ((sfd = create_and_bind(host, port, socket_family)) == -1)
         abort();
-
     if ((set_nonblocking(sfd)) == -1)
         abort();
 
     // Set TCP_NODELAY only for TCP sockets
     if (socket_family == INET)
         set_tcp_nodelay(sfd);
-
     if ((listen(sfd, conf->tcp_backlog)) == -1) {
         perror("listen");
         abort();
     }
-
     return sfd;
 }
 
 int accept_connection(int serversock) {
-
     int clientsock;
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(addr);
-
     if ((clientsock = accept(serversock,
                              (struct sockaddr *) &addr, &addrlen)) < 0)
         return -1;
-
     set_nonblocking(clientsock);
 
     // Set TCP_NODELAY only for TCP sockets
     if (conf->socket_family == INET)
         set_tcp_nodelay(clientsock);
-
     char ip_buff[INET_ADDRSTRLEN + 1];
     if (inet_ntop(AF_INET, &addr.sin_addr,
                   ip_buff, sizeof(ip_buff)) == NULL) {
         close(clientsock);
         return -1;
     }
-
     return clientsock;
 }
 
 /* Send all bytes contained in buf, updating sent bytes counter */
 ssize_t send_bytes(int fd, const unsigned char *buf, size_t len) {
-
     size_t total = 0;
     size_t bytesleft = len;
     ssize_t n = 0;
-
     while (total < len) {
         n = send(fd, buf + total, bytesleft, MSG_NOSIGNAL);
         if (n == -1) {
@@ -589,11 +518,8 @@ ssize_t send_bytes(int fd, const unsigned char *buf, size_t len) {
         total += n;
         bytesleft -= n;
     }
-
     return total;
-
 err:
-
     fprintf(stderr, "send(2) - error sending data: %s", strerror(errno));
     return -1;
 }
@@ -603,30 +529,22 @@ err:
  * data into a 2 Mb capped buffer
  */
 ssize_t recv_bytes(int fd, unsigned char *buf, size_t bufsize) {
-
     ssize_t n = 0;
     ssize_t total = 0;
-
     while (total < (ssize_t) bufsize) {
-
         if ((n = recv(fd, buf, bufsize - total, 0)) < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
             } else
                 goto err;
         }
-
         if (n == 0)
             return 0;
-
         buf += n;
         total += n;
     }
-
     return total;
-
 err:
-
     fprintf(stderr, "recv(2) - error reading data: %s", strerror(errno));
     return -1;
 }
@@ -793,7 +711,6 @@ int epoll_mod(int, int, int, void *);
  */
 int epoll_del(int, int);
 
-
 {% endhighlight %}
 
 After some declarations on the header for network utility we can move on to the
@@ -817,11 +734,8 @@ executed.
 #define EVLOOP_INITIAL_SIZE 4
 
 struct evloop *evloop_create(int max_events, int timeout) {
-
     struct evloop *loop = malloc(sizeof(*loop));
-
     evloop_init(loop, max_events, timeout);
-
     return loop;
 }
 
@@ -861,30 +775,24 @@ this is another story, also this explained clearly on the man page.
 {% highlight c %}
 
 int epoll_add(int efd, int fd, int evs, void *data) {
-
     struct epoll_event ev;
     ev.data.fd = fd;
 
     // Being ev.data a union, in case of data != NULL, fd will be set to random
     if (data)
         ev.data.ptr = data;
-
     ev.events = evs | EPOLLET | EPOLLONESHOT;
-
     return epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
 }
 
 int epoll_mod(int efd, int fd, int evs, void *data) {
-
     struct epoll_event ev;
     ev.data.fd = fd;
 
     // Being ev.data a union, in case of data != NULL, fd will be set to random
     if (data)
         ev.data.ptr = data;
-
     ev.events = evs | EPOLLET | EPOLLONESHOT;
-
     return epoll_ctl(efd, EPOLL_CTL_MOD, fd, &ev);
 }
 
@@ -931,9 +839,7 @@ void evloop_add_periodic_task(struct evloop *loop,
                               unsigned long long ns,
                               struct closure *cb) {
     struct itimerspec timervalue;
-
     int timerfd = timerfd_create(CLOCK_MONOTONIC, 0);
-
     memset(&timervalue, 0x00, sizeof(timervalue));
 
     // Set initial expire time and periodic interval
@@ -941,7 +847,6 @@ void evloop_add_periodic_task(struct evloop *loop,
     timervalue.it_value.tv_nsec = ns;
     timervalue.it_interval.tv_sec = seconds;
     timervalue.it_interval.tv_nsec = ns;
-
     if (timerfd_settime(timerfd, 0, &timervalue, NULL) < 0) {
         perror("timerfd_settime");
         return;
@@ -951,7 +856,6 @@ void evloop_add_periodic_task(struct evloop *loop,
     struct epoll_event ev;
     ev.data.fd = timerfd;
     ev.events = EPOLLIN;
-
     if (epoll_ctl(loop->epollfd, EPOLL_CTL_ADD, timerfd, &ev) < 0) {
         perror("epoll_ctl(2): EPOLLIN");
         return;
@@ -964,27 +868,21 @@ void evloop_add_periodic_task(struct evloop *loop,
             realloc(loop->periodic_tasks,
                     loop->periodic_maxsize * sizeof(*loop->periodic_tasks));
     }
-
     loop->periodic_tasks[loop->periodic_nr] =
         malloc(sizeof(*loop->periodic_tasks[loop->periodic_nr]));
-
     loop->periodic_tasks[loop->periodic_nr]->closure = cb;
     loop->periodic_tasks[loop->periodic_nr]->timerfd = timerfd;
     loop->periodic_nr++;
 }
 
 int evloop_wait(struct evloop *el) {
-
     int rc = 0;
     int events = 0;
     long int timer = 0L;
     int periodic_done = 0;
-
     while (1) {
-
         events = epoll_wait(el->epollfd, el->events,
                             el->max_events, el->timeout);
-
         if (events < 0) {
 
             /* Signals to all threads. Ignore it for now */
@@ -996,7 +894,6 @@ int evloop_wait(struct evloop *el) {
             el->status = errno;
             break;
         }
-
         for (int i = 0; i < events; i++) {
 
             /* Check for errors */
@@ -1013,10 +910,8 @@ int evloop_wait(struct evloop *el) {
                 el->status = errno;
                 continue;
             }
-
             struct closure *closure = el->events[i].data.ptr;
             periodic_done = 0;
-
             for (int i = 0; i < el->periodic_nr && periodic_done == 0; i++) {
                 if (el->events[i].data.fd == el->periodic_tasks[i]->timerfd) {
                     struct closure *c = el->periodic_tasks[i]->closure;
@@ -1025,7 +920,6 @@ int evloop_wait(struct evloop *el) {
                     periodic_done = 1;
                 }
             }
-
             if (periodic_done == 1)
                 continue;
 
@@ -1033,7 +927,6 @@ int evloop_wait(struct evloop *el) {
             closure->call(el, closure->args);
         }
     }
-
     return rc;
 }
 

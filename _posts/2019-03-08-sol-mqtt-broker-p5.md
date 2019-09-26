@@ -209,9 +209,7 @@ Let's implement our trie with the third solution:
 
 static struct list_node *merge_tnode_list(struct list_node *list1,
                                           struct list_node *list2) {
-
     struct list_node dummy_head = { NULL, NULL }, *tail = &dummy_head;
-
     while (list1 && list2) {
 
         /* cast to cluster_node */
@@ -223,21 +221,16 @@ static struct list_node *merge_tnode_list(struct list_node *list1,
         tail = tail->next = *min;
         *min = next;
     }
-
     tail->next = list1 ? list1 : list2;
     return dummy_head.next;
 }
 
 struct list_node *merge_sort_tnode(struct list_node *head) {
-
     struct list_node *list1 = head;
-
     if (!list1 || !list1->next)
         return list1;
-
     /* find the middle */
     struct list_node *list2 = bisect_list(list1);
-
     return merge_tnode_list(merge_sort_tnode(list1), merge_sort_tnode(list2));
 }
 
@@ -245,17 +238,14 @@ struct list_node *merge_sort_tnode(struct list_node *head) {
  * and a value, O(n) at worst
  */
 static struct list_node *linear_search(const List *list, int value) {
-
     if (!list || list->len == 0)
         return NULL;
-
     for (struct list_node *cur = list->head; cur != NULL; cur = cur->next) {
         if (((struct trie_node *) cur->data)->chr == value)
             return cur;
         else if (((struct trie_node *) cur->data)->chr > value)
             break;
     }
-
     return NULL;
 }
 
@@ -264,13 +254,10 @@ static struct list_node *linear_search(const List *list, int value) {
  * list.
  */
 static int with_char(void *arg1, void *arg2) {
-
     struct trie_node *tn1 = ((struct list_node *) arg1)->data;
     struct trie_node *tn2 = ((struct list_node *) arg2)->data;
-
     if (tn1->chr == tn2->chr)
         return 0;
-
     return -1;
 }
 
@@ -282,7 +269,6 @@ static bool trie_is_free_node(const struct trie_node *node) {
 
 static struct trie_node *trie_node_find(const struct trie_node *node,
                                         const char *prefix) {
-
     struct trie_node *retnode = (struct trie_node *) node;
 
     // Move to the end of the prefix first
@@ -294,25 +280,19 @@ static struct trie_node *trie_node_find(const struct trie_node *node,
         // No key with the full prefix in the trie
         if (!child)
             return NULL;
-
         retnode = child->data;
     }
-
     return retnode;
 }
 
 // Returns new trie node (initialized to NULL)
 struct trie_node *trie_create_node(char c) {
-
     struct trie_node *new_node = malloc(sizeof(*new_node));
-
     if (new_node) {
-
         new_node->chr = c;
         new_node->data = NULL;
         new_node->children = list_create(NULL);
     }
-
     return new_node;
 }
 
@@ -342,7 +322,6 @@ size_t trie_size(const Trie *trie) {
  */
 static void *trie_node_insert(struct trie_node *root, const char *key,
                               const void *data, size_t *size) {
-
     struct trie_node *cursor = root;
     struct trie_node *cur_node = NULL;
     struct list_node *tmp = NULL;
@@ -386,9 +365,7 @@ static void *trie_node_insert(struct trie_node *root, const char *key,
      */
     if (!cursor->data)
         (*size)++;
-
     cursor->data = (void *) data;
-
     return cursor->data;
 }
 
@@ -398,13 +375,11 @@ static void *trie_node_insert(struct trie_node *root, const char *key,
  */
 static bool trie_node_recursive_delete(struct trie_node *node, const char *key,
                                        size_t *size, bool *found) {
-
     if (!node)
         return false;
 
     // Base case
     if (*key == '\0') {
-
         if (node->data) {
 
             // Update found flag
@@ -423,17 +398,13 @@ static bool trie_node_recursive_delete(struct trie_node *node, const char *key,
             // If empty, node to be deleted
             return trie_is_free_node(node);
         }
-
     } else {
 
         // O(n), the best we can have
         struct list_node *cur = linear_search(node->children, *key);
-
         if (!cur)
             return false;
-
         struct trie_node *child = cur->data;
-
         if (trie_node_recursive_delete(child, key + 1, size, found)) {
 
             // Messy solution, requiring probably avoidable allocations
@@ -448,7 +419,6 @@ static bool trie_node_recursive_delete(struct trie_node *node, const char *key,
             return (!node->data && trie_is_free_node(node));
         }
     }
-
     return false;
 }
 
@@ -461,7 +431,6 @@ static bool trie_node_search(const struct trie_node *root,
 
     // Walk the trie till the end of the key
     struct trie_node *cursor = trie_node_find(root, key);
-
     *ret = (cursor && cursor->data) ? cursor->data : NULL;
 
     // Return false if no complete key found, true otherwise
@@ -474,21 +443,15 @@ static bool trie_node_search(const struct trie_node *root,
  * of expiring keys with a set TTL.
  */
 void *trie_insert(Trie *trie, const char *key, const void *data) {
-
     assert(trie && key);
-
     return trie_node_insert(trie->root, key, data, &trie->size);
 }
 
 bool trie_delete(Trie *trie, const char *key) {
-
     assert(trie && key);
-
     bool found = false;
-
     if (strlen(key) > 0)
         trie_node_recursive_delete(trie->root, key, &(trie->size), &found);
-
     return found;
 }
 
@@ -506,7 +469,6 @@ bool trie_find(const Trie *trie, const char *key, void **ret) {
  * hello
  */
 void trie_prefix_delete(Trie *trie, const char *prefix) {
-
     assert(trie && prefix);
 
     // Walk the trie till the end of the key
@@ -521,7 +483,6 @@ void trie_prefix_delete(Trie *trie, const char *prefix) {
         trie_delete(trie, prefix);
         return;
     }
-
     struct list_node *cur = cursor->children->head;
     // Clear out all possible sub-paths
     for (; cur; cur = cur->next) {
@@ -532,7 +493,6 @@ void trie_prefix_delete(Trie *trie, const char *prefix) {
     // Set the current node (the one storing the last character of the prefix)
     // as a leaf and delete the prefix key as well
     trie_delete(trie, prefix);
-
     list_clear(cursor->children, 1);
 }
 
@@ -540,18 +500,14 @@ void trie_prefix_delete(Trie *trie, const char *prefix) {
    a defined function which take a struct trie_node as argument */
 static void trie_prefix_map_func2(struct trie_node *node,
                                   void (*mapfunc)(struct trie_node *, void *), void *arg) {
-
     if (trie_is_free_node(node)) {
         mapfunc(node, arg);
         return;
     }
-
     struct list_node *child = node->children->head;
     for (; child; child = child->next)
         trie_prefix_map_func2(child->data, mapfunc, arg);
-
     mapfunc(node, arg);
-
 }
 
 /*
@@ -561,9 +517,7 @@ static void trie_prefix_map_func2(struct trie_node *node,
  */
 void trie_prefix_map_tuple(Trie *trie, const char *prefix,
                            void (*mapfunc)(struct trie_node *, void *), void *arg) {
-
     assert(trie);
-
     if (!prefix) {
         trie_prefix_map_func2(trie->root, mapfunc, arg);
     } else {
@@ -612,12 +566,9 @@ void trie_node_free(struct trie_node *node, size_t *size) {
 }
 
 void trie_release(Trie *trie) {
-
     if (!trie)
         return;
-
     trie_node_free(trie->root, &(trie->size));
-
     free(trie);
 }
 

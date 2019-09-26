@@ -133,20 +133,15 @@ struct hashtable {
 };
 
 const int INITIAL_SIZE = 4;
-
 const int MAX_CHAIN_LENGTH = 8;
-
 const unsigned long KNUTH_PRIME = 2654435761;
-
 static unsigned long crc32(const uint8_t *, unsigned int);
 
 /*
  * Hashing function for a string
  */
 static uint64_t hashtable_hash_int(HashTable *m, const uint8_t *keystr) {
-
     assert(m && keystr);
-
     uint64_t key = crc32(keystr, strlen((const char *) keystr));
 
     /* Robert Jenkins' 32 bit Mix Function */
@@ -170,7 +165,6 @@ static uint64_t hashtable_hash_int(HashTable *m, const uint8_t *keystr) {
  * or -HASHTABLE_FULL.
  */
 static int hashtable_hash(HashTable *table, const uint8_t *key) {
-
     assert(table && key);
 
     /* If full, return immediately */
@@ -183,20 +177,15 @@ static int hashtable_hash(HashTable *table, const uint8_t *key) {
 
     /* Linear probing */
     for (int i = 0; i < MAX_CHAIN_LENGTH; i++) {
-
         if (table->entries[curr].taken == false)
             return curr;
-
         k = (char *) table->entries[curr].key;
         currk = (char *) key;
-
         if (table->entries[curr].taken == true &&
             STREQ(k, currk, strlen(k)) == true)
             return curr;
-
         curr = (curr + 1) % table->table_size;
     }
-
     return -HASHTABLE_FULL;
 }
 
@@ -204,16 +193,13 @@ static int hashtable_hash(HashTable *table, const uint8_t *key) {
  * Doubles the size of the hashtable, and rehashes all the elements
  */
 static int hashtable_rehash(HashTable *table) {
-
     assert(table);
-
     size_t old_size;
     struct hashtable_entry *curr;
 
     /* Setup the new elements */
     struct hashtable_entry *temp =
         calloc(2 * table->table_size, sizeof(*temp));
-
     if (!temp)
         return -HASHTABLE_ERR;
 
@@ -230,23 +216,18 @@ static int hashtable_rehash(HashTable *table) {
 
     /* Rehash the elements */
     for (size_t i = 0; i < old_size; i++) {
-
         if (curr[i].taken == false)
             continue;
-
         if ((status = hashtable_put(table, curr[i].key,
                                     curr[i].val)) != HASHTABLE_OK)
             return status;
     }
-
     free(curr);
-
     return HASHTABLE_OK;
 }
 
 /* callback function used with iterate to clean up the hashtable */
 static int destroy_entry(struct hashtable_entry *entry) {
-
     if (!entry)
         return -HASHTABLE_ERR;
 
@@ -266,25 +247,19 @@ static int destroy_entry(struct hashtable_entry *entry) {
  * dynamically allocated on the heap memory, so it must be released manually.
  */
 HashTable *hashtable_create(int (*destructor)(struct hashtable_entry *)) {
-
     HashTable *table = malloc(sizeof(HashTable));
     if(!table)
         return NULL;
-
     table->entries = calloc(INITIAL_SIZE, sizeof(struct hashtable_entry));
     if(!table->entries) {
         hashtable_release(table);
         return NULL;
     }
-
     table->destructor = destructor ? destructor : destroy_entry;
-
     table->table_size = INITIAL_SIZE;
     table->size = 0;
-
     return table;
 }
-
 
 size_t hashtable_size(const HashTable *table) {
     return table->size;
@@ -298,17 +273,13 @@ int hashtable_exists(HashTable *table, const char *key) {
 /* Add a new key-value pair into the hashtable entries array, use chaining in
    case of collision. */
 int hashtable_put(HashTable *table, const char *key, void *val) {
-
     assert(table && key);
 
     /* Find a place to put our value */
     int index = hashtable_hash(table, (const uint8_t *) key);
-
     while (index == -HASHTABLE_FULL){
-
         if (hashtable_rehash(table) == -HASHTABLE_ERR)
             return -HASHTABLE_ERR;
-
         index = hashtable_hash(table, (const uint8_t *) key);
     }
 
@@ -321,7 +292,6 @@ int hashtable_put(HashTable *table, const char *key, void *val) {
         table->entries[index].taken = true;
         table->size++;
     }
-
     return HASHTABLE_OK;
 }
 
@@ -329,7 +299,6 @@ int hashtable_put(HashTable *table, const char *key, void *val) {
  * Get the value void pointer out of the hashtable associated to a key
  */
 void *hashtable_get(HashTable *table, const char *key) {
-
     assert(table && key);
 
     /* Find data location */
@@ -352,7 +321,6 @@ void *hashtable_get(HashTable *table, const char *key) {
  * Remove an element with that key from the hashtable
  */
 int hashtable_del(HashTable *table, const char *key) {
-
     assert(table && key);
 
     /* Find key */
@@ -377,7 +345,6 @@ int hashtable_del(HashTable *table, const char *key) {
                 return HASHTABLE_OK;
             }
         }
-
         curr = (curr + 1) % table->table_size;
     }
 
@@ -391,7 +358,6 @@ int hashtable_del(HashTable *table, const char *key) {
  * representing the key-value pair structure.
  */
 int hashtable_map(HashTable *table, int (*func)(struct hashtable_entry *)) {
-
     assert(func);
 
     /* On empty hashmap, return immediately */
@@ -400,19 +366,15 @@ int hashtable_map(HashTable *table, int (*func)(struct hashtable_entry *)) {
 
     /* Linear probing */
     for (size_t i = 0; i < table->table_size; i++) {
-
         if (table->entries[i].taken == true) {
 
             /* Apply function to the key-value entry */
             struct hashtable_entry data = table->entries[i];
             int status = func(&data);
-
             if (status != HASHTABLE_OK)
                 return status;
-
         }
     }
-
     return HASHTABLE_OK;
 }
 
@@ -423,7 +385,6 @@ int hashtable_map(HashTable *table, int (*func)(struct hashtable_entry *)) {
 int hashtable_map2(HashTable *table,
                    int (*func)(struct hashtable_entry *, void *),
                    void *param) {
-
     assert(func);
 
     /* On empty hashmap, return immediately */
@@ -432,19 +393,15 @@ int hashtable_map2(HashTable *table,
 
     /* Linear probing */
     for (size_t i = 0; i < table->table_size; i++) {
-
         if (table->entries[i].taken == true) {
 
             /* Apply function to the key-value entry */
             struct hashtable_entry data = table->entries[i];
             int status = func(&data, param);
-
             if (status != HASHTABLE_OK)
                 return status;
-
         }
     }
-
     return HASHTABLE_OK;
 }
 
@@ -453,15 +410,11 @@ int hashtable_map2(HashTable *table,
  * NULL it call normal free on key-value pairs.
  */
 void hashtable_release(HashTable *table){
-
     if (!table)
         return;
-
     hashtable_map(table, table->destructor);
-
     if (!table || !table->entries)
         return;
-
     free(table->entries);
     free(table);
 }
@@ -569,7 +522,6 @@ static unsigned long crc32_tab[] = {
 static unsigned long crc32(const uint8_t *s, unsigned int len) {
     unsigned int i;
     uint64_t crc32val;
-
     crc32val = 0LL;
     for (i = 0;  i < len;  i ++) {
         crc32val = crc32_tab[(crc32val ^ s[i]) & 0xff] ^ (crc32val >> 8);
@@ -678,9 +630,7 @@ static struct list_node *list_node_remove(struct list_node *,
  * Create a list, initializing all fields
  */
 List *list_create(int (*destructor)(struct list_node *)) {
-
     List *l = malloc(sizeof(List));
-
     if (!l)
         return NULL;
 
@@ -697,18 +647,14 @@ List *list_create(int (*destructor)(struct list_node *)) {
  * Destroy a list, releasing all allocated memory
  */
 void list_release(List *l, int deep) {
-
     if (!l)
         return;
-
     struct list_node *h = l->head;
     struct list_node *tmp;
 
     // free all nodes
     while (l->len--) {
-
         tmp = h->next;
-
         if (l->destructor)
             l->destructor(h);
         else {
@@ -718,7 +664,6 @@ void list_release(List *l, int deep) {
                 free(h);
             }
         }
-
         h = tmp;
     }
 
@@ -734,27 +679,21 @@ unsigned long list_size(const List *list) {
  * Destroy a list, releasing all allocated memory but the list itself
  */
 void list_clear(List *l, int deep) {
-
     if (!l || !l->head)
         return;
-
     struct list_node *h = l->head;
     struct list_node *tmp;
 
     // free all nodes
     while (l->len--) {
-
         tmp = h->next;
-
         if (h) {
             if (h->data && deep == 1)
                 free(h->data);
             free(h);
         }
-
         h = tmp;
     }
-
     l->head = l->tail = NULL;
     l->len = 0L;
 }
@@ -764,14 +703,10 @@ void list_clear(List *l, int deep) {
  * Complexity: O(1)
  */
 List *list_push(List *l, void *val) {
-
     struct list_node *new_node = malloc(sizeof(struct list_node));
-
     if (!new_node)
         return NULL;
-
     new_node->data = val;
-
     if (l->len == 0) {
         l->head = l->tail = new_node;
         new_node->next = NULL;
@@ -779,9 +714,7 @@ List *list_push(List *l, void *val) {
         new_node->next = l->head;
         l->head = new_node;
     }
-
     l->len++;
-
     return l;
 }
 
@@ -790,61 +723,44 @@ List *list_push(List *l, void *val) {
  * Complexity: O(1)
  */
 List *list_push_back(List *l, void *val) {
-
     struct list_node *new_node = malloc(sizeof(struct list_node));
-
     if (!new_node)
         return NULL;
-
     new_node->data = val;
     new_node->next = NULL;
-
     if (l->len == 0) {
         l->head = l->tail = new_node;
     } else {
         l->tail->next = new_node;
         l->tail = new_node;
     }
-
     l->len++;
-
     return l;
 }
 
 void list_remove(List *l, struct list_node *node, compare_func cmp) {
-
     if (!l || !node)
         return;
-
     int counter = 0;
-
     l->head = list_node_remove(l->head, node, cmp, &counter);
-
     l->len -= counter;
-
 }
 
 static struct list_node *list_node_remove(struct list_node *head,
                                           struct list_node *node,
                                           compare_func cmp, int *counter) {
-
     if (!head)
         return NULL;
-
     if (cmp(head, node) == 0) {
-
         struct list_node *tmp_next = head->next;
         free(head);
         head = NULL;
 
         // Update remove counter
         (*counter)++;
-
         return tmp_next;
     }
-
     head->next = list_node_remove(head->next, node, cmp, counter);
-
     return head;
 }
 
@@ -852,48 +768,34 @@ static struct list_node *list_remove_single_node(struct list_node *head,
                                                  void *data,
                                                  struct list_node **ret,
                                                  compare_func cmp) {
-
     if (!head)
         return NULL;
 
     // We want the first match
     if (cmp(head, data) == 0 && !*ret) {
-
         struct list_node *tmp_next = head->next;
-
         *ret = head;
-
         return tmp_next;
-
     }
-
     head->next = list_remove_single_node(head->next, data, ret, cmp);
-
     return head;
-
 }
 
 struct list_node *list_remove_node(List *list, void *data, compare_func cmp) {
-
     if (list->len == 0 || !list)
         return NULL;
-
     struct list_node *node = NULL;
-
     list_remove_single_node(list->head, data, &node, cmp);
-
     if (node) {
         list->len--;
         node->next = NULL;
     }
-
     return node;
 }
 
 /* Insert a new list node in a list maintaining the order of the list */
 struct list_node *list_sort_insert(struct list_node **head,
                                    struct list_node *new, cmp cmp_func) {
-
     if (!*head || cmp_func(*head, new) >= 0) {
         new->next = *head;
         *head = new;
@@ -905,7 +807,6 @@ struct list_node *list_sort_insert(struct list_node **head,
         new->next = cur->next;
         cur->next = new;
     }
-
     return *head;
 }
 
@@ -917,16 +818,13 @@ struct list_node *bisect_list(struct list_node *head) {
     /* The fast pointer moves twice as fast as the slow pointer. */
     /* The prev pointer points to the node preceding the slow pointer. */
     struct list_node *fast = head, *slow = head, *prev = NULL;
-
     while (fast != NULL && fast->next != NULL) {
         fast = fast->next->next;
         prev = slow;
         slow = slow->next;
     }
-
     if (prev != NULL)
         prev->next = NULL;
-
     return slow;
 }
 

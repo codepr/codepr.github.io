@@ -94,7 +94,6 @@ to make thing easier for the near-future development.
 #include "config.h"
 #include "server.h"
 
-
 /* Seconds in a Sol, easter egg */
 static const double SOL_SECONDS = 88775.24;
 
@@ -159,9 +158,7 @@ struct connection {
  * - Write output bytes to connected clients
  */
 static void on_read(struct evloop *, void *);
-
 static void on_write(struct evloop *, void *);
-
 static void on_accept(struct evloop *, void *);
 
 /*
@@ -175,7 +172,6 @@ static void publish_stats(struct evloop *, void *);
  * to the connection structure pointer passed as argument
  */
 static int accept_new_client(int fd, struct connection *conn) {
-
     if (!conn)
         return -1;
 
@@ -189,23 +185,17 @@ static int accept_new_client(int fd, struct connection *conn) {
     /* Just some informations retrieval of the new accepted client connection */
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(addr);
-
     if (getpeername(clientsock, (struct sockaddr *) &addr, &addrlen) < 0)
         return -1;
-
     char ip_buff[INET_ADDRSTRLEN + 1];
     if (inet_ntop(AF_INET, &addr.sin_addr, ip_buff, sizeof(ip_buff)) == NULL)
         return -1;
-
     struct sockaddr_in sin;
     socklen_t sinlen = sizeof(sin);
-
     if (getsockname(fd, (struct sockaddr *) &sin, &sinlen) < 0)
         return -1;
-
     conn->fd = clientsock;
     strcpy(conn->ip, ip_buff);
-
     return 0;
 }
 
@@ -280,16 +270,13 @@ not strictly necessary to follow this pattern.
  *            again for simplicity and convenience of the caller.
  */
 static ssize_t recv_packet(int clientfd, unsigned char *buf, char *command) {
-
     ssize_t nbytes = 0;
 
     /* Read the first byte, it should contain the message type code */
     if ((nbytes = recv_bytes(clientfd, buf, 1)) <= 0)
         return -ERRCLIENTDC;
-
     unsigned char byte = *buf;
     buf++;
-
     if (DISCONNECT < byte || CONNECT > byte)
         return -ERRPACKETERR;
 
@@ -324,32 +311,23 @@ static ssize_t recv_packet(int clientfd, unsigned char *buf, char *command) {
     /* Read remaining bytes to complete the packet */
     if ((n = recv_bytes(clientfd, buf + 1, tlen)) < 0)
         goto err;
-
     nbytes += n;
-
     *command = byte;
-
 exit:
-
     return nbytes;
-
 err:
-
     shutdown(clientfd, 0);
     close(clientfd);
-
     return nbytes;
 
 }
 
 /* Handle incoming requests, after being accepted or after a reply */
 static void on_read(struct evloop *loop, void *arg) {
-
     struct closure *cb = arg;
 
     /* Raw bytes buffer to handle input from client */
     unsigned char *buffer = malloc(conf->max_request_size);
-
     ssize_t bytes = 0;
     char command = 0;
 
@@ -377,7 +355,6 @@ static void on_read(struct evloop *loop, void *arg) {
      */
     if (bytes == -ERRPACKETERR)
         goto errdc;
-
     info.bytes_recv++;
 
     /*
@@ -386,14 +363,11 @@ static void on_read(struct evloop *loop, void *arg) {
      */
     union mqtt_packet packet;
     unpack_mqtt_packet(buffer, &packet);
-
     union mqtt_header hdr = { .byte = command };
 
     /* Execute command callback */
     int rc = handlers[hdr.bits.type](cb, &packet);
-
     if (rc == REARM_W) {
-
         cb->call = on_write;
 
         /*
@@ -405,37 +379,24 @@ static void on_read(struct evloop *loop, void *arg) {
         cb->call = on_read;
         evloop_rearm_callback_read(loop, cb);
     }
-
     // Disconnect packet received
-
 exit:
-
     free(buffer);
-
     return;
-
 errdc:
-
     free(buffer);
-
     sol_error("Dropping client");
     shutdown(cb->fd, 0);
     close(cb->fd);
-
     hashtable_del(sol.clients, ((struct sol_client *) cb->obj)->client_id);
     hashtable_del(sol.closures, cb->closure_id);
-
     info.nclients--;
-
     info.nconnections--;
-
     return;
 }
 
 static void on_write(struct evloop *loop, void *arg) {
-
     struct closure *cb = arg;
-
     ssize_t sent;
     if ((sent = send_bytes(cb->fd, cb->payload->data, cb->payload->size)) < 0)
         sol_error("Error writing on socket to client %s: %s",
@@ -623,15 +584,11 @@ void sol_log_close(void) {
 }
 
 void sol_log(int level, const char *fmt, ...) {
-
     assert(fmt);
-
     va_list ap;
     char msg[MAX_LOG_SIZE + 4];
-
     if (level < conf->loglevel)
         return;
-
     va_start(ap, fmt);
     vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
@@ -646,14 +603,11 @@ void sol_log(int level, const char *fmt, ...) {
     // Open two handler, one for standard output and a second for the
     // persistent log file
     FILE *fp = stdout;
-
     if (!fp)
         return;
-
     fprintf(fp, "%lu %c %s\n", (unsigned long) time(NULL), mark[level], msg);
     if (fh)
         fprintf(fh, "%lu %c %s\n", (unsigned long) time(NULL), mark[level], msg);
-
     fflush(fp);
     if (fh)
         fflush(fh);
@@ -676,7 +630,6 @@ int number_len(size_t number) {
    converting the numbers found */
 int parse_int(const char *string) {
     int n = 0;
-
     while (*string && isdigit(*string)) {
         n = (n * 10) + (*string - '0');
         string++;
@@ -687,14 +640,11 @@ int parse_int(const char *string) {
 char *remove_occur(char *str, char c) {
     char *p = str;
     char *pp = str;
-
     while (*p) {
         *pp = *p++;
         pp += (*pp != c);
     }
-
     *pp = '\0';
-
     return str;
 }
 
@@ -772,17 +722,12 @@ static void run(struct evloop *loop) {
  * connecting clients
  */
 static int client_destructor(struct hashtable_entry *entry) {
-
     if (!entry)
         return -1;
-
     struct sol_client *client = entry->val;
-
     if (client->client_id)
         free(client->client_id);
-
     free(client);
-
     return 0;
 }
 
@@ -791,22 +736,16 @@ static int client_destructor(struct hashtable_entry *entry) {
  * registered closures.
  */
 static int closure_destructor(struct hashtable_entry *entry) {
-
     if (!entry)
         return -1;
-
     struct closure *closure = entry->val;
-
     if (closure->payload)
         bytestring_release(closure->payload);
-
     free(closure);
-
     return 0;
 }
 
 int start_server(const char *addr, const char *port) {
-
     /* Initialize global Sol instance */
     trie_init(&sol.topics);
     sol.clients = hashtable_create(client_destructor);
@@ -824,7 +763,6 @@ int start_server(const char *addr, const char *port) {
     /* Generate stats topics */
     for (int i = 0; i < SYS_TOPICS; i++)
         sol_topic_put(&sol, topic_create(strdup(sys_topics[i])));
-
     struct evloop *event_loop = evloop_create(EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
 
     /* Set socket in EPOLLIN flag mode, ready to read data */
@@ -838,23 +776,17 @@ int start_server(const char *addr, const char *port) {
         .args = &sys_closure,
         .call = publish_stats
     };
-
     generate_uuid(sys_closure.closure_id);
 
     /* Schedule as periodic task to be executed every 5 seconds */
     evloop_add_periodic_task(event_loop, conf->stats_pub_interval,
                              0, &sys_closure);
-
     sol_info("Server start");
     info.start_time = time(NULL);
-
     run(event_loop);
-
     hashtable_release(sol.clients);
     hashtable_release(sol.closures);
-
     sol_info("Sol v%s exiting", VERSION);
-
     return 0;
 }
 {% endhighlight %}
@@ -926,7 +858,6 @@ static void publish_message(unsigned short pkt_id,
 
     /* Retrieve the Topic structure from the global map, exit if not found */
     struct topic *t = sol_topic_get(&sol, topic);
-
     if (!t)
         return;
 
@@ -937,9 +868,7 @@ static void publish_message(unsigned short pkt_id,
                                                  (unsigned char *) topic,
                                                  payloadlen,
                                                  payload);
-
     pkt.publish = *p;
-
     size_t len;
     unsigned char *packed;
 
@@ -947,7 +876,6 @@ static void publish_message(unsigned short pkt_id,
     struct list_node *cur = t->subscribers->head;
     size_t sent = 0L;
     for (; cur; cur = cur->next) {
-
         sol_debug("Sending PUBLISH (d%i, q%u, r%i, m%u, %s, ... (%i bytes))",
                   pkt.publish.header.bits.dup,
                   pkt.publish.header.bits.qos,
@@ -955,21 +883,16 @@ static void publish_message(unsigned short pkt_id,
                   pkt.publish.pkt_id,
                   pkt.publish.topic,
                   pkt.publish.payloadlen);
-
         len = MQTT_HEADER_LEN + sizeof(uint16_t) +
             pkt.publish.topiclen + pkt.publish.payloadlen;
-
         struct subscriber *sub = cur->data;
         struct sol_client *sc = sub->client;
 
         /* Update QoS according to subscriber's one */
         pkt.publish.header.bits.qos = sub->qos;
-
         if (pkt.publish.header.bits.qos > AT_MOST_ONCE)
             len += sizeof(uint16_t);
-
         packed = pack_mqtt_packet(&pkt, PUBLISH_TYPE);
-
         if ((sent = send_bytes(sc->fd, packed, len)) < 0)
             sol_error("Error publishing to %s: %s",
                       sc->client_id, strerror(errno));
@@ -977,10 +900,8 @@ static void publish_message(unsigned short pkt_id,
         // Update information stats
         info.bytes_sent += sent;
         info.messages_sent++;
-
         free(packed);
     }
-
     free(p);
 }
 
@@ -989,27 +910,20 @@ static void publish_message(unsigned short pkt_id,
  * defined seconds, it publish some informations on predefined topics
  */
 static void publish_stats(struct evloop *loop, void *args) {
-
     char cclients[number_len(info.nclients) + 1];
     sprintf(cclients, "%d", info.nclients);
-
     char bsent[number_len(info.bytes_sent) + 1];
     sprintf(bsent, "%lld", info.bytes_sent);
-
     char msent[number_len(info.messages_sent) + 1];
     sprintf(msent, "%lld", info.messages_sent);
-
     char mrecv[number_len(info.messages_recv) + 1];
     sprintf(mrecv, "%lld", info.messages_recv);
-
     long long uptime = time(NULL) - info.start_time;
     char utime[number_len(uptime) + 1];
     sprintf(utime, "%lld", uptime);
-
     double sol_uptime = (double)(time(NULL) - info.start_time) / SOL_SECONDS;
     char sutime[16];
     sprintf(sutime, "%.4f", sol_uptime);
-
     publish_message(0, strlen(sys_topics[5]), sys_topics[5],
                     strlen(utime), (unsigned char *) &utime);
     publish_message(0, strlen(sys_topics[6]), sys_topics[6],
