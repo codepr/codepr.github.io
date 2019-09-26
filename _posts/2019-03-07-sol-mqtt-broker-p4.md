@@ -24,7 +24,7 @@ function to obtain a valid index to store our information, trying to minimize
 the collisions (e.g. keys that compute to the same hash) as much as possible.
 
 <br>
-![Hashtable representation]({{site.url}}{{site.baseurl}}/assets/images/hashtable.png)
+![Hashtable representation]({{site.url}}{{site.baseurl}}/assets/images/hashtable.png#content-image)
 <br>
 
 Buckets is the array, usually dynamic, which will store the information

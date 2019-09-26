@@ -411,7 +411,7 @@ follow
 **Publish QoS 2 message on a topic with a single subscriber on QoS 1**
 
 <br>
-![QoS2 sequential diagram]({{site.url}}{{site.baseurl}}/assets/images/QoS2-sample.png)
+![QoS2 sequential diagram]({{site.url}}{{site.baseurl}}/assets/images/QoS2-sample.png#content-image)
 <br>
 
 **src/server.c**

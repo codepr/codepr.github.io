@@ -11,6 +11,10 @@ h1 {
     font-weight: 400;
 }
 
+img[src*="#content-image"] {
+    width: 100%;
+}
+
 body	{
 	margin-top: 0px;
 	padding:0;

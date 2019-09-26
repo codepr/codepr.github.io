@@ -593,8 +593,9 @@ callback.
 
 **Sequential diagram, for each cycle of epoll_wait on incoming events**
 
-<br>
-![Epoll sequential diagram]({{site.url}}{{site.baseurl}}/assets/images/epoll-sequential.png)
+<!-- <br> -->
+<!-- <img src="{{site.url}}{{site.baseurl}}/assets/images/epoll-sequential.png" alt="Epoll sequential diagram" width="100%"> -->
+![Epoll sequential diagram]({{site.url}}{{site.baseurl}}/assets/images/epoll-sequential.png#content-image)
 <br>
 
 We're going to declare two structures and a function pointer:
