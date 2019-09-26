@@ -154,7 +154,7 @@ struct topic *sol_topic_get(struct sol *sol, const char *name) {
 {% endhighlight %}
 
 
-## Finally, the handlers
+### Finally, the handlers
 
 Handlers are the functions that will be called on the `on_read` callback, as the
 name suggests, they handle commands, after being done, they optionally set a payload

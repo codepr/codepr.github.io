@@ -15,7 +15,7 @@ memory-wise code, but again, premature optimization is the root of all evil,
 there'll be plenty of time to improve the quality of the software with future
 revisions.
 
-## Build, pack and send.
+### Build, pack and send.
 
 For now we only need CONNACK, SUBACK and PUBLISH packet builder, the
 other ACK like packets can be created at the same manner with a single
@@ -268,7 +268,7 @@ unsigned char *pack_mqtt_packet(const union mqtt_packet *pkt, unsigned type) {
 {% endhighlight %}
 
 
-## The server
+### The server
 
 The server we're gonna create will be a single-threaded TCP server with
 multiplexed I/O by using **epoll** interface. Epoll is the last multiplexing
@@ -551,7 +551,7 @@ err:
 
 {% endhighlight %}
 
-## Basic closure system
+### Basic closure system
 
 To make more easy and comfortable the usage of the **epoll** API,with this
 project requiring not so complex operations to handle, I’ve built a simple

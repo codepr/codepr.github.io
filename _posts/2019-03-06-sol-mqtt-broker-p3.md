@@ -497,7 +497,7 @@ void bytestring_reset(struct bytestring *bstring) {
 
 {% endhighlight %}
 
-## Generic utilities
+### Generic utilities
 
 Let's open a brief parenthesis, for my projects, generally there's always need
 for generic helpers and utility functions, I usually collect them into a

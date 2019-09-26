@@ -33,7 +33,7 @@ rules:
 They share some traits with message queues, but way simpler, lightweight and
 less powerfull.
 
-## Handling topic abstraction: the trie
+### Handling topic abstraction: the trie
 
 We move now to the **trie**, the structure of choice to store topics. Trie is a
 kind of trees in which each node is a prefix for a key, the node position
