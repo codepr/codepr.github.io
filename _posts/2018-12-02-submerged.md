@@ -13,7 +13,7 @@ issue or at least marginally improve in this aspect.
 
 <!--more-->
 
-## Meaningful self improvement is hard
+### Meaningful self improvement is hard
 
 As the nerdy dude I am, I like to spend lot of time learning and experimenting
 new things, mostly on CS field and programming. My growing interest during last
@@ -38,7 +38,7 @@ just by reading and doing didactic and case of use related practice exercises;
 I need a real problem to solve, a project that give me some momentum to follow
 my path.
 
-## Submerged
+### Submerged
 
 This makes the learning process a sort of hellish fun, so much pleasing from a
 side with the side effect that my personal portfolio constantly grow up, but
