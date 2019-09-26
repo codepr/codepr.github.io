@@ -6,9 +6,9 @@ categories: c unix tutorial
 ---
 
 This part deal with the implementation of the server part of our application, by
-using the `network` module we drafted on [part-2]({{site.url}}{{site.baseurl}}/2019/03/04/sol-mqtt-broker-p2)
+using the `network` module we drafted on [part-2](../sol-mqtt-broker-p2)
 it should be relative easy to handle incoming commands from a MQTT clients respecting 3.1.1
-standards as we defined on [part 1]({{site.url}}{{site.baseurl}}/2019/03/03/sol-mqtt-broker).<br>
+standards as we defined on [part 1](../sol-mqtt-broker).<br>
 <!--more-->
 Our header file will be extremely simple, the only function we want to make
 accessible from the outside will be a transparent `start_server`, accepting
@@ -967,5 +967,5 @@ function? What about that `info` structure that we update in `on_write` and
 `on_read`? We can see that those have to do with some calls to `hashtable_*`
 and `sol_topic_*`, which will be plugged-in soon.
 
-Let's move forward to [part 4]({{site.url}}{{site.baseurl}}/2019/03/07/sol-mqtt-broker-p4),
+Let's move forward to [part 4](../sol-mqtt-broker-p4),
 we'll start implementing some handlers for every MQTT command.

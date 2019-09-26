@@ -54,12 +54,12 @@ compile it and play/modify it.<br>
 This will be a series of posts, each one tackling and mostly implementing a single
 concept/module of the project:
 
-- [Part 1 - Protocol]({{site.url}}{{site.baseurl}}/2019/03/03/sol-mqtt-broker), lays the foundations to handle the MQTT protocol packets
-- [Part 2 - Networking]({{site.url}}{{site.baseurl}}/2019/03/04/sol-mqtt-broker-p2), utility module, focus on network communication
-- [Part 3 - Server]({{site.url}}{{site.baseurl}}/2019/03/06/sol-mqtt-broker-p3), the main entry point of the program
-- [Part 4 - Data structures]({{site.url}}{{site.baseurl}}/2019/03/07/sol-mqtt-broker-p4), utility and educational modules
-- [Part 5 - Topic abstraction]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p5), handling the main scaling and grouping abstraction of the broker
-- [Part 6 - Handlers]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p6), server completion, for each packet there's a handler dedicated
+- [Part 1 - Protocol](../sol-mqtt-broker), lays the foundations to handle the MQTT protocol packets
+- [Part 2 - Networking](../sol-mqtt-broker-p2), utility module, focus on network communication
+- [Part 3 - Server](../sol-mqtt-broker-p3), the main entry point of the program
+- [Part 4 - Data structures](../sol-mqtt-broker-p4), utility and educational modules
+- [Part 5 - Topic abstraction](../sol-mqtt-broker-p5), handling the main scaling and grouping abstraction of the broker
+- [Part 6 - Handlers](../sol-mqtt-broker-p6), server completion, for each packet there's a handler dedicated
 
 I'd like to underline that the resulting software will be a fully functioning
 broker, but with large space for improvements and optimization as well as code
@@ -1080,5 +1080,5 @@ sol/
 
 Just `git commit` and `git push`. Cya.
 
-[Part-2]({{site.url}}{{site.baseurl}}/2019/03/04/sol-mqtt-broker-p2) will deal with the
+[Part-2](../sol-mqtt-broker-p2) will deal with the
 networking utilities needed to setup our communication layer and thus the server.

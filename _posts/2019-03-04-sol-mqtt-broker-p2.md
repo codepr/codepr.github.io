@@ -5,7 +5,7 @@ description: "Writing an MQTT broker from scratch, to really understand somethin
 categories: c unix tutorial epoll
 ---
 
-Let's continue from where we left, in the [part 1]({{site.url}}{{site.baseurl}}/2019/03/03/sol-mqtt-broker)
+Let's continue from where we left, in the [part 1](../sol-mqtt-broker)
 we defined and roughly modeled the MQTT v3.1.1 protocol and our `src/mqtt.c`
 module has now all unpacking functions, we must add the remaining build helpers
 and the packing functions to serialize packet for output.<br>
@@ -967,4 +967,4 @@ sol/
  └── README.md
 {% endhighlight %}
 
-The [part 3]({{site.url}}{{site.baseurl}}/2019/03/06/sol-mqtt-broker-p3) awaits for implementation of the server module.
+The [part 3](../sol-mqtt-broker-p3) awaits for implementation of the server module.

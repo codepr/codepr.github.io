@@ -5,7 +5,7 @@ description: "Writing an MQTT broker from scratch, to really understand somethin
 categories: c unix tutorial structures
 ---
 
-In the [Part 5]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p5) we
+In the [Part 4](../sol-mqtt-broker-p4) we
 explored some useful concepts and implemented two data structures on top of
 those concepts.
 
@@ -600,5 +600,5 @@ sol/
  └── README.md
 {% endhighlight %}
 
-The [Part 6]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p6) awaits
+The [Part 6](../sol-mqtt-broker-p6) awaits
 with the server side handlers.

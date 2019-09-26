@@ -838,5 +838,5 @@ features to our project:
 
 The next structure must be something that allow us to easily manage the topics
 and their hierarchical nature.<br>
-[Part 5]({{site.url}}{{site.baseurl}}/2019/03/08/sol-mqtt-broker-p5) will focus
+[Part 5](../sol-mqtt-broker-p5) will focus
 on a tree implementation that provide exactly what we need.
