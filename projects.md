@@ -16,17 +16,18 @@ introduced on kernel 2.5.44.
 
 ### Tasq - distributed task queue
 ---------------------------------------------------------------------
-Very simple broker-less distributed Task queue that allow the scheduling of job
+Very simple distributed Task queue that allow the scheduling of job
 functions to be executed on local or remote workers. Can be seen as a Proof of
 Concept leveraging ZMQ sockets and cloudpickle serialization capabilities as
 well as a very basic actor system to handle different loads of work from
-connecting clients.
+connecting clients. Extending the codebase to support common patterns with
+Redis or RabbitMQ as queue middlewares.
 
 [link](https://github.com/codepr/tasq.git)
 
 ### TrieDB - kv store based on a trie data structure
 -------------------------------------------------------------------------
-Single threaded Key-value store based on a Trie data structure. Trie is a kind
+Multi-threaded Key-value store based on a Trie data structure. Trie is a kind
 of trees in which each node is a prefix for a key, the node position define the
 keys and the associated values are set on the last node of each key. They
 provide a big-O runtime complexity of O(m) on worst case, for insertion and
