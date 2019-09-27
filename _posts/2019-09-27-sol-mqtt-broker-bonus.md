@@ -322,3 +322,363 @@ struct epoll {
     int busfd;
 };
 {% endhighlight %}
+
+These two structures enable the communication between threads
+- `io_event` represents a I/O event, a wrapper around an interaction from a
+  connected client, it'll be the object that will be passed in as arguments to
+  all handler callbacks as a pointer, its content is mostly self-explanatory,
+  the epollfd is the one of the epoll instance where the fd "belongs", which
+  will be an IO thread epoll one, there's a reference to the source client of
+  the request, a bystestring for the reply, a payload and the `eventfd_t` field
+  which represents our trigger to wake up a worker epoll thread.
+- `epoll` is more of a `const` structure inited in the main entry point function
+  `start_server` passed around to the `accept_loop` function on the main thread,
+  to `io_worker` threads and finally to the `worker_thread` threads.
+  It store the epoll descriptor of the IO dedicated threadpool, and the one of
+  the worker threadpool, while `busfd` is still unused, it'll eventually come
+  useful later if I'll be crazy enough to try to scale-out the system across a
+  cluster of machines, implementing some sort of gossip protocol to share
+  informations, but that's another whole world to explore.
+
+So we'll end up init the `epoll` struct on `start_server` like this
+
+**server.c**
+
+{% highlight c %}
+int start_server(const char *addr, const char *port) {
+    // init logics here
+    ...
+
+    /* Start listening for new connections */
+    int sfd = make_listen(addr, port, conf->socket_family);
+
+    struct epoll epoll = {
+        .io_epollfd = epoll_create1(0),
+        .w_epollfd = epoll_create1(0),
+        .serverfd = sfd,
+        .busfd = -1  // unused
+    };
+
+    /* Start the expiration keys check routine */
+    struct itimerspec timervalue;
+
+    memset(&timervalue, 0x00, sizeof(timervalue));
+
+    timervalue.it_value.tv_sec = conf->stats_pub_interval;
+    timervalue.it_value.tv_nsec = 0;
+    timervalue.it_interval.tv_sec = conf->stats_pub_interval;
+    timervalue.it_interval.tv_nsec = 0;
+
+    // add expiration keys cron task
+    int exptimerfd = add_cron_task(epoll.w_epollfd, &timervalue);
+
+    epoll.expirefd = exptimerfd;
+
+    /*
+     * We need to watch for global eventfd in order to gracefully shutdown IO
+     * thread pool and worker pool
+     */
+    epoll_add(epoll.io_epollfd, conf->run, EPOLLIN, NULL);
+    epoll_add(epoll.w_epollfd, conf->run, EPOLLIN, NULL);
+
+    pthread_t iothreads[IOPOOLSIZE];
+    pthread_t workers[WORKERPOOLSIZE];
+
+    /* Start I/O thread pool */
+
+    for (int i = 0; i < IOPOOLSIZE; ++i)
+        pthread_create(&iothreads[i], NULL, &io_worker, &epoll);
+
+    /* Start Worker thread pool */
+
+    for (int i = 0; i < WORKERPOOLSIZE; ++i)
+        pthread_create(&workers[i], NULL, &worker, &epoll);
+
+    sol_info("Server start");
+    info.start_time = time(NULL);
+
+    // Main thread for accept new connections
+    accept_loop(&epoll);
+    // resources release and clean out here
+    ...
+}
+{% endhighlight %}
+
+All we have to do is run an accept loop where all incoming connections will be
+handled, a new `struct client` will be instantiated with partial init (some fields
+could be modified later with commands, like the `connect` one) and the resulting
+connected descriptor wrapped in the `client` will be associated to the IO epoll
+descriptor, that's it, it's an IO worker problem now.
+
+{% highlight c %}
+static void accept_loop(struct epoll *epoll) {
+    int events = 0;
+    struct epoll_event *e_events =
+        sol_malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
+    int epollfd = epoll_create1(0);
+    /*
+     * We want to watch for events incoming on the server descriptor (e.g. new
+     * connections)
+     */
+    epoll_add(epollfd, epoll->serverfd, EPOLLIN | EPOLLONESHOT, NULL);
+    /*
+     * And also to the global event fd, this one is useful to gracefully
+     * interrupt polling and thread execution
+     */
+    epoll_add(epollfd, conf->run, EPOLLIN, NULL);
+    while (1) {
+        events = epoll_wait(epollfd, e_events, EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
+        if (events < 0) {
+            /* Signals to all threads. Ignore it for now */
+            if (errno == EINTR)
+                continue;
+            /* Error occured, break the loop */
+            break;
+        }
+        for (int i = 0; i < events; ++i) {
+            /* Check for errors */
+            EPOLL_ERR(e_events[i]) {
+                /*
+                 * An error has occured on this fd, or the socket is not
+                 * ready for reading, closing connection
+                 */
+                perror("accept_loop :: epoll_wait(2)");
+                close(e_events[i].data.fd);
+            } else if (e_events[i].data.fd == conf->run) {
+                /* And quit event after that */
+                eventfd_t val;
+                eventfd_read(conf->run, &val);
+                sol_debug("Stopping epoll loop. Thread %p exiting.",
+                          (void *) pthread_self());
+                goto exit;
+            } else if (e_events[i].data.fd == epoll->serverfd) {
+                while (1) {
+                    /*
+                     * Accept a new incoming connection assigning ip address
+                     * and socket descriptor to the connection structure
+                     * pointer passed as argument
+                     */
+                    int fd = accept_connection(epoll->serverfd);
+                    if (fd < 0)
+                        break;
+                    /*
+                     * Create a client structure to handle his context
+                     * connection
+                     */
+                    struct sol_client *client = sol_malloc(sizeof(*client));
+                    if (!client)
+                        return;
+                    /* Populate client structure */
+                    client->fd = fd;
+                    /* Record last action as of now */
+                    client->last_action_time = time(NULL);
+                    /* Add it to the epoll loop */
+                    epoll_add(epoll->io_epollfd, fd,
+                              EPOLLIN | EPOLLONESHOT, client);
+                    /* Rearm server fd to accept new connections */
+                    epoll_mod(epollfd, epoll->serverfd, EPOLLIN, NULL);
+                    /* Record the new client connected */
+                    info.nclients++;
+                    info.nconnections++;
+                }
+            }
+        }
+    }
+exit:
+    sol_free(e_events);
+}
+{% endhighlight %}
+
+From now on the IO worker will just handling, as the name explain, the IO
+operations of the connected client, like new instructions sent or output to be
+sent out after a subscription request for example.
+
+{% highlight c %}
+static void *io_worker(void *arg) {
+    struct epoll *epoll = arg;
+    int events = 0;
+    ssize_t sent = 0;
+    struct epoll_event *e_events =
+        sol_malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
+    /* Raw bytes buffer to handle input from client */
+    unsigned char *buffer = sol_malloc(conf->max_request_size);
+    // UDP bus communication client handler
+    struct sockaddr_in node;
+    memset(&node, 0, sizeof(node)); ;
+    while (1) {
+        events = epoll_wait(epoll->io_epollfd, e_events,
+                            EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
+        if (events < 0) {
+            /* Signals to all threads. Ignore it for now */
+            if (errno == EINTR)
+                continue;
+            /* Error occured, break the loop */
+            break;
+        }
+        for (int i = 0; i < events; ++i) {
+            /* Check for errors */
+            EPOLL_ERR(e_events[i]) {
+                /* An error has occured on this fd, or the socket is not
+                   ready for reading, closing connection */
+                perror("io_worker :: epoll_wait(2)");
+                close(e_events[i].data.fd);
+            } else if (e_events[i].data.fd == conf->run) {
+                /* And quit event after that */
+                eventfd_t val;
+                eventfd_read(conf->run, &val);
+                sol_debug("Stopping epoll loop. Thread %p exiting.",
+                          (void *) pthread_self());
+                goto exit;
+            } else if (e_events[i].events & EPOLLIN) {
+                struct io_event *event = sol_malloc(sizeof(*event));
+                event->epollfd = epoll->io_epollfd;
+                event->payload = sol_malloc(sizeof(*event->payload));
+                event->client = e_events[i].data.ptr;
+                /*
+                 * Received a bunch of data from a client, after the creation
+                 * of an IO event we need to read the bytes and encoding the
+                 * content according to the protocol
+                 */
+                int rc = read_data(event->client->fd, buffer, event->payload); // here we essentially call recv_packet
+                if (rc == 0) {
+                    /*
+                     * All is ok, raise an event to the worker poll EPOLL and
+                     * link it with the IO event containing the decode payload
+                     * ready to be processed
+                     */
+                    eventfd_t ev = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+                    event->io_event = ev;
+                    epoll_add(epoll->w_epollfd, ev,
+                              EPOLLIN | EPOLLONESHOT, event);
+                    /* Record last action as of now */
+                    event->client->last_action_time = time(NULL);
+                    /* Fire an event toward the worker thread pool */
+                    eventfd_write(ev, 1);
+                } else if (rc == -ERRCLIENTDC || rc == -ERRPACKETERR) {
+                    /*
+                     * We got an unexpected error or a disconnection from the
+                     * client side, remove client from the global map and
+                     * free resources allocated such as io_event structure and
+                     * paired payload
+                     */
+                    close(event->client->fd);
+                    hashtable_del(sol.clients, event->client->client_id);
+                    sol_free(event->payload);
+                    sol_free(event);
+                }
+            } else if (e_events[i].events & EPOLLOUT) {
+                struct io_event *event = e_events[i].data.ptr;
+                /*
+                 * Write out to client, after a request has been processed in
+                 * worker thread routine. Just send out all bytes stored in the
+                 * reply buffer to the reply file descriptor.
+                 */
+                if ((sent = send_bytes(event->client->fd,
+                                       event->reply,
+                                       bstring_len(event->reply))) < 0) {
+                    close(event->client->fd);
+                } else {
+                    /*
+                     * Rearm descriptor, we're using EPOLLONESHOT feature to avoid
+                     * race condition and thundering herd issues on multithreaded
+                     * EPOLL
+                     */
+                    epoll_mod(epoll->io_epollfd,
+                              event->client->fd, EPOLLIN, event->client);
+                }
+                // Update information stats
+                info.bytes_sent += sent < 0 ? 0 : sent;
+                /* Free resource, ACKs will be free'd closing the server */
+                bstring_destroy(event->reply);
+                mqtt_packet_release(event->payload, event->payload->header.bits.type);
+                close(event->io_event);
+                sol_free(event);
+            }
+        }
+    }
+exit:
+    sol_free(e_events);
+    sol_free(buffer);
+    return NULL;
+}
+{% endhighlight %}
+
+As we can see, inside the `if` branch we fire a new event to the target epoll
+instance, this case the worker epoll descriptor and we pass the control over the
+parsed packet to the worker pool, which will apply the business logic calling
+the right callback based on the received command or handling errors.<br/>
+To be noted that the event is created directly in the `if` for each incoming
+event and closed right after the `EPOLLOUT` is triggered for each client.
+Essentially it has the lifespan of a request-response.
+
+{% highlight c %}
+static void *worker(void *arg) {
+    struct epoll *epoll = arg;
+    int events = 0;
+    long int timers = 0;
+    eventfd_t val;
+    struct epoll_event *e_events =
+        sol_malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
+    while (1) {
+        events = epoll_wait(epoll->w_epollfd, e_events,
+                            EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
+        if (events < 0) {
+            /* Signals to all threads. Ignore it for now */
+            if (errno == EINTR)
+                continue;
+            /* Error occured, break the loop */
+            break;
+        }
+        for (int i = 0; i < events; ++i) {
+            /* Check for errors */
+            EPOLL_ERR(e_events[i]) {
+                /*
+                 * An error has occured on this fd, or the socket is not
+                 * ready for reading, closing connection
+                 */
+                perror("worker :: epoll_wait(2)");
+                close(e_events[i].data.fd);
+            } else if (e_events[i].data.fd == conf->run) {
+                /* And quit event after that */
+                eventfd_read(conf->run, &val);
+                sol_debug("Stopping epoll loop. Thread %p exiting.",
+                          (void *) pthread_self());
+                goto exit;
+            } else if (e_events[i].data.fd == epoll->expirefd) {
+                (void) read(e_events[i].data.fd, &timers, sizeof(timers));
+                // Check for keys about to expire out
+                publish_stats();
+            } else if (e_events[i].events & EPOLLIN) {
+                struct io_event *event = e_events[i].data.ptr;
+                eventfd_read(event->io_event, &val);
+                // TODO free client and remove it from the global map in case
+                // of QUIT command (check return code)
+                int reply = handlers[event->payload->header.bits.type](event);
+                if (reply == REPLY)
+                    epoll_mod(event->epollfd, event->client->fd, EPOLLOUT, event);
+                else if (reply != CLIENTDC) {
+                    epoll_mod(epoll->io_epollfd,
+                              event->client->fd, EPOLLIN, event->client);
+                    close(event->io_event);
+                }
+            }
+        }
+    }
+exit:
+    sol_free(e_events);
+    return NULL;
+}
+{% endhighlight %}
+
+Commands are handled through a dispatch table, a common pattern used in C where
+we map function pointers inside an array, in this case each position in the
+array corresponds to an MQTT command.
+
+This of course is only a fraction of what the ordeal has been but eventually I
+came up with a somewhat working prototype, the next step will be to stress test
+it a bit and see how it goes compared to the battle-tested and indisputably
+better pieces of software like Mosquitto or Mosca. Lot of missing features
+still, no auth, no SSL/TLS communication, no session recovery and QoS 2
+handling (started some basic work here) but the mere pub/sub part should be
+testable. Hopefully, this tutorial would work as a starting point for something
+neater and carefully designed. Cya.
