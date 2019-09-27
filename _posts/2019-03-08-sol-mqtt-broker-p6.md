@@ -1063,7 +1063,7 @@ Short and clean, the project should now have all that is needed to work:
 sol/
  ├── src/
  │    ├── mqtt.h
- |    ├── mqtt.c
+ │    ├── mqtt.c
  │    ├── network.h
  │    ├── network.c
  │    ├── list.h
@@ -1079,7 +1079,7 @@ sol/
  │    ├── core.h
  │    ├── core.c
  │    ├── config.h
- │    ├── confg.c
+ │    ├── config.c
  │    ├── pack.h
  │    ├── pack.c
  │    └── sol.c

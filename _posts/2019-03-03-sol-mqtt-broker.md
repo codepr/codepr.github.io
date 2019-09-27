@@ -33,7 +33,7 @@ all steps, to test single parts and modules I suggest to provide a main by
 yourself and stop to make experiments, change parts etc.
 
 
-Going per steps, I usually init my C projects in order to have all sources
+Step by step, I usually init my C projects in order to have all sources
 in a single folder:
 
 {% highlight bash %}
