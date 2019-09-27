@@ -677,8 +677,9 @@ array corresponds to an MQTT command.
 This of course is only a fraction of what the ordeal has been but eventually I
 came up with a somewhat working prototype, the next step will be to stress test
 it a bit and see how it goes compared to the battle-tested and indisputably
-better pieces of software like Mosquitto or Mosca. Lot of missing features
-still, no auth, no SSL/TLS communication, no session recovery and QoS 2
-handling (started some basic work here) but the mere pub/sub part should be
-testable. Hopefully, this tutorial would work as a starting point for something
-neater and carefully designed. Cya.
+better pieces of software like Mosquitto or Mosca joking with the threads
+number and the mutex type. Lot of missing features still, no auth, no SSL/TLS
+communication, no session recovery and QoS 2 handling (started some basic work
+here) but the mere pub/sub part should be testable. Hopefully, this tutorial
+would work as a starting point for something neater and carefully designed.
+Cya.
