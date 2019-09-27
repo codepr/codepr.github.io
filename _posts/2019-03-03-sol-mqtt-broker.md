@@ -60,6 +60,7 @@ concept/module of the project:
 - [Part 4 - Data structures](../sol-mqtt-broker-p4), utility and educational modules
 - [Part 5 - Topic abstraction](../sol-mqtt-broker-p5), handling the main scaling and grouping abstraction of the broker
 - [Part 6 - Handlers](../sol-mqtt-broker-p6), server completion, for each packet there's a handler dedicated
+- [Bonus - Multithreading](../sol-mqtt-broker-bonus), improvements, bug fixing and integration of multithreading model
 
 I'd like to underline that the resulting software will be a fully functioning
 broker, but with large space for improvements and optimization as well as code

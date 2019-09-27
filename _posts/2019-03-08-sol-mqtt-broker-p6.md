@@ -1158,4 +1158,6 @@ And that's it for now, there're probably a lot of bugs, memory leaks that must
 be fixed and redundant code, as well as messy includes, but the skeleton is all
 there and have to be considered an MVP. Part-7 will come soon, with testing and
 some snippets using `paho-mqtt` to play with the newborn. Of course some tests
-would be added, at least for the main features.
+would be added, at least for the main features. For now you can enjoy the
+[bonus part](../sol-mqtt-broker-bonus) adding concurrent capabilities to the
+system.
