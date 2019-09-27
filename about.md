@@ -12,4 +12,4 @@ constantly looking forward to extend my knowledge.
 
 ## Resume
 
-<object data="{{site.url}}{{site.baseurl}}/assets/images/CV.pdf#toolbar=0&navpanes=0&scrollbar=0" style="overflow:hidden;min-height:102vh;width:100%" type='application/pdf'/>
+<object data="{{site.url}}{{site.baseurl}}/assets/images/CV.pdf#toolbar=0&navpanes=0&scrollbar=0" style="overflow:hidden;min-height:102vh;width:100%" type='application/pdf'></object>
