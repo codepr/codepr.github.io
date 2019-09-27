@@ -1,6 +1,7 @@
 ---
 layout: default
 title: About
+description: "About me and resume"
 permalink: /about/
 ---
 My name is Andrea Baldan, I am a software engineer, currently focusing on
