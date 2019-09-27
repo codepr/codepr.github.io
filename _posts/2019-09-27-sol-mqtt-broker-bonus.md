@@ -87,3 +87,128 @@ the data stream receptions and parsing of instructions.
 I won't walk through all the refactoring process, it would be deadly boring,
 I'll just enlight some of the most important parts that needed adjustements, the
 rest can be safely applied by merging the *master* branch into the *tutorial* one.
+
+#### Packets fragmentation is not funny
+
+The first and foremost aspect to check was the network communication, by mainly
+testing in local I only noticed after some heavier benchmarking that sometimes
+the system was losing some packets, or better, the kernel buffer was probably
+flooded and started to fragment some payloads, TCP is after all a stream protocol
+and it's perfectly fine to segment data during sending. It was a little naive by me
+to not handle this properly initially, anyway this led to some nasty behaviours,
+like packets wrongly parsed, being the first byte of incoming chunk of data, recognized
+as a different than expected instruction.<br/>
+There also was some stupid overflow related oversights, like using an
+**unsigned short** to handle a field which was supposed to be longer than
+65535, like the size of the entire command which could be well over that limit
+(2 MB). So one of the most important fix was the *recv_packet* function on the
+**server.c** module, specifically the addition of a loop tracking the remaning
+to read bytes, which ensure we read the entire packet in a single call:
+
+{% highlight c %}
+ssize_t recv_packet(int clientfd, unsigned char **buf, unsigned char *header) {
+    ssize_t nbytes = 0;
+    unsigned char *tmpbuf = *buf;
+    /* Read the first byte, it should contain the message type code */
+    if ((nbytes = recv_bytes(clientfd, *buf, 4)) <= 0)
+        return -ERRCLIENTDC;
+    *header = *tmpbuf;
+    tmpbuf++;
+    /* Check for OPCODE, if an unknown OPCODE is received return an error */
+    if (DISCONNECT_TYPE < (*header >> 4) || CONNECT_TYPE > (*header >> 4))
+        return -ERRPACKETERR;
+    /*
+     * Read remaning length bytes which starts at byte 2 and can be long to 4
+     * bytes based on the size stored, so byte 2-5 is dedicated to the packet
+     * length.
+     */
+    int n = 0;
+    unsigned pos = 0;
+    unsigned long long tlen = mqtt_decode_length(&tmpbuf, &pos);
+    /*
+     * Set return code to -ERRMAXREQSIZE in case the total packet len exceeds
+     * the configuration limit `max_request_size`
+     */
+    if (tlen > conf->max_request_size) {
+        nbytes = -ERRMAXREQSIZE;
+        goto exit;
+    }
+    if (tlen <= 4)
+        goto exit;
+    int offset = 4 - pos -1;
+    unsigned long long remaining_bytes = tlen - offset;
+    /* Read remaining bytes to complete the packet */
+    while (remaining_bytes > 0) {
+        if ((n = recv_bytes(clientfd, tmpbuf + offset, remaining_bytes)) < 0)
+            goto err;
+        remaining_bytes -= n;
+        nbytes += n;
+        offset += n;
+    }
+    nbytes -= (pos + 1);
+exit:
+    *buf += pos + 1;
+    return nbytes;
+err:
+    close(clientfd);
+    return nbytes;
+}
+{% endhighlight %}
+
+Another good improvement was the correction of the packing and unpacking
+functions (thanks to [beej networking
+guide](https://beej.us/guide/bgnet/html/single/bgnet.html#serialization), this
+guide is pure gold) and the addition of some helper functions to handle
+integer and bytes unpacking:
+
+**pack.c**
+
+{% highlight c %}
+/* Helper functions */
+long long unpack_integer(unsigned char **buf, char size) {
+    long long val = 0LL;
+    switch (size) {
+        case 'b':
+            val = **buf;
+            *buf += 1;
+            break;
+        case 'B':
+            val = **buf;
+            *buf += 1;
+            break;
+        case 'h':
+            val = unpacki16(*buf);
+            *buf += 2;
+            break;
+        case 'H':
+            val = unpacku16(*buf);
+            *buf += 2;
+            break;
+        case 'i':
+            val = unpacki32(*buf);
+            *buf += 4;
+            break;
+        case 'I':
+            val = unpacku32(*buf);
+            *buf += 4;
+            break;
+        case 'q':
+            val = unpacki64(*buf);
+            *buf += 8;
+            break;
+        case 'Q':
+            val = unpacku16(*buf);
+            *buf += 8;
+            break;
+    }
+    return val;
+}
+
+unsigned char *unpack_bytes(unsigned char **buf, size_t len) {
+    unsigned char *dest = sol_malloc(len + 1);
+    memcpy(dest, *buf, len);
+    dest[len] = '\0';
+    *buf += len;
+    return dest;
+}
+{% endhighlight %}
