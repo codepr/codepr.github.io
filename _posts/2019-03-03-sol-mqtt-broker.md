@@ -45,8 +45,7 @@ sol/
  └── README.md
 {% endhighlight %}
 
-Here the repository on Github
-[https://github.com/codepr/sol.git](https://github.com/codepr/sol/tree/tutorial).
+Here the [repository](https://github.com/codepr/sol/tree/tutorial) on GitHub.
 I'll try to describe step by step my journey into the development of the software,
 without being too much verbose, and listing lot of code directly with brief
 explanation of its purpose. The best way still remains to write it down,
