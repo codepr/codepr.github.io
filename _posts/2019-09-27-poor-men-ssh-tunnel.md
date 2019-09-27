@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Poor man SSH tunnel"
+title: "Poor man remote access"
 description: "Simple SSH trick to open a tunnel"
 categories: bash devops
 ---
