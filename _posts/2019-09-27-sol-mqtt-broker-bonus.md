@@ -15,7 +15,7 @@ multithreaded, mainly to better understand posix threads working mechanism and
 to see if this approach was feasible and advisable in terms of performance.
 
 Some time ago I stumbled upon an article mentioning a type of mutex which I
-wasn't aware of, the **spinlock**, so I promptly browsed the pthread
+wasn't aware of, the `spinlock`, so I promptly browsed the pthread
 documentation and it turned out that a spinlock is essentially a normal mutex,
 but behave slightly differently, in fact, with a normal mutex, when a thread
 acquires lock to e.g. accessing a shared resource, the CPU puts all other
@@ -86,7 +86,7 @@ bugs I mentioned before, and forced improvements on some fragile parts, like
 the data stream receptions and parsing of instructions.
 I won't walk through all the refactoring process, it would be deadly boring,
 I'll just enlight some of the most important parts that needed adjustements, the
-rest can be safely applied by merging the *master* branch into the *tutorial* one.
+rest can be safely applied by merging the `master` branch into the `tutorial` one.
 
 #### Packets fragmentation is not funny
 
@@ -98,12 +98,12 @@ and it's perfectly fine to segment data during sending. It was a little naive by
 to not handle this properly initially, anyway this led to some nasty behaviours,
 like packets wrongly parsed, being the first byte of incoming chunk of data, recognized
 as a different than expected instruction.<br/>
-There also was some stupid overflow related oversights, like using an
-**unsigned short** to handle a field which was supposed to be longer than
-65535, like the size of the entire command which could be well over that limit
-(2 MB). So one of the most important fix was the *recv_packet* function on the
-**server.c** module, specifically the addition of a loop tracking the remaning
-to read bytes, which ensure we read the entire packet in a single call:
+There also was some stupid overflow related oversights, like using an `unsigned
+short` to handle a field which was supposed to be longer than 65535, like the
+size of the entire command which could be well over that limit (2 MB). So one
+of the most important fix was the `recv_packet` function on the **server.c**
+module, specifically the addition of a loop tracking the remaning to read
+bytes, which ensure we read the entire packet in a single call:
 
 {% highlight c %}
 ssize_t recv_packet(int clientfd, unsigned char **buf, unsigned char *header) {
@@ -211,4 +211,114 @@ unsigned char *unpack_bytes(unsigned char **buf, size_t len) {
     *buf += len;
     return dest;
 }
+{% endhighlight %}
+
+And finally it's worth the mention the use of useful enhanced strings, instead
+of using a structure to handle them, we piggyback the size of every array of chars
+to each malloc'ed string, this way, with some helper functions, this bytestrings
+can be used as normal strings as well.
+
+{% highlight c %}
+/*
+ * Return the length of the string without having to call strlen, thus this
+ * works also with non-nul terminated string. The length of the string is in
+ * fact stored in memory in an unsigned long just before the position of the
+ * string itself.
+ */
+size_t bstring_len(const bstring s) {
+    return *((size_t *) (s - sizeof(size_t)));
+}
+
+bstring bstring_new(const unsigned char *init) {
+    if (!init)
+        return NULL;
+    size_t len = strlen((const char *) init);
+    return bstring_copy(init, len);
+}
+
+bstring bstring_copy(const unsigned char *init, size_t len) {
+    /*
+     * The strategy would be to piggyback the real string to its stored length
+     * in memory, having already implemented this logic before to actually
+     * track memory usage of the system, we just need to malloc it with the
+     * custom malloc in utils
+     */
+    unsigned char *str = sol_malloc(len);
+    memcpy(str, init, len);
+    return str;
+}
+
+/* Same as bstring_copy but setting the entire content of the string to 0 */
+bstring bstring_empty(size_t len) {
+    unsigned char *str = sol_malloc(len);
+    memset(str, 0x00, len);
+    return str;
+}
+
+void bstring_destroy(bstring s) {
+    /*
+     * Being allocated with utils custom functions just free it with the
+     * corrispective free function
+     */
+    sol_free(s);
+}
+{% endhighlight %}
+
+### Make the accept, IO and work parts communicate
+
+Epoll shared between threads presents some traps, and the main debate is to
+wether use an epoll descriptor for each thread or share a single descriptor
+between multiple threads. I personally prefer the second approach, in order to
+let the kernel do the load-balancing, epoll APIs is in-fact threadsafe, while
+the first one, thus being most of the time easier, gave up a bit of control on
+clients handling, thus every thread will have a subset of connections and work
+to handle, without any warranty that some threads could be starved and some
+other being over heavy load.<br/>
+The main issues to address are the thundering herd problem, communication and
+of course handling of shared resource on the business logic sections. The first
+problem should be tackled by the `EPOLLONESHOT` flag, in order to wake up just
+one thread per time and manually rearm the descriptor for read/write events.
+For the shared resources we opted for the `spinlock` solution on critical parts,
+the communications remain to be solved.
+
+Queues are usually the go-to solutions in these cases, but instead of writing a
+threadsafe queue which could prove tricky, especially if our purpose is to
+improve performance, it was better to scratch a bit the surface and search for
+a lighweight already implemented solution. It came in the form of event handling
+at a kernel level. Running `man eventfd` I found the answers i seeked for, eventfd
+could be used to fire arbitrary events to different epoll descriptor, just registering
+one to different epoll descriptor, while looping waiting for events to be triggered
+they can be used to effectively communicate and share data safely between them.
+First I needed two structures to wrap and handle events and one to instantiate the
+involved epoll descriptors.
+
+{% highlight c %}
+/*
+ * IO event strucuture, it's the main information that will be communicated
+ * between threads, every request packet will be wrapped into an IO event and
+ * passed to the work EPOLL, in order to be handled by the worker thread pool.
+ * Then finally, after the execution of the command, it will be updated and
+ * passed back to the IO epoll loop to be written back to the requesting client
+ */
+struct io_event {
+    int epollfd;
+    eventfd_t io_event;
+    struct sol_client *client;
+    bstring reply;
+    union mqtt_packet *payload;
+};
+
+/*
+ * Shared epoll object, contains the IO epoll and Worker epoll descriptors,
+ * as well as the server descriptor and the timer fd for repeated routines.
+ * Each thread will receive a copy of a pointer to this structure, to have
+ * access to all file descriptor running the application
+ */
+struct epoll {
+    int io_epollfd;
+    int w_epollfd;
+    int serverfd;
+    int expirefd;
+    int busfd;
+};
 {% endhighlight %}
