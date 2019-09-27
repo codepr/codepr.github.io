@@ -11,8 +11,8 @@ VPN settings <!--more-->or the third-party HTTPS tunnel software stopped
 working out of the blue, so I remembered that all that I need is already at
 hand, courtesy of the SSH daemon. I know, exposing 22 to internet is bad, just
 stick to the VPN, but sometimes you don't have any chance and a dirty trick is
-just what you need. All you need is an accessible remote box, for example an
-EC2, could also be a `micro` one on free tier.
+just what you demand for. All you need is an accessible remote box, for example
+an EC2, could also be a `micro` one on free tier.
 
 So from the target machine, the one you want to be accessible remotely, you can
 run the following command:
