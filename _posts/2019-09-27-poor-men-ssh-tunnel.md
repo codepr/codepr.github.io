@@ -6,7 +6,7 @@ categories: bash devops
 ---
 
 Many times I found myself in need to have access and a reliable connection to
-my machine at work for fast'n dirty hacks, but something went wrong with the
+my machine at work for quick'n dirty hacks, but something went wrong with the
 VPN settings <!--more-->or the third-party HTTPS tunnel software stopped
 working out of the blue, so I remembered that all that I need is already at
 hand, courtesy of the SSH daemon. I know, exposing 22 to internet is bad, just
