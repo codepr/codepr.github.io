@@ -114,8 +114,7 @@ void trie_node_free(struct trie_node *, size_t *);
 
 void trie_release(Trie *);
 
-/* Remove all keys matching a given prefix in a less than linear time
-   complexity */
+/* Remove all keys matching a given prefix in a linear time complexity (O(n))*/
 void trie_prefix_delete(Trie *, const char *);
 
 /*
