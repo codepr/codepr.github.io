@@ -302,10 +302,10 @@ involved epoll descriptors.
  */
 struct io_event {
     int epollfd;
-    eventfd_t io_event;
-    struct sol_client *client;
+    eventfd_t eventfd;
     bstring reply;
-    union mqtt_packet *payload;
+    struct sol_client *client;
+    union mqtt_packet *data;
 };
 
 /*
