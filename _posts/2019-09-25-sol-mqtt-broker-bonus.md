@@ -547,7 +547,7 @@ static void *io_worker(void *arg) {
                      * ready to be processed
                      */
                     eventfd_t ev = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-                    event->io_event = ev;
+                    event->eventfd = ev;
                     epoll_add(epoll->w_epollfd, ev,
                               EPOLLIN | EPOLLONESHOT, event);
                     /* Record last action as of now */
@@ -591,7 +591,7 @@ static void *io_worker(void *arg) {
                 /* Free resource, ACKs will be free'd closing the server */
                 bstring_destroy(event->reply);
                 mqtt_packet_release(event->payload, event->payload->header.bits.type);
-                close(event->io_event);
+                close(event->eventfd);
                 sol_free(event);
             }
         }
@@ -650,7 +650,7 @@ static void *worker(void *arg) {
                 publish_stats();
             } else if (e_events[i].events & EPOLLIN) {
                 struct io_event *event = e_events[i].data.ptr;
-                eventfd_read(event->io_event, &val);
+                eventfd_read(event->eventfd, &val);
                 // TODO free client and remove it from the global map in case
                 // of QUIT command (check return code)
                 int reply = handlers[event->payload->header.bits.type](event);
@@ -659,7 +659,7 @@ static void *worker(void *arg) {
                 else if (reply != CLIENTDC) {
                     epoll_mod(epoll->io_epollfd,
                               event->client->fd, EPOLLIN, event->client);
-                    close(event->io_event);
+                    close(event->eventfd);
                 }
             }
         }
