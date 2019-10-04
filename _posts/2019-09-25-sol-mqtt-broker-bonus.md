@@ -532,14 +532,14 @@ static void *io_worker(void *arg) {
             } else if (e_events[i].events & EPOLLIN) {
                 struct io_event *event = sol_malloc(sizeof(*event));
                 event->epollfd = epoll->io_epollfd;
-                event->payload = sol_malloc(sizeof(*event->payload));
+                event->data = sol_malloc(sizeof(*event->data));
                 event->client = e_events[i].data.ptr;
                 /*
                  * Received a bunch of data from a client, after the creation
                  * of an IO event we need to read the bytes and encoding the
                  * content according to the protocol
                  */
-                int rc = read_data(event->client->fd, buffer, event->payload); // here we essentially call recv_packet
+                int rc = read_data(event->client->fd, buffer, event->data); // here we essentially call recv_packet
                 if (rc == 0) {
                     /*
                      * All is ok, raise an event to the worker poll EPOLL and
@@ -563,7 +563,7 @@ static void *io_worker(void *arg) {
                      */
                     close(event->client->fd);
                     hashtable_del(sol.clients, event->client->client_id);
-                    sol_free(event->payload);
+                    sol_free(event->data);
                     sol_free(event);
                 }
             } else if (e_events[i].events & EPOLLOUT) {
@@ -590,7 +590,7 @@ static void *io_worker(void *arg) {
                 info.bytes_sent += sent < 0 ? 0 : sent;
                 /* Free resource, ACKs will be free'd closing the server */
                 bstring_destroy(event->reply);
-                mqtt_packet_release(event->payload, event->payload->header.bits.type);
+                mqtt_packet_release(event->data, event->data->header.bits.type);
                 close(event->eventfd);
                 sol_free(event);
             }
@@ -653,7 +653,7 @@ static void *worker(void *arg) {
                 eventfd_read(event->eventfd, &val);
                 // TODO free client and remove it from the global map in case
                 // of QUIT command (check return code)
-                int reply = handlers[event->payload->header.bits.type](event);
+                int reply = handlers[event->data->header.bits.type](event);
                 if (reply == REPLY)
                     epoll_mod(event->epollfd, event->client->fd, EPOLLOUT, event);
                 else if (reply != CLIENTDC) {
