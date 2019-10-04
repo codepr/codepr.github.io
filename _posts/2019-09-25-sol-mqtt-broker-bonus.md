@@ -115,7 +115,7 @@ ssize_t recv_packet(int clientfd, unsigned char **buf, unsigned char *header) {
     *header = *tmpbuf;
     tmpbuf++;
     /* Check for OPCODE, if an unknown OPCODE is received return an error */
-    if (DISCONNECT_TYPE < (*header >> 4) || CONNECT_TYPE > (*header >> 4))
+    if (DISCONNECT < (*header >> 4) || CONNECT > (*header >> 4))
         return -ERRPACKETERR;
     /*
      * Read remaning length bytes which starts at byte 2 and can be long to 4

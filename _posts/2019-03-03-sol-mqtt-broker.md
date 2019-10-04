@@ -142,39 +142,36 @@ Header:
 #define MQTT_HEADER_LEN 2
 #define MQTT_ACK_LEN    4
 
-/* Message types */
-enum message_opcode {
-    CONNECT     = 0x10,
-    CONNACK     = 0x20,
-    PUBLISH     = 0x30,
-    PUBACK      = 0x40,
-    PUBREC      = 0x50,
-    PUBREL      = 0x60,
-    PUBCOMP     = 0x70,
-    SUBSCRIBE   = 0x80,
-    SUBACK      = 0x90,
-    UNSUBSCRIBE = 0xA0,
-    UNSUBACK    = 0xB0,
-    PINGREQ     = 0xC0,
-    PINGRESP    = 0xD0,
-    DISCONNECT  = 0xE0
-};
+/*
+ * Stub bytes, useful for generic replies, these represent the first byte in
+ * the fixed header
+ */
+#define CONNACK_BYTE  0x20
+#define PUBLISH_BYTE  0x30
+#define PUBACK_BYTE   0x40
+#define PUBREC_BYTE   0x50
+#define PUBREL_BYTE   0x60
+#define PUBCOMP_BYTE  0x70
+#define SUBACK_BYTE   0x90
+#define UNSUBACK_BYTE 0xB0
+#define PINGRESP_BYTE 0xD0
 
-enum message_type {
-    CONNECT_TYPE     = 1,
-    CONNACK_TYPE     = 2,
-    PUBLISH_TYPE     = 3,
-    PUBACK_TYPE      = 4,
-    PUBREC_TYPE      = 5,
-    PUBREL_TYPE      = 6,
-    PUBCOMP_TYPE     = 7,
-    SUBSCRIBE_TYPE   = 8,
-    SUBACK_TYPE      = 9,
-    UNSUBSCRIBE_TYPE = 10,
-    UNSUBACK_TYPE    = 11,
-    PINGREQ_TYPE     = 12,
-    PINGRESP_TYPE    = 13,
-    DISCONNECT_TYPE  = 14
+/* Message types */
+enum packet_type {
+    CONNECT     = 1,
+    CONNACK     = 2,
+    PUBLISH     = 3,
+    PUBACK      = 4,
+    PUBREC      = 5,
+    PUBREL      = 6,
+    PUBCOMP     = 7,
+    SUBSCRIBE   = 8,
+    SUBACK      = 9,
+    UNSUBSCRIBE = 10,
+    UNSUBACK    = 11,
+    PINGREQ     = 12,
+    PINGRESP    = 13,
+    DISCONNECT  = 14
 };
 
 enum qos_level { AT_MOST_ONCE, AT_LEAST_ONCE, EXACTLY_ONCE };
@@ -200,10 +197,10 @@ other words, inside unions, in contrast to normal **struct**, there can be only
 one field with a value. Their position in memory are shared, this way using
 **bitfields** we can effectively manipulate single bits or portions of a byte.
 
-The first Control Packet we're going to define is the CONNECT. The
-CONNECT is the first packet that must be sent when a client establish a new
-connection and it must be extactly one, more than one CONNECT per client must
-be treated as a violation of the protocol and the client must be dropped.<br>
+The first Control Packet we're going to define is the CONNECT. It' s the first
+packet that must be sent when a client establish a new connection and it must
+be extactly one, more than one CONNECT per client must be treated as a
+violation of the protocol and the client must be dropped.<br>
 At each CONNECT must be followed in response a CONNACK.
 
 **src/mqtt.h**
@@ -1048,9 +1045,9 @@ int unpack_mqtt_packet(const unsigned char *raw, union mqtt_packet *pkt) {
     union mqtt_header header = {
         .byte = type
     };
-    if (header.bits.type == DISCONNECT_TYPE
-        || header.bits.type == PINGREQ_TYPE
-        || header.bits.type == PINGRESP_TYPE)
+    if (header.bits.type == DISCONNECT
+        || header.bits.type == PINGREQ
+        || header.bits.type == PINGRESP)
         pkt->header = header;
     else
         /* Call the appropriate unpack handler based on the message type */
@@ -1069,7 +1066,7 @@ to the standard defined by OASIS.
 sol/
  ├── src/
  │    ├── mqtt.h
- |    ├── mqtt.c
+ │    ├── mqtt.c
  │    ├── pack.h
  │    └── pack.c
  ├── CHANGELOG

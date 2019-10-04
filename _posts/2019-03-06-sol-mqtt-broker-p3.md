@@ -863,7 +863,8 @@ static void publish_message(unsigned short pkt_id,
 
     /* Build MQTT packet with command PUBLISH */
     union mqtt_packet pkt;
-    struct mqtt_publish *p = mqtt_packet_publish(PUBLISH, pkt_id,
+    struct mqtt_publish *p = mqtt_packet_publish(PUBLISH_BYTE,
+                                                 pkt_id,
                                                  topiclen,
                                                  (unsigned char *) topic,
                                                  payloadlen,
@@ -892,7 +893,7 @@ static void publish_message(unsigned short pkt_id,
         pkt.publish.header.bits.qos = sub->qos;
         if (pkt.publish.header.bits.qos > AT_MOST_ONCE)
             len += sizeof(uint16_t);
-        packed = pack_mqtt_packet(&pkt, PUBLISH_TYPE);
+        packed = pack_mqtt_packet(&pkt, PUBLISH);
         if ((sent = send_bytes(sc->fd, packed, len)) < 0)
             sol_error("Error publishing to %s: %s",
                       sc->client_id, strerror(errno));

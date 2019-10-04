@@ -97,7 +97,7 @@ struct mqtt_publish *mqtt_packet_publish(unsigned char byte,
 
 void mqtt_packet_release(union mqtt_packet *pkt, unsigned type) {
     switch (type) {
-        case CONNECT_TYPE:
+        case CONNECT:
             free(pkt->connect.payload.client_id);
             if (pkt->connect.bits.username == 1)
                 free(pkt->connect.payload.username);
@@ -108,16 +108,16 @@ void mqtt_packet_release(union mqtt_packet *pkt, unsigned type) {
                 free(pkt->connect.payload.will_topic);
             }
             break;
-        case SUBSCRIBE_TYPE:
-        case UNSUBSCRIBE_TYPE:
+        case SUBSCRIBE:
+        case UNSUBSCRIBE:
             for (unsigned i = 0; i < pkt->subscribe.tuples_len; i++)
                 free(pkt->subscribe.tuples[i].topic);
             free(pkt->subscribe.tuples);
             break;
-        case SUBACK_TYPE:
+        case SUBACK:
             free(pkt->suback.rcs);
             break;
-        case PUBLISH_TYPE:
+        case PUBLISH:
             free(pkt->publish.topic);
             free(pkt->publish.payload);
             break;
@@ -260,7 +260,7 @@ static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
 }
 
 unsigned char *pack_mqtt_packet(const union mqtt_packet *pkt, unsigned type) {
-    if (type == PINGREQ_TYPE || type == PINGRESP_TYPE)
+    if (type == PINGREQ || type == PINGRESP)
         return pack_mqtt_header(&pkt->header);
     return pack_handlers[type](pkt);
 }
