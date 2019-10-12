@@ -205,7 +205,7 @@ long long unpack_integer(unsigned char **buf, char size) {
 }
 
 unsigned char *unpack_bytes(unsigned char **buf, size_t len) {
-    unsigned char *dest = sol_malloc(len + 1);
+    unsigned char *dest = malloc(len + 1);
     memcpy(dest, *buf, len);
     dest[len] = '\0';
     *buf += len;
@@ -243,14 +243,14 @@ bstring bstring_copy(const unsigned char *init, size_t len) {
      * track memory usage of the system, we just need to malloc it with the
      * custom malloc in utils
      */
-    unsigned char *str = sol_malloc(len);
+    unsigned char *str = malloc(len);
     memcpy(str, init, len);
     return str;
 }
 
 /* Same as bstring_copy but setting the entire content of the string to 0 */
 bstring bstring_empty(size_t len) {
-    unsigned char *str = sol_malloc(len);
+    unsigned char *str = malloc(len);
     memset(str, 0x00, len);
     return str;
 }
@@ -260,7 +260,7 @@ void bstring_destroy(bstring s) {
      * Being allocated with utils custom functions just free it with the
      * corrispective free function
      */
-    sol_free(s);
+    free(s);
 }
 {% endhighlight %}
 
@@ -414,7 +414,7 @@ descriptor, that's it, it's an IO worker problem now.
 static void accept_loop(struct epoll *epoll) {
     int events = 0;
     struct epoll_event *e_events =
-        sol_malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
+        malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
     int epollfd = epoll_create1(0);
     /*
      * We want to watch for events incoming on the server descriptor (e.g. new
@@ -465,7 +465,7 @@ static void accept_loop(struct epoll *epoll) {
                      * Create a client structure to handle his context
                      * connection
                      */
-                    struct sol_client *client = sol_malloc(sizeof(*client));
+                    struct sol_client *client = malloc(sizeof(*client));
                     if (!client)
                         return;
                     /* Populate client structure */
@@ -485,7 +485,7 @@ static void accept_loop(struct epoll *epoll) {
         }
     }
 exit:
-    sol_free(e_events);
+    free(e_events);
 }
 {% endhighlight %}
 
@@ -499,9 +499,9 @@ static void *io_worker(void *arg) {
     int events = 0;
     ssize_t sent = 0;
     struct epoll_event *e_events =
-        sol_malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
+        malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
     /* Raw bytes buffer to handle input from client */
-    unsigned char *buffer = sol_malloc(conf->max_request_size);
+    unsigned char *buffer = malloc(conf->max_request_size);
     // UDP bus communication client handler
     struct sockaddr_in node;
     memset(&node, 0, sizeof(node)); ;
@@ -530,9 +530,9 @@ static void *io_worker(void *arg) {
                           (void *) pthread_self());
                 goto exit;
             } else if (e_events[i].events & EPOLLIN) {
-                struct io_event *event = sol_malloc(sizeof(*event));
+                struct io_event *event = malloc(sizeof(*event));
                 event->epollfd = epoll->io_epollfd;
-                event->data = sol_malloc(sizeof(*event->data));
+                event->data = malloc(sizeof(*event->data));
                 event->client = e_events[i].data.ptr;
                 /*
                  * Received a bunch of data from a client, after the creation
@@ -563,8 +563,8 @@ static void *io_worker(void *arg) {
                      */
                     close(event->client->fd);
                     hashtable_del(sol.clients, event->client->client_id);
-                    sol_free(event->data);
-                    sol_free(event);
+                    free(event->data);
+                    free(event);
                 }
             } else if (e_events[i].events & EPOLLOUT) {
                 struct io_event *event = e_events[i].data.ptr;
@@ -592,13 +592,13 @@ static void *io_worker(void *arg) {
                 bstring_destroy(event->reply);
                 mqtt_packet_release(event->data, event->data->header.bits.type);
                 close(event->eventfd);
-                sol_free(event);
+                free(event);
             }
         }
     }
 exit:
-    sol_free(e_events);
-    sol_free(buffer);
+    free(e_events);
+    free(buffer);
     return NULL;
 }
 {% endhighlight %}
@@ -618,7 +618,7 @@ static void *worker(void *arg) {
     long int timers = 0;
     eventfd_t val;
     struct epoll_event *e_events =
-        sol_malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
+        malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
     while (1) {
         events = epoll_wait(epoll->w_epollfd, e_events,
                             EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
@@ -665,7 +665,7 @@ static void *worker(void *arg) {
         }
     }
 exit:
-    sol_free(e_events);
+    free(e_events);
     return NULL;
 }
 {% endhighlight %}
