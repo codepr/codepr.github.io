@@ -143,7 +143,6 @@ class Subscriber(abc.ABC):
     def update(self, data):
         raise NotImplementedError()
 
-
 class NullSubscriber(Subscriber):
 
     """Simple subscriber that does nothing but printing the updates it
@@ -191,7 +190,6 @@ those low-level callbacks which makes them simple to use as coroutines.
 {% highlight python %}
 import asyncio
 import collections
-
 
 class CallbackDeliver:
 
@@ -245,7 +243,6 @@ decorator to make a method a looping callback.
 import asyncio
 import functools
 
-
 def run_every(seconds):
     def inner_func(func):
         @functools.wraps(func)
@@ -259,7 +256,13 @@ def run_every(seconds):
 {% endhighlight %}
 
 This allow us to write our delivery methods with no need to retrieve the
-running event loop, like this:
+running event loop.<br>
+A detail in the decorator definition that should be taken in consideration is
+that in the `AbstractEventLoop.call_later` call we pass in as callable argument
+the `func_wrapper` defined inside the `inner_func` and not only the `func` like
+we would've done normally. This for the simple reason that we need to re-apply
+the decorator at each scheduling, if we passed just the `func` the loop would've
+just run the next iteration of the callable without re-scheduling it again.
 
 {% highlight python %}
 @run_every(5)
