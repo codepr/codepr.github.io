@@ -6,17 +6,17 @@ categories: asyncio python
 ---
 
 Pubsub is one of the most recognizable pattern in computer science, used as a
-simple solution to a wide range of problems, with different implementations. As
-an example, let's suppose you need to dispatch some data with different
-computation times to different destinations, <!--more-->sure the first thing
+simple solution to a wide range of problems, with different implementations.
+<!--more-->As an example, let's suppose you need to dispatch some data with
+different computation times to different destinations, sure the first thing
 coming to mind is a broker or a simple job queue, and there's a plethora of
 battle tested solutions out there, from `Apache Kafka` to `RabbitMQ` to even
 `Redis` or the solid AWS `SNS/SQS` combination, where topics can be defined on
 `SNS` with Lambdas or `SQS` enqueuing triggered at each message received. Why?
 Because why not, it gives solid performances and near unlimited scalability for
 just some bucks per month, with low to none maintenance costs beside your
-business logic; something to consider if you already have a part or your
-entire backend hosted on AWS.
+business logic; something to consider if you already have a part or your entire
+backend hosted on AWS.
 
 Sometimes though it can be an overkill or all we need is just a prototype, a
 proof of concept, in those cases a simple microservice can do well enough with
@@ -31,7 +31,7 @@ running as many threads as the number of sources, each one with a loop
 synchronized with timers to dispatch results.
 
 Asyncio offers two different approaches to this by using a single thread,
-making it much simpler in terms of synchronization flow of the application,
+making it much simpler in terms of synchronization and flow of the application,
 leveraging cooperative concurrency with `coroutines` or using a synchronous
 callback-based system.
 
