@@ -5,21 +5,22 @@ description: "Simple pubsub solution using asyncio for different destinations"
 categories: asyncio python
 ---
 
-Pubsub is one of the most recognizable pattern in computer science used as a
-solution to a wide range of problems, with different implementations. As an
-example, let's suppose you need to dispatch some data with different
+Pubsub is one of the most recognizable pattern in computer science, used as a
+simple solution to a wide range of problems, with different implementations. As
+an example, let's suppose you need to dispatch some data with different
 computation times to different destinations, <!--more-->sure the first thing
 coming to mind is a broker or a simple job queue, and there's a plethora of
 battle tested solutions out there, from `Apache Kafka` to `RabbitMQ` to even
 `Redis` or the solid AWS `SNS/SQS` combination, where topics can be defined on
 `SNS` with Lambdas or `SQS` enqueuing triggered at each message received. Why?
 Because why not, it gives solid performances and near unlimited scalability for
-just some bucks per month, with low to none maintenance costs besides your
-business logic; something to consider if you already have part of or your
+just some bucks per month, with low to none maintenance costs beside your
+business logic; something to consider if you already have a part or your
 entire backend hosted on AWS.
 
-Sometimes though it can be an overkill and a simple microservices can do well
-enough with little costs.
+Sometimes though it can be an overkill or all we need is just a prototype, a
+proof of concept, in those cases a simple microservice can do well enough with
+little costs.
 
 ### Asyncio pubsub
 
@@ -291,7 +292,7 @@ if __name__ == '__main__':
 And that's it, these two snippets should be a good comparison of the two
 methods, overall, as we can see, there're not many differences between them,
 both systems accomplish to the results we expected, callback approach is probably
-neater and require a bit less code to be written, but it assume that `deliver`
+neater and require a bit less code to be written, but it assumes that `deliver`
 method doesn't block in any situation, so for the majority of cases it expects
 some sort of buffering or queues to be involved. The coroutine-based instead
 can be easily edited to make asynchronous even the `deliver` method in order to
