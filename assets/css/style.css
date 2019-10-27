@@ -32,6 +32,18 @@ a:hover	{
 	text-decoration: underline;
 }
 
+.s, .cm, .c1 {
+    color: grey
+}
+
+.k, .kn {
+    font-weight: 700
+}
+
+.mi {
+    color: darkgray
+}
+
 
 #main {
 	width: 50%;
