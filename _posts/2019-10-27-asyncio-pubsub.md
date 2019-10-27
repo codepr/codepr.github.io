@@ -18,9 +18,8 @@ just some bucks per month, with low to none maintenance costs besides your
 business logic; something to consider if you already have part of or your
 entire backend hosted on AWS.
 
-Sometimes through it can be an overkill and a simple microservices can do well
+Sometimes though it can be an overkill and a simple microservices can do well
 enough with little costs.
-
 
 ### Asyncio pubsub
 
@@ -48,7 +47,6 @@ Let's move one with the implementation.
 {% highlight python %}
 import asyncio
 import collections
-
 
 class AsyncDeliver:
 
@@ -125,8 +123,9 @@ class AsyncDeliver:
 {% endhighlight %}
 
 Let's define a simple subscriber interface, it will only need an `update`
-method. All subclasses can easily define some logics or different communication
+method. Subclasses can easily define some logics or different communication
 types such as HTTP clients, Kinesis/Kafka producers.
+
 To be noted that for the sake of the example, all `deliver` methods doesn't
 block in any way, but it would be trivial to declare `async` even the deliver
 method and await on all subscribers on the `AsyncDeliver` class by calling
@@ -135,7 +134,7 @@ method and await on all subscribers on the `AsyncDeliver` class by calling
 {% highlight python %}
 import abc
 
-class Subscriber:
+class Subscriber(abc.ABC):
 
     def __init__(self, name):
         self.name = name
@@ -268,15 +267,15 @@ def deliver_every_5s(self):
     self.deliver("5 seconds delivery", "5sec-delivery")
 {% endhighlight %}
 
-Again we can run a simple example, that should result the same as the previous
+Again we can run a simple main, that should result the same as the previous
 coroutine-based implementation
 
 {% highlight python %}
 if __name__ == '__main__':
     deliverboy = CallbackDeliver()
-    subscriber_one = Subscriber('Toki')
-    subscriber_two = Subscriber('Shu')
-    subscriber_three = Subscriber('Raoh')
+    subscriber_one = NullSubscriber('Toki')
+    subscriber_two = NullSubscriber('Shu')
+    subscriber_three = NullSubscriber('Raoh')
     deliverboy.subscribe(subscriber_one, "5sec-delivery")
     deliverboy.subscribe(subscriber_two, "10sec-delivery")
     deliverboy.subscribe(subscriber_three, "20sec-delivery")
