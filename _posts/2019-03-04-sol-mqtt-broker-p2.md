@@ -33,7 +33,7 @@ function, that's why the use of **typedef** for different ack codes.
 
 The remaining packets will have a dedicated function. There's probably better
 ways to reuse code and to model this but for now let's stick to something
-working, as previously stated time to optimize and refactor will come.
+that works, as previously stated time to optimize and refactor will come.
 
 **src/mqtt.c**
 
@@ -134,8 +134,8 @@ bytearray, ready to be written out over a socket.
 
 A sure thing to underline, where you see functions returning pointer to static
 structure, this trick is ok with little structure that can be instantiated on
-the stack and on a single-thread context. Passing to a multithreaded
-environment this approach will surely bite us in the ass, cause every pointer
+the stack and on a single-thread context. **Passing to a multithreaded
+environment this approach will surely bite us in the ass**, cause every pointer
 to packet built like this will point to the same area of memory, causing
 conflicts and undefined results (different from dreadful undefined behaviour,
 the ultimate frightening beast of C/C++), so for future improvements it will
@@ -276,7 +276,7 @@ mechanism after **select** and **poll** added with kernel 2.5.44, and the most
 performant with high number of connection, it's counterpart for BSD and
 BSD-like (Mac OSX) systems is **kqueue**.
 
-We're gonna need some functions to manage our socket descriptor.
+We're gonna need some functions to manage our socket descriptors.
 
 **src/network.h**
 
@@ -764,12 +764,13 @@ void evloop_free(struct evloop *loop) {
 
 Now, epoll API is extensively documentated on its manpage, but we’ll need 3
 functions to add, remove and modify monitored descriptors and trigger events,
-using EPOLLET flag, in order to use epoll on edge-triggered bhaviour (the
+using EPOLLET flag, in order to use epoll on edge-triggered behaviour (the
 default one is Level-triggered, see
 [manpage](http://man7.org/linux/man-pages/man7/epoll.7.html) and avoid in a
-future multithreaded implementation to wake up all threads at once every time a
-new event is triggered one or more descriptor are ready to read or write, but
-this is another story, also this explained clearly on the man page.
+future multithreaded implementation to wake up all threads at once every time
+a new event is triggered and one or more descriptor are ready to read or write
+(thundering herd problem), but this is another story, also this explained
+clearly on the man page.
 
 **src/network.c**
 
