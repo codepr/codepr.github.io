@@ -489,7 +489,7 @@ exit:
 }
 {% endhighlight %}
 
-From now on the IO worker will just handling, as the name explain, the IO
+From now on the IO worker will just handle, as the name explain, the IO
 operations of the connected client, like new instructions sent or output to be
 sent out after a subscription request for example.
 
@@ -502,9 +502,6 @@ static void *io_worker(void *arg) {
         malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
     /* Raw bytes buffer to handle input from client */
     unsigned char *buffer = malloc(conf->max_request_size);
-    // UDP bus communication client handler
-    struct sockaddr_in node;
-    memset(&node, 0, sizeof(node)); ;
     while (1) {
         events = epoll_wait(epoll->io_epollfd, e_events,
                             EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
@@ -603,13 +600,13 @@ exit:
 }
 {% endhighlight %}
 
-As we can see, inside the `if` branch we fire a new event to the target epoll
-instance, this case the worker epoll descriptor and we pass the control over the
-parsed packet to the worker pool, which will apply the business logic calling
-the right callback based on the received command or handling errors.<br/>
-To be noted that the event is created directly in the `if` for each incoming
-event and closed right after the `EPOLLOUT` is triggered for each client.
-Essentially it has the lifespan of a request-response.
+As we can see, inside the `EPOLLIN if` branch we fire a new event to the target
+epoll instance, this case pointed by the worker epoll descriptor and we pass
+the control over the parsed packet to the worker pool, which will apply the
+business logic calling the right callback based on the received command including
+error handling.<br/> To be noted that the event is created directly in the
+`if` for each incoming event and closed right after the `EPOLLOUT` is triggered
+for each client. Essentially it has the lifespan of a request-response.
 
 {% highlight c %}
 static void *worker(void *arg) {
@@ -677,9 +674,10 @@ array corresponds to an MQTT command.
 This of course is only a fraction of what the ordeal has been but eventually I
 came up with a somewhat working prototype, the next step will be to stress test
 it a bit and see how it goes compared to the battle-tested and indisputably
-better pieces of software like Mosquitto or Mosca joking with the threads
-number and the mutex type. Lot of missing features still, no auth, no SSL/TLS
-communication, no session recovery and QoS 2 handling (started some basic work
-here) but the mere pub/sub part should be testable. Hopefully, this tutorial
-would work as a starting point for something neater and carefully designed.
+better pieces of software like Mosquitto or Mosca; messing around with the
+threads number and the mutex type. Lot of missing features still, no auth, no
+SSL/TLS communication, no session recovery and QoS 2 handling (started some
+basic work here) but the mere pub/sub part should be testable. Hopefully, this
+tutorial would work as a starting point for something neater and carefully
+designed.
 Cya.
