@@ -354,8 +354,8 @@ other modules.
 To handle the communication using the MQTT protocol we need essentially 4 functions,
 2 for each direction of the interaction between server and client:
 
-- A packing function (serializing or marshalling, i won't dive here in a
-  dissertion on the correct usage of the terms)
+- A packing function (serializing or marshalling, I won't dive here in a
+  dissertion on the correct usage of these terms)
 - An unpacking function (deserializing/unmarshalling)
 
 Supported by 2 functions to handle the encoding and decoding of the
@@ -550,7 +550,7 @@ void pack_bytes(uint8_t **buf, uint8_t *str) {
 This allow us to handle incoming stream of bytes and forge them to respond to
 connected clients. Let's move one.
 
-### Back to src/mqtt.c
+### Back to mqtt module
 
 After the creation of `pack` module we should include it into the `mqtt` source:
 
@@ -564,7 +564,7 @@ After the creation of `pack` module we should include it into the `mqtt` source:
 
 The first step will be the implemetation of the Fixed Header Remaning Length
 functions. The MQTT documentation suggests a pseudo-code implementation in one
-of the first paragraphs, we'll stick to that, it's fairly simple and clear.
+of the first paragraphs, we'll stick to that, it's quiet simple and clear.
 We'll see why and how after the first byte of the Fixed Header, the next 1 or
 2 or 3 or 4 bytes are used to encode the remainig bytes of the packet.
 
