@@ -5,8 +5,8 @@ description: "Writing an MQTT broker from scratch, to really understand somethin
 categories: c unix tutorial
 ---
 
-It's been a while that for my daily work I have to deal with IoT architectures
-and researching best patterns to develop such systems, including diving through
+It's been a while that for my daily work I deal with IoT architectures and
+research best patterns to develop such systems, including diving through
 standards and protocols like MQTT;
 <!--more-->
 as I always been craving for new ideas to
@@ -47,9 +47,9 @@ sol/
 
 Here the [repository](https://github.com/codepr/sol/tree/tutorial) on GitHub.
 I'll try to describe step by step my journey into the development of the software,
-without being too much verbose, and listing lot of code directly with brief
-explanation of its purpose. The best way still remains to write it down,
-compile it and play/modify it.<br>
+without being too verbose, and listing lot of code directly with brief
+explanation of its purpose. The best way is still to write it down,
+compile and/or play/modify it.<br>
 This will be a series of posts, each one tackling and mostly implementing a single
 concept/module of the project:
 
