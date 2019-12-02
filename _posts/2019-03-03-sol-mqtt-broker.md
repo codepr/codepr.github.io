@@ -212,7 +212,7 @@ struct mqtt_connect {
     union {
         unsigned char byte;
         struct {
-            int reserverd : 1;
+            int reserved : 1;
             unsigned clean_session : 1;
             unsigned will : 1;
             unsigned will_qos : 2;
@@ -237,7 +237,7 @@ struct mqtt_connack {
         unsigned char byte;
         struct {
             unsigned session_present : 1;
-            unsigned reserverd : 7;
+            unsigned reserved : 7;
         } bits;
     };
     unsigned char rc;
@@ -727,7 +727,7 @@ static size_t unpack_mqtt_connect(const unsigned char *raw,
     size_t len = mqtt_decode_length(&raw);
 
     /*
-     * For now we ignore checks on protocol name and reserverd bits, just skip
+     * For now we ignore checks on protocol name and reserved bits, just skip
      * to the 8th byte
      */
     raw = init + 8;
