@@ -9,24 +9,21 @@ It's been a while that for my daily work I deal with IoT architectures and
 research best patterns to develop such systems, including diving through
 standards and protocols like MQTT;
 <!--more-->
-as I always been craving for new ideas to
-learn and refine my programming skills, I thought that going a little deeper on
-the topic would be cool and useful too. So once again I `git init` a low-level
-project on my box to deepen my knowledge on the MQTT protocol, and I wanted to
-push myself a little further by sharing my steps; instead of the usual
-Key-Value store, which happens to be my favourite pet-project of choice when it
-comes to learn a new language or to dusting out on low-level system programming
-on UNIX.
+as I always been craving for new ideas to learn and refine my programming
+skills, I thought that going a little deeper on the topic would've been cool
+and useful too. So once again I `git init` a low-level project on my box
+pushing myself a little further by sharing my steps.
 
-**Sol** will be a C project, a super-simple MQTT broker for Linux platform
-which will support version 3.1.1 of the protocol, skipping on older protocols
-for now, very similar to a lightweight mosquitto (which is already a
+**Sol** will be a C project, a super-simple MQTT broker targeting Linux
+platform which will support version 3.1.1 of the protocol, skipping older
+versions for now, very similar to a lightweight Mosquitto (which is already a
 lightweight piece of software anyway), and with the abundance of MQTT clients
-out there, testing will be also easier. The final result will be a base for
-something more clean and with more features, what we're going to create have to
-be considered a minimal implementation, an MVP. As a side note, the name
-decision is a 50/50 for the elegance i feel for short names and the martian day
-(The Martian docet). Or maybe it stands for Shitty Obnoxious Laxative. Tastes.
+out there, testing will be fairly easy. The final result will hopefully serve
+as a base for something more clean and with more features, what we're going to
+create have to be considered a minimal implementation, an MVP. As a side note,
+the name decision is a 50/50 for the elegance i feel for short names and the
+martian day (The Martian docet). Or maybe it stands for **S**crappy **O**l'
+**L**oser. Tastes.
 
 **Note**: the project won't compile till the very end of the series, following
 all steps, to test single parts and modules I suggest to provide a main by
@@ -48,7 +45,7 @@ sol/
 Here the [repository](https://github.com/codepr/sol/tree/tutorial) on GitHub.
 I'll try to describe step by step my journey into the development of the software,
 without being too verbose, and listing lot of code directly with brief
-explanation of its purpose. The best way is still to write it down,
+explanations of its purpose. The best way is still to write it down,
 compile and/or play/modify it.<br>
 This will be a series of posts, each one tackling and mostly implementing a single
 concept/module of the project:
@@ -71,8 +68,8 @@ quality improvements and probably, with some hidden features as well (aka bugs
 In essence a broker is a middleware, a software that accepts input from
 multiple clients (producers) and forward it to a set of destinatary clients
 (consumers) using an abstraction to define and manage these groups of clients
-in the form of a channel or **topic** as it's called by the protocol standards.
-Much like an IRC channel or equivalent in a generic chart, each consumer client
+in the form of a channel, or **topic**, as it's called by the protocol standards.
+Much like an IRC channel or equivalent in a generic chat, each consumer client
 can subscribe to **topics** in order to receive all messages published by other
 clients to those **topics**.
 
@@ -94,8 +91,8 @@ fact is thread-safe by implementation.
 First of all, we have to model some structures to handle MQTT packets, by
 following specifications on the [official
 documentation](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/errata01/os/mqtt-v3.1.1-errata01-os-complete.html).
-Starting from the opcode table and the MQTT header, according to the docs every packet
-consists of 3 parts:
+Starting from the opcode table and the MQTT header, according to the docs,
+every packet consists of 3 parts:
 - Fixed Header (mandatory)
 - Variable Header (optional)
 - Payload (optional)
@@ -201,7 +198,7 @@ The first Control Packet we're going to define is the CONNECT. It' s the first
 packet that must be sent when a client establish a new connection and it must
 be extactly one, more than one CONNECT per client must be treated as a
 violation of the protocol and the client must be dropped.<br>
-At each CONNECT must be followed in response a CONNACK.
+For each CONNECT, a CONNACK packet must be sent in response.
 
 **src/mqtt.h**
 
