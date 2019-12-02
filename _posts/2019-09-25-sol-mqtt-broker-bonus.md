@@ -50,7 +50,7 @@ Eventually I realized that a common approach I already experimented in another
 project was the best one, but involved some heavy refactoring, including the
 removal of the said closure system (you know, it's still increment even by
 removing features, they're the best increments :P). The main idea was to
-instantiate two distinct threadpool, or better, a mandatory one to handle IO
+instantiate two distinct threadpool, or rather, a mandatory one to handle IO
 and another which could also be a single thread to handle the work parts like
 command handling and storing of informations.<br/>
 
@@ -85,14 +85,15 @@ A nice thing that happened is that this process managed to elicit lot of the
 bugs I mentioned before, and forced improvements on some fragile parts, like
 the data stream receptions and parsing of instructions.
 I won't walk through all the refactoring process, it would be deadly boring,
-I'll just enlight some of the most important parts that needed adjustements, the
-rest can be safely applied by merging the `master` branch into the `tutorial` one.
+I'll just highlight some of the most important parts that needed adjustements,
+the rest can be safely applied by merging the `master` branch into the
+`tutorial` one.
 
 #### Packets fragmentation is not funny
 
 The first and foremost aspect to check was the network communication, by mainly
 testing in local I only noticed after some heavier benchmarking that sometimes
-the system was losing some packets, or better, the kernel buffer was probably
+the system was losing some packets, or rather, the kernel buffer was probably
 flooded and started to fragment some payloads, TCP is after all a stream protocol
 and it's perfectly fine to segment data during sending. It was a little naive by me
 to not handle this properly initially, anyway this led to some nasty behaviours,
