@@ -5,18 +5,18 @@ description: "Simple pubsub solution using asyncio for different destinations"
 categories: asyncio python
 ---
 
-Pubsub is one of the most recognizable pattern in computer science, used as a
-simple solution to a wide range of problems, with different implementations.
-<!--more-->As an example, let's suppose you need to dispatch some data with
-different computation times to different destinations, sure the first thing
-coming to mind is a broker or a simple job queue, and there's a plethora of
-battle tested solutions out there, from `Apache Kafka` to `RabbitMQ` to even
-`Redis` or the solid AWS `SNS/SQS` combination, where topics can be defined on
-`SNS` with Lambdas or `SQS` enqueuing triggered at each message received. Why?
-Because why not, it gives solid performances and near unlimited scalability for
-just some bucks per month, with low to none maintenance costs beside your
-business logic; something to consider if you already have a part or your entire
-backend hosted on AWS.
+Pubsub is one of the most recognizable patterns in computer science, employed
+as a simple solution to a wide range of problems, with different
+implementations. <!--more-->As an example, let's suppose you need to dispatch
+some data with different computation times to different destinations, sure the
+first thing coming to mind is a broker or a simple job queue, and there's a
+plethora of battle-tested solutions out there, from `Apache Kafka` to
+`RabbitMQ` to even `Redis` or the solid AWS `SNS/SQS` combination, where topics
+can be defined on `SNS` with Lambdas or `SQS` enqueuing triggered at each
+message received. Why? Because why not, it gives solid performances and near
+unlimited scalability for just some bucks per month, with low to none
+maintenance costs beside your business logic; something to consider if you
+already have a part or your entire backend hosted on AWS.
 
 Sometimes though it can be an overkill or all we need is just a prototype, a
 proof of concept, in those cases a simple microservice can do well enough with
