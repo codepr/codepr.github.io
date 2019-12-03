@@ -59,18 +59,18 @@ int start_server(const char *, const char *);
 
 {% endhighlight %}
 
-The implementation part will be a little bigger than it seems, all our handler
+The implementation part will be a little bigger than expected, all our handler
 functions and callbacks will be contained here for now, so let's start with
 the 3 basic callbacks that every server will need to effectively communicate with
 clients after it started listening:
 
 - an accept callback
-- a read callback for read events
+- a read callback to read events
 - a write callback to send out data
 
 We will also forward declare some functions, mostly handlers and a mapping much
 like the one used to pack and unpack payloads on mqtt module, we took them as is,
-to make thing easier for the near-future development.
+to make thing easier for the near-future developments.
 
 **src/server.c**
 
@@ -242,13 +242,14 @@ static void on_accept(struct evloop *loop, void *arg) {
 {% endhighlight %}
 
 As you can see, I defined two static functions (in C, while not strictly a
-correct use of the term, static functions can only be seen in the scope of
-the module of definition, almost like a private method on a class in OOP
+correct use of the term, static functions can only be seen in the scope of the
+module of definition, almost like a private method of a class in OOP
 programming), the `accept_new_client` which by using functions from `network`
-module to accept new connecting clients and the `on_accept` function, which
-will be the effective callback for accepting new connections.
+module will be responsible of the "lower-level calls" accepting new connecting
+clients and the `on_accept` function, which will be the effective callback for
+accepting new connections (the latter will rely on the first function).
 
-The `accept_new_client` function expects a struct `connection` that i added
+The `accept_new_client` function expects a struct `connection` that I added
 for convenience and for reuse of old code from another codebase of mine,
 not strictly necessary to follow this pattern.
 
@@ -423,17 +424,18 @@ a full MQTT packet is built, relying on functions from `mqtt` module, the other
 two are respectively `on_read` and `on_write`.
 
 To be noted that, these 3 callbacks, rearm the socket using previously defined
-helper bouncing the ball on each others. `on_read` callback specifically, based
-upon a return code from the calling of a handler (chosen in turn to the type of
-command received from the client on the line
+helpers bouncing the ball on each others. `on_read` callback specifically,
+based upon a return code from the call of an handler (chosen in turn to the
+type of command received from the client on the line
 `int rc = handlers[hdr.bits.type](cb, &packet)`), rearm the socket for read or
 write or not at all. This last case will cover disconnections for errors and
 legitimate DISCONNECT packets.
 
 On the write callback we see that the `send_bytes` call pass in a payload with
-data and size as fields; it's a convenient structure I defined to make it simpler
-to track number of bytes on an array, this case to know how many bytes to write out.
-We have to re-open the `src/pack.h` and `src/pack.c` to add these utilities.
+data and size as fields; it's a convenient structure I defined to make it
+simpler to track number of bytes on an array, this case to know how many bytes
+to write out.
+We have to edit the `src/pack.h` and `src/pack.c` to add these utilities.
 
 **src/pack.h**
 
@@ -499,13 +501,13 @@ void bytestring_reset(struct bytestring *bstring) {
 
 ### Generic utilities
 
-Let's open a brief parenthesis, for my projects, generally there's always need
-for generic helpers and utility functions, I usually collect them into a
-dedicated `util` module; that's the case for call like `sol_info`, `sol_debug`
+Let's open a brief parenthesis, from my experience, generally there's always
+need for generic helpers and utility functions, I usually collect them into a
+dedicated `util` module; that's the case for calls like `sol_info`, `sol_debug`
 and `sol_error` on those chunks of code previously analysed.
 
-Our logging requirements is so simple that there's no need for a dedicated module
-yet, so I generally add those logging functions to the `util` module.
+Our logging requirements is so simple that there's no need for a dedicated
+module yet, so I generally add those logging functions to the `util` module.
 
 **src/util.h**
 
@@ -519,7 +521,7 @@ yet, so I generally add those logging functions to the `util` module.
 #include <stdbool.h>
 #include <strings.h>
 
-#define UUID_LEN     37
+#define UUID_LEN     37  // 36 + nul char
 #define MAX_LOG_SIZE 119
 
 enum log_level { DEBUG, INFORMATION, WARNING, ERROR };
@@ -675,7 +677,7 @@ int generate_uuid(char *uuid_placeholder) {
 
 {% endhighlight %}
 
-This simple functions allow us to have a pretty decent logging system, by
+These simple functions allow us to have a pretty decent logging system, by
 calling `sol_log_init` on the main function we can also persist logs on disk
 by passing a path on the filesystem.
 
@@ -820,7 +822,7 @@ struct sol_info {
 
 {% endhighlight %}
 
-This is directly linked to the periodic task added in the start_server function
+This is directly linked to the periodic task added in the start_server function.
 
 {% highlight c %}
 
@@ -941,10 +943,10 @@ static void publish_stats(struct evloop *loop, void *args) {
 
 {% endhighlight %}
 
-Ok now we have our first periodic callback, it publishes general informations on
-the status of the broker to a set of topics called `$SYS` topics, that we
-called `$SOL` breaking the standards in a blink of an eye. These informations
-could be added incrementally in the future.
+Ok now we have our first periodic callback, it publishes general informations
+on the status of the broker to a set of topics called `$SYS topics`, that we
+called instead `$SOL topics` breaking the standards in a blink of an eye. These
+informations could be added incrementally in the future.
 
 
 **src/server.c**
