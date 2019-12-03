@@ -11,10 +11,9 @@ those concepts.
 
 <!--more-->
 
-The MQTT define
-an abstraction named **topic**, in essence, a string that is used to filter
-messages for each client. It has an hierarchical nature, given by some simple
-rules:
+The MQTT protocol defines an abstraction named **topic**, in essence, a string,
+a label that is used to filter messages for each client. It follow an
+hierarchical model, described by some simple rules:
 
 - a topic is an UTF-8 encoded string of max length of 65535 bytes
 - a forward `/` is used to separate different levels, much like directories in
@@ -31,12 +30,12 @@ rules:
   - foo/nop/baz
 
 They share some traits with message queues, but way simpler, lightweight and
-less powerfull.
+less powerful.
 
 ### Handling topic abstraction: the trie
 
 We move now to the **trie**, the structure of choice to store topics. Trie is a
-kind of trees in which each node is a prefix for a key, the node position
+kind of tree in which each node is a prefix for a key, the node position
 define the keys and the associated values are set on the last node of each key.
 They provide a big-O runtime complexity of O(m) on worst case, for insertion
 and lookup, where m is the length of the key. The main advantage is the
@@ -186,13 +185,13 @@ Without going too deep into these concepts, best solutions so far seems three:
   size and use a different mapping for characters on the array of children
   pointers.
 
-- Replace the fixed length array on each node with a singly-linked **linked list**,
-  maintained sorted on each insertion, this way there's an average performance of
-  O(n/2) on each search, which is the best case possible with the linked list
-  data structure.
+- Replace the fixed length array on each node with a singly-linked **linked
+  list**, maintained sorted on each insertion, this way there's an average
+  performance of O(n/2) on each search, equal to O(n), which is the best case
+  possible with the linked list data structure.
 
-Luckily we just written a **linked list** before (Perhaps I knew the answer? :P) but
-also a **vector** could do well.
+Luckily we've just written a **linked list** before (Perhaps I knew the answer?
+:P) but also a **vector** could do well.
 
 Let's implement our trie with the third solution:
 
@@ -334,9 +333,9 @@ static void *trie_node_insert(struct trie_node *root, const char *key,
          * worse performance by not having direct access to node like in an
          * array.
          *
-         * Anyway we expect to have an average O(n/2) cause at every insertion
-         * the list is sorted so we expect to find our char in the middle on
-         * average.
+         * Anyway we expect to have an average O(n/2) -> O(n) cause at every
+         * insertion the list is sorted so we expect to find our char in the
+         * middle on average.
          *
          * As a future improvement it's advisable to substitute list with a
          * B-tree or RBTree to improve searching complexity to O(logn) at best,
