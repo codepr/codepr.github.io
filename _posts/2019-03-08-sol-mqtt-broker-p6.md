@@ -14,7 +14,7 @@ trivial to call the correct function depending on the packet type.
 Before starting the main argument of the post, we add some missing parts to make
 the previously written code usable.
 
-Vim src/core.h:
+Let's fire vim src/core.h:
 
 **src/core.h**
 
@@ -168,7 +168,7 @@ ready for being sent to the client and return a code, which can be:
   it means that the client disconnected.
 
 The first handler we'll add will be the `connect_handler`, which as the name
-suggests will handle CONNECT packet coming just after connecting.
+suggests will handle CONNECT packet coming just after a TCP connection happens.
 
 **src/server.c**
 
@@ -245,11 +245,11 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
 
 {% endhighlight %}
 
-Essentially it behave exactly as defined by the protocol standard, except for
+Essentially it behaves exactly as defined by the protocol standard, except for
 the *clean session* thing, which for now we ignore; if a double CONNECT
-packet is received it kick out the connected clients that sent it, otherwise it
-schedule a response to it with a CONNACK, that will be handled by the
-`on_write` handler.
+packet is received it kicks out the connected clients that sent the request,
+otherwise it schedules a response with a CONNACK, that will be handled by
+the `on_write` handler.
 
 Next command, DISCONNECT:
 
@@ -285,7 +285,7 @@ Let's move to a more interesting operation, SUBSCRIBE, this is where our
 trie structure kick-in, in fact we have to:
 
 - Iterate through the list of tuples (topic, QoS) and for each
-    - If the topic does not exists we create it
+    - If the topic does not exist we create it
     - Add the client to the subscribers lists of the given topic
     - If the topic ends with "#" we have to subscribe to the given
       topic and all of his children, this can be done recursively
@@ -398,7 +398,7 @@ static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 The PUBLISH handler is the longer of our handlers, but it's fairly easy to
 follow
 
-- create the topic if it does not exists
+- create the topic if it does not exist
 - based upon the QoS of the message, it schedules the correct ACK (PUBACK for
   an **at least once** level, PUBREC for an **exactly once** level, nothing for
   the **at most once** level)
@@ -524,7 +524,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
 
 {% endhighlight %}
 
-All the remaining ACK handlers now, they basically all the same, for now we
+All the remaining ACK handlers now, they're basically all the same, for now we
 limit ourselves to just log their execution, in the future we'll handle the
 message based on the QoS deliverance.
 
@@ -597,7 +597,7 @@ play a bit, using `mosquitto_sub` and `mosquitto_pub` or Python `paho-mqtt`
 library.
 
 We just need a configuration module to have better control on the general
-settings of the system and after that we will sonn to be finished.
+settings of the system and after that we will soon to be finished.
 The format of the configuration file will be the classical key value one
 used by most services on Linux, something like this:
 
@@ -1015,7 +1015,6 @@ int main (int argc, char **argv) {
     char *confpath = DEFAULT_CONF_PATH;
     int debug = 0;
     int opt;
-
     // Set default configuration
     config_set_default();
     while ((opt = getopt(argc, argv, "a:c:p:m:vn:")) != -1) {
@@ -1041,17 +1040,15 @@ int main (int argc, char **argv) {
                 exit(EXIT_FAILURE);
         }
     }
-
     // Override default DEBUG mode
     conf->loglevel = debug == 1 ? DEBUG : WARNING;
-
     // Try to load a configuration, if found
     config_load(confpath);
-
+    sol_log_init(conf->logpath);
     // Print configuration
     config_print();
     start_server(conf->hostname, conf->port);
-
+    sol_log_close();
     return 0;
 }
 
