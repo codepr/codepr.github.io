@@ -15,13 +15,14 @@ will be crucial to manage the abstraction named **topic**.
 Maybe all these data structures are a bit of an overkill for such a low-size
 project, but I like to have generic containers and data structures available
 when I start a project longer than a bunch of lines, for convenience and for
-future increments and implementations where they could make it handy to add
-new features. And of course, there's the learning and exploration side of
-this activity which I found very valuable.
+future increments and implementations where they could come handy.
+And of course, there's the learning and exploration side of this activity which
+I found very valuable.
 
 Let's start with a simple hashtable, essentially an array that uses a hashing
 function to obtain a valid index to store our information, trying to minimize
-the collisions (e.g. keys that compute to the same hash) as much as possible.
+the collisions (e.g. keys that compute to the same hash resulting in an already
+taken index in the array) as much as possible.
 
 <br>
 ![Hashtable representation]({{site.url}}{{site.baseurl}}/assets/images/hashtable.png#content-image)
@@ -830,7 +831,7 @@ struct list_node *bisect_list(struct list_node *head) {
 
 {% endhighlight %}
 
-We have succesfully implemented two classic data structures that offer useful
+We have successfully implemented two classic data structures that offer useful
 features to our project:
 
 - hashtable
