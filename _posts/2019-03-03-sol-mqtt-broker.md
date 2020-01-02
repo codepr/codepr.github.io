@@ -602,11 +602,11 @@ int mqtt_encode_length(unsigned char *buf, size_t len) {
     do {
         if (bytes + 1 > MAX_LEN_BYTES)
             return bytes;
-        char d = len % 128;
+        short d = len % 128;
         len /= 128;
         /* if there are more digits to encode, set the top bit of this digit */
         if (len > 0)
-            d |= 0x80;
+            d |= 128;
         buf[bytes++] = d;
     } while (len > 0);
     return bytes;
