@@ -896,11 +896,11 @@ static void publish_message(unsigned short pkt_id,
         if (pkt.publish.header.bits.qos > AT_MOST_ONCE)
             len += sizeof(uint16_t);
         int remaninglen_offset = 0;
-        if ((pktlen - 1) > 0x200000)
+        if ((len - 1) > 0x200000)
             remaninglen_offset = 3;
-        else if ((pktlen - 1) > 0x4000)
+        else if ((len - 1) > 0x4000)
             remaninglen_offset = 2;
-        else if ((pktlen - 1) > 0x80)
+        else if ((len - 1) > 0x80)
             remaninglen_offset = 1;
         len += remaninglen_offset;
         packed = pack_mqtt_packet(&pkt, PUBLISH);

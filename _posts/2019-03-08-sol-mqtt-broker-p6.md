@@ -468,6 +468,14 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
         pkt->publish.header.bits.qos = sub->qos;
         if (pkt->publish.header.bits.qos > AT_MOST_ONCE)
             publen += sizeof(uint16_t);
+        int remaninglen_offset = 0;
+        if ((publen - 1) > 0x200000)
+            remaninglen_offset = 3;
+        else if ((publen - 1) > 0x4000)
+            remaninglen_offset = 2;
+        else if ((publen - 1) > 0x80)
+            remaninglen_offset = 1;
+        publen += remaninglen_offset;
         pub = pack_mqtt_packet(pkt, PUBLISH);
         ssize_t sent;
         if ((sent = send_bytes(sc->fd, pub, publen)) < 0)
