@@ -1,160 +1,367 @@
 ---
 layout: post
-title: "Sol - An MQTT broker from scratch. Bonus - Multithreading"
+title: "Sol - An MQTT broker from scratch. Refactoring & eventloop"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
 categories: c unix tutorial epoll
 ---
 
-So in the previous 6 parts we explored a fair amount of common CS topics such
+***UPDATE: 2020-02-07***
+
+In the previous 6 parts we explored a fair amount of common CS topics such
 as networks and data structures, the little journey ended up with a bugged but
 working toy to play with.
 <!--more-->
-Out of curiosity I decided to try and make a dangerous step forward (or
-backward..probably lateral) and modify the server part of the project to be
-multithreaded, mainly to better understand posix threads working mechanism and
-to see if this approach was feasible and advisable in terms of performance.
-
-Some time ago I stumbled upon an article mentioning a type of mutex which I
-wasn't aware of, the `spinlock`, so I promptly browsed the pthread
-documentation and it turned out that a spinlock is essentially a normal mutex,
-but behave slightly differently, in fact, with a normal mutex, when a thread
-acquires lock to e.g. accessing a shared resource, the CPU puts all other
-threads needing to access that critical part of code to sleep, waking them up
-only after the resource guarded by the mutex object has been released; a
-spinlock instead let other threads to constantly try to access the critical
-section till the locked part is released, in a sort of busy wait state. This
-can have some benefits and drawbacks depending on the use case, sometimes maybe
-the shared resources are held for so little time that it is more costly to put
-to sleep and wake up all other threads than to let them try to access till the
-lock is released, on the other side, this approach wastes lot of CPU cycles,
-especially in the case of a longer than expected lock on the resource.
-
-So the main intuition was that in **Sol** as of now, there're not significant
-CPU-bound parts, the main bottleneck is represented by the network
-communication and the datastructures which are essentially the shared sections
-on the systems are fast enough to outrun each TCP transaction.
-
-### Refactoring and bug hunting
-
-Before running into this bloody run I thought it would be a better idea to
-adjust some clunky parts and fix some of the probably unseen bugs I introduced
-a commit at a time during the first draft.
-The first attempts involved some in-place refactoring on a development branch
-just to test the waters and make an idea of the difficulties I was going to
-encounter. Initially I tried to integrate the concurrency parts with the
-closure APIs we've seen in [part 2](../sol-mqtt-broker-p2) but it turned out to
-be harder than I thought and I didn't like the idea of  shared EPOLL with
-multiple threads that do everything.
-
-Eventually I realized that a common approach I already experimented in another
-project was the best one, but involved some heavy refactoring, including the
-removal of the said closure system (you know, it's still increment even by
-removing features, they're the best increments :P). The main idea was to
-instantiate two distinct threadpool, or rather, a mandatory one to handle IO
-and another which could also be a single thread to handle the work parts like
-command handling and storing of informations.<br/>
-
-{% highlight bash %}
-
-       MAIN                  1...N                  1...N
-
-      [EPOLL]             [IO EPOLL]             [WORK EPOLL]
-   ACCEPT THREAD        IO THREAD POOL        WORKER THREAD POOL
-   -------------        --------------        ------------------
-         |                     |                      |
-       ACCEPT                  |                      |
-         | ------------------> |                      |
-         |              READ AND DECODE               |
-         |                     | -------------------> |
-         |                     |                     WORK
-         |                     | <------------------- |
-         |                   WRITE                    |
-         |                     |                      |
-       ACCEPT                  |                      |
-         | ------------------> |                      |
-
-{% endhighlight %}
-
-As shown above, we'll have 3 epoll instances:
-
-- a single thread exclusively used to accept connections, can be the main thread
-- 2 or more threads dedicated to I/O
-- 1 or more threads dedicated to command handling
-
-A nice thing that happened is that this process managed to elicit lot of the
-bugs I mentioned before, and forced improvements on some fragile parts, like
-the data stream receptions and parsing of instructions.
+Out of curiosity, I wanted to test how close to something usable this pet
+project could get and decided to make a huge refactoring to something less
+hacky and a bit more structured, paying also attention to portability.
 I won't walk through all the refactoring process, it would be deadly boring,
 I'll just highlight some of the most important parts that needed adjustements,
 the rest can be safely applied by merging the `master` branch into the
-`tutorial` one.
+`tutorial` one or directly cloning it.
+
+First I listed the main points that needed to be refined in order of priority:
+
+- The low level I/O handling, correctly read/write stream of bytes
+- Abstract over EPOLL as it's a Linux only interface, provide some kind of
+  fallback
+- Manage encryption, achieving a transparent interface for plain or
+  encrypted communication
+- Client session handling and peculiar features of a MQTT broker like '+'
+  wildcard subscriptions
+
+*Note:* *even tho the Hashtable implemented from scratch earlier was working fine
+      I decided to move to a battle-tested and more performant `UTHASH` library,
+      being it single header it was quiet simple to integrate it.
+      See [https://troydhanson.github.io/uthash/](https://troydhanson.github.io/uthash/)
+      for more info.*
 
 #### Packets fragmentation is not funny
 
 The first and foremost aspect to check was the network communication, by mainly
 testing in local I only noticed after some heavier benchmarking that sometimes
 the system was losing some packets, or rather, the kernel buffer was probably
-flooded and started to fragment some payloads, TCP is after all a stream protocol
-and it's perfectly fine to segment data during sending. It was a little naive by me
-to not handle this properly initially, anyway this led to some nasty behaviours,
-like packets wrongly parsed, being the first byte of incoming chunk of data, recognized
-as a different than expected instruction.<br/>
-There also was some stupid overflow related oversights, like using an `unsigned
-short` to handle a field which was supposed to be longer than 65535, like the
-size of the entire command which could be well over that limit (2 MB). So one
-of the most important fix was the `recv_packet` function on the **server.c**
-module, specifically the addition of a loop tracking the remaning to read
-bytes, which ensure we read the entire packet in a single call:
+flooded and started to fragment some payloads, TCP is after all a stream
+protocol and it's perfectly fine to segment data during sending. It was a
+little naive by me to not handle this properly initially, mostly out of rush to
+reach something that could work without worrying of low level details, anyway
+this led to some nasty behaviours, like packets wrongly parsed, being the first
+byte of incoming chunk of data, recognized as a different than expected
+instruction.<br/>
+So one of the most important fix was the `recv_packet` function on the **server.c**
+module, specifically the addition of a state-machine like behaviour for each
+client, correctly performing non-blocking reads and writes without blocking
+the thread ever.
+
+I also moved core parts of the application, specifically main MQTT abstractions
+like client session and topics to an "internal" header.
+
+**sol_internal.h**
 
 {% highlight c %}
-ssize_t recv_packet(int clientfd, unsigned char **buf, unsigned char *header) {
-    ssize_t nbytes = 0;
-    unsigned char *tmpbuf = *buf;
-    /* Read the first byte, it should contain the message type code */
-    if ((nbytes = recv_bytes(clientfd, *buf, 4)) <= 0)
+/*
+ * The client actions can be summarized as a roughly simple state machine,
+ * comprised by 4 states:
+ * - WAITING_HEADER it's the base state, waiting for the next packet to be
+ *                  received
+ * - WAITING_LENGTH the second state, a packet has arrived but it's not
+ *                  complete yet. Accorting to MQTT protocol, after the first
+ *                  byte we need to wait 1 to 4 more bytes based on the
+ *                  encoded length (use continuation bit to state the number
+ *                  of bytes needed, see http://docs.oasis-open.org/mqtt/mqtt/
+ *                  v3.1.1/os/mqtt-v3.1.1-os.html for more info)
+ * - WAITING_DATA   it's the step required to receive the full byte stream as
+ *                  the encoded length describe. We wait for the effective
+ *                  payload in this state.
+ * - SENDING_DATA   the last status, a complete packet has been received and
+ *                  has to be processed and reply back if needed.
+ */
+enum client_status {
+    WAITING_HEADER,
+    WAITING_LENGTH,
+    WAITING_DATA,
+    SENDING_DATA
+};
+
+/*
+ * Wrapper structure around a connected client, each client can be a publisher
+ * or a subscriber, it can be used to track sessions too.
+ * As of now, no allocations will be fired, jsut a big pool of memory at the
+ * start of the application will serve us a client pool, read and write buffers
+ * are initialized lazily.
+ *
+ * It's an hashable struct which will be tracked during the execution of the
+ * application, see https://troydhanson.github.io/uthash/userguide.html.
+ */
+struct client {
+    struct ev_ctx *ctx; /* An event context refrence mostly used to fire write events */
+    int rc;  /* Return code of the message just handled */
+    int status; /* Current status of the client (state machine) */
+    int rpos; /* The nr of bytes to skip after a complete packet has been read.
+               * This because according to MQTT, length is encoded on multiple
+               * bytes according to it's size, using continuation bit as a
+               * technique to encode it. We don't want to decode the length two
+               * times when we already know it, so we need an offset to know
+               * where the actual packet will start
+               */
+    size_t read; /* The number of bytes already read */
+    size_t toread; /* The number of bytes that have to be read */
+    unsigned char *rbuf; /* The reading buffer */
+    size_t wrote; /* The number of bytes already written */
+    size_t towrite; /* The number of bytes we have to write */
+    unsigned char *wbuf; /* The writing buffer */
+    char client_id[MQTT_CLIENT_ID_LEN]; /* The client ID according to MQTT specs */
+    struct connection conn; /* A connection structure, takes care of plain or
+                             * TLS encrypted communication by using callbacks
+                             */
+    struct client_session *session; /* The session associated to the client */
+    unsigned long last_seen; /* The timestamp of the last action performed */
+    bool online;  /* Just an online flag */
+    bool connected; /* States if the client has already processed a connection packet */
+    bool has_lwt; /* States if the connection packet carried a LWT message */
+    bool clean_session; /* States if the connection packet was set to clean session */
+    UT_hash_handle hh; /* UTHASH handle, needed to use UTHASH macros */
+};
+
+/*
+ * Every client has a session which track his subscriptions, possible missed
+ * messages during disconnection time (that iff clean_session is set to false),
+ * inflight messages and the message ID for each one.
+ * A maximum of 65535 mid can be used at the same time according to MQTT specs,
+ * so i_acks, i_msgs and in_i_acks, thus being allocated on the heap during the
+ * init, will be of 65535 length each.
+ *
+ * It's a hashable struct that will be tracked during the entire lifetime of
+ * the application, governed by the clean_session flag on connection from
+ * clients
+ */
+struct client_session {
+    int next_free_mid; /* The next 'free' message ID */
+    List *subscriptions; /* All the clients subscriptions, stored as topic structs */
+    List *outgoing_msgs; /* Outgoing messages during disconnection time, stored as mqtt_packet pointers */
+    bool has_inflight; /* Just a flag stating the presence of inflight messages */
+    bool clean_session; /* Clean session flag */
+    char session_id[MQTT_CLIENT_ID_LEN]; /* The client_id the session refers to */
+    struct mqtt_packet lwt_msg; /* A possibly NULL LWT message, will be set on connection */
+    struct inflight_msg *i_acks; /* Inflight ACKs that must be cleared */
+    struct inflight_msg *i_msgs; /* Inflight MSGs that must be sent out DUP in case of timeout */
+    struct inflight_msg *in_i_acks; /* Inflight input ACKs that must be cleared by the client */
+    UT_hash_handle hh; /* UTHASH handle, needed to use UTHASH macros */
+    struct ref refcount; /* Reference counting struct, to share the struct easily */
+};
+
+{% endhighlight %}
+
+So the client structure is a bit more beefy now and it stores the status of
+each packet read/write in order to resume it in case of `EAGAIN` errors from
+the kernel space.
+
+**server.c**
+
+{% highlight c %}
+static ssize_t recv_packet(struct client *c) {
+    ssize_t nread = 0;
+    unsigned opcode = 0, pos = 0;
+    unsigned long long pktlen = 0LL;
+    // Base status, we have read 0 to 2 bytes
+    if (c->status == WAITING_HEADER) {
+        /*
+         * Read the first two bytes, the first should contain the message type
+         * code
+         */
+        nread = recv_data(&c->conn, c->rbuf + c->read, 2 - c->read);
+        if (errno != EAGAIN && errno != EWOULDBLOCK && nread <= 0)
+            return -ERRCLIENTDC;
+        c->read += nread;
+        if (errno == EAGAIN && c->read < 2)
+            return -ERREAGAIN;
+        c->status = WAITING_LENGTH;
+    }
+    /*
+     * We have already read the packet HEADER, thus we know what packet we're
+     * dealing with, we're between bytes 2-4, as after the 1st byte, the
+     * remaining 3 can be all used to store the packet length, or, in case of
+     * ACK type packet or PINGREQ/PINGRESP and DISCONNECT, the entire packet
+     */
+    if (c->status == WAITING_LENGTH) {
+        if (c->read == 2) {
+            opcode = *c->rbuf >> 4;
+            /*
+             * Check for OPCODE, if an unknown OPCODE is received return an
+             * error
+             */
+            if (DISCONNECT < opcode || CONNECT > opcode)
+                return -ERRPACKETERR;
+            /*
+             * We have a PINGRESP/PINGREQ or a DISCONNECT packet, we're done
+             * here
+             */
+            if (opcode > UNSUBSCRIBE) {
+                c->rpos = 2;
+                c->toread = c->read;
+                goto exit;
+            }
+        }
+        /*
+         * Read 2 extra bytes, because the first 4 bytes could countain the
+         * total size in bytes of the entire packet
+         */
+        nread = recv_data(&c->conn, c->rbuf + c->read, 4 - c->read);
+        if (errno != EAGAIN && errno != EWOULDBLOCK && nread <= 0)
+            return -ERRCLIENTDC;
+        c->read += nread;
+        if (errno == EAGAIN && c->read < 4)
+            return -ERREAGAIN;
+        /*
+         * Read remaning length bytes which starts at byte 2 and can be long to
+         * 4 bytes based on the size stored, so byte 2-5 is dedicated to the
+         * packet length.
+         */
+        pktlen = mqtt_decode_length(c->rbuf + 1, &pos);
+        /*
+         * Set return code to -ERRMAXREQSIZE in case the total packet len
+         * exceeds the configuration limit `max_request_size`
+         */
+        if (pktlen > conf->max_request_size)
+            return -ERRMAXREQSIZE;
+        /*
+         * Update the toread field for the client with the entire length of
+         * the current packet, which is comprehensive of packet length,
+         * bytes used to encode it and 1 byte for the header
+         * We've already tracked the bytes we read so far, we just need to
+         * read toread-read bytes.
+         */
+        c->rpos = pos + 1;
+        c->toread = pktlen + pos + 1;  // pos = bytes used to store length
+        /* Looks like we got an ACK packet, we're done reading */
+        if (pktlen <= 4)
+            goto exit;
+        c->status = WAITING_DATA;
+    }
+    /*
+     * Last status, we have access to the length of the packet and we know for
+     * sure that it's not a PINGREQ/PINGRESP/DISCONNECT packet.
+     */
+    nread = recv_data(&c->conn, c->rbuf + c->read, c->toread - c->read);
+    if (errno != EAGAIN && errno != EWOULDBLOCK && nread <= 0)
         return -ERRCLIENTDC;
-    *header = *tmpbuf;
-    tmpbuf++;
-    /* Check for OPCODE, if an unknown OPCODE is received return an error */
-    if (DISCONNECT < (*header >> 4) || CONNECT > (*header >> 4))
-        return -ERRPACKETERR;
-    /*
-     * Read remaning length bytes which starts at byte 2 and can be long to 4
-     * bytes based on the size stored, so byte 2-5 is dedicated to the packet
-     * length.
-     */
-    int n = 0;
-    unsigned pos = 0;
-    unsigned long long tlen = mqtt_decode_length(&tmpbuf, &pos);
-    /*
-     * Set return code to -ERRMAXREQSIZE in case the total packet len exceeds
-     * the configuration limit `max_request_size`
-     */
-    if (tlen > conf->max_request_size) {
-        nbytes = -ERRMAXREQSIZE;
-        goto exit;
-    }
-    if (tlen <= 4)
-        goto exit;
-    int offset = 4 - pos -1;
-    unsigned long long remaining_bytes = tlen - offset;
-    /* Read remaining bytes to complete the packet */
-    while (remaining_bytes > 0) {
-        if ((n = recv_bytes(clientfd, tmpbuf + offset, remaining_bytes)) < 0)
-            goto err;
-        remaining_bytes -= n;
-        nbytes += n;
-        offset += n;
-    }
-    nbytes -= (pos + 1);
+    c->read += nread;
+    if (errno == EAGAIN && c->read < c->toread)
+        return -ERREAGAIN;
 exit:
-    *buf += pos + 1;
-    return nbytes;
+    return 0;
+}
+/*
+ * Handle incoming requests, after being accepted or after a reply, under the
+ * hood it calls recv_packet and return an error code according to the outcome
+ * of the operation
+ */
+static inline int read_data(struct client *c) {
+    /*
+     * We must read all incoming bytes till an entire packet is received. This
+     * is achieved by following the MQTT protocol specifications, which
+     * send the size of the remaining packet as the second byte. By knowing it
+     * we know if the packet is ready to be deserialized and used.
+     */
+    int err = recv_packet(c);
+    /*
+     * Looks like we got a client disconnection or If a not correct packet
+     * received, we must free the buffer and reset the handler to the request
+     * again, setting EPOLL to EPOLLIN
+     *
+     * TODO: Set a error_handler for ERRMAXREQSIZE instead of dropping client
+     *       connection, explicitly returning an informative error code to the
+     *       client connected.
+     */
+    if (err < 0)
+        goto err;
+    if (c->read < c->toread)
+        return -ERREAGAIN;
+    info.bytes_recv += c->read;
+    return 0;
+    // Disconnect packet received
 err:
-    close(clientfd);
-    return nbytes;
+    return err;
+}
+/*
+ * Write stream of bytes to a client represented by a connection object, till
+ * all bytes to be written is exhausted, tracked by towrite field or if an
+ * EAGAIN (socket descriptor must be in non-blocking mode) error is raised,
+ * meaning we cannot write anymore for the current cycle.
+ */
+static inline int write_data(struct client *c) {
+    ssize_t wrote = send_data(&c->conn, c->wbuf+c->wrote, c->towrite-c->wrote);
+    if (errno != EAGAIN && errno != EWOULDBLOCK && wrote < 0)
+        return -ERRCLIENTDC;
+    c->wrote += wrote > 0 ? wrote : 0;
+    if (c->wrote < c->towrite && errno == EAGAIN)
+        return -ERREAGAIN;
+    // Update information stats
+    info.bytes_sent += c->towrite;
+    // Reset client written bytes track fields
+    c->towrite = c->wrote = 0;
+    return 0;
 }
 {% endhighlight %}
+
+Worth a note, `recv_packet` and `write_data` functions calls in turn two lower
+level functions defined in the **network.h** header:
+
+- `ssize_t send_data(struct connection *, const unsigned char *, size_t)`
+- `ssize_t recv_data(struct connection *, unsigned char *, size_t)`
+
+Both functions accept a `struct connection` as first parameter, the other two
+are simply the buffer to be filled/emptied and the number of bytes to
+read/write.
+
+That connection structure directly address the 3rd point described earlier in
+the improvements list, it's an abstraction over a socket connection with a
+client and it is comprised of 4 fundamental callbacks neeed to manage the
+communication:
+
+- accept
+- send
+- recv
+- close
+
+This approach allows to build a new connection for each connecting client based
+on the communication type chosen, be it plain or TLS encrypted, allowing to use
+just a single function in both cases.
+It's definition is:
+
+**network.h**
+
+{% highlight c %}
+/*
+ * Connection abstraction struct, provide a transparent interface for
+ * connection handling, taking care of communication layer, being it encrypted
+ * or plain, by setting the right callbacks to be used.
+ *
+ * The 4 main operations reflected by those callbacks are the ones that can be
+ * performed on every FD:
+ *
+ * - accept
+ * - read
+ * - write
+ * - close
+ *
+ * According to the type of connection we need, each one of these actions will
+ * be set with the right function needed. Maintain even the address:port of the
+ * connecting client.
+ */
+struct connection {
+    int fd;
+    SSL *ssl;
+    SSL_CTX *ctx;
+    char ip[INET_ADDRSTRLEN + 6];
+    int (*accept) (struct connection *, int);
+    ssize_t (*send) (struct connection *, const unsigned char *, size_t);
+    ssize_t (*recv) (struct connection *, unsigned char *, size_t);
+    void (*close) (struct connection *);
+};
+{% endhighlight %}
+
+It also stores an `SSL *` and an `SSL_CTX *`, those are left `NULL` in case of
+plain communication.
 
 Another good improvement was the correction of the packing and unpacking
 functions (thanks to [beej networking
@@ -198,7 +405,7 @@ long long unpack_integer(unsigned char **buf, char size) {
             *buf += 8;
             break;
         case 'Q':
-            val = unpacku16(*buf);
+            val = unpacku64(*buf);
             *buf += 8;
             break;
     }
@@ -214,471 +421,458 @@ unsigned char *unpack_bytes(unsigned char **buf, size_t len) {
 }
 {% endhighlight %}
 
-And finally it's worth the mention the use of useful enhanced strings, instead
-of using a structure to handle them, we piggyback the size of every array of chars
-to each malloc'ed string, this way, with some helper functions, this bytestrings
-can be used as normal strings as well.
+### Adding a tiny eventloop: ev
 
+Abstracting over the multiplexing APIs offered by the host machine has not been
+that hard in a single threaded context, it essentially consists of a structure
+tracking a range of events by using a pre-allocated array of custom
+struct events. The header is pretty descriptive, the most important parts to
+grasp are the standardization of events into our convention (see `enum ev_type`)
+the custom event struct (`struct ev`) and the `events_monitored` array that
+pre-allocate a number of events corresponding to multiplexing events fired
+from the kernel space (e.g. if a descriptor is ready to read some data or to
+write).
+
+Using an opaque `void *` pointer allows us to plug-in whatever underlying API
+the host machine provide, be it `EPOLL`, `SELECT` or `KQUEUE`.
+
+**ev.h**
 {% highlight c %}
+#include <sys/time.h>
+#define EV_OK  0
+#define EV_ERR 1
 /*
- * Return the length of the string without having to call strlen, thus this
- * works also with non-nul terminated string. The length of the string is in
- * fact stored in memory in an unsigned long just before the position of the
- * string itself.
+ * Event types, meant to be OR-ed on a bitmask to define the type of an event
+ * which can have multiple traits
  */
-size_t bstring_len(const bstring s) {
-    return *((size_t *) (s - sizeof(size_t)));
-}
-
-bstring bstring_new(const unsigned char *init) {
-    if (!init)
-        return NULL;
-    size_t len = strlen((const char *) init);
-    return bstring_copy(init, len);
-}
-
-bstring bstring_copy(const unsigned char *init, size_t len) {
-    /*
-     * The strategy would be to piggyback the real string to its stored length
-     * in memory, having already implemented this logic before to actually
-     * track memory usage of the system, we just need to malloc it with the
-     * custom malloc in utils
-     */
-    unsigned char *str = malloc(len);
-    memcpy(str, init, len);
-    return str;
-}
-
-/* Same as bstring_copy but setting the entire content of the string to 0 */
-bstring bstring_empty(size_t len) {
-    unsigned char *str = malloc(len);
-    memset(str, 0x00, len);
-    return str;
-}
-
-void bstring_destroy(bstring s) {
-    /*
-     * Being allocated with utils custom functions just free it with the
-     * corrispective free function
-     */
-    free(s);
-}
+enum ev_type {
+    EV_NONE       = 0x00,
+    EV_READ       = 0x01,
+    EV_WRITE      = 0x02,
+    EV_DISCONNECT = 0x04,
+    EV_EVENTFD    = 0x08,
+    EV_TIMERFD    = 0x10,
+    EV_CLOSEFD    = 0x20
+};
+struct ev_ctx;
+/*
+ * Event struture used as the main carrier of clients informations, it will be
+ * tracked by an array in every context created
+ */
+struct ev {
+    int fd;
+    int mask;
+    void *rdata; // opaque pointer for read callback args
+    void *wdata; // opaque pointer for write callback args
+    void (*rcallback)(struct ev_ctx *, void *); // read callback
+    void (*wcallback)(struct ev_ctx *, void *); // write callback
+};
+/*
+ * Event loop context, carry the expected number of events to be monitored at
+ * every cycle and an opaque pointer to the backend used as engine
+ * (Select | Epoll | Kqueue).
+ * By now we stick with epoll and skip over select, cause as the current
+ * threaded model employed by the server is not very friendly with select
+ * Level-trigger default setting. But it would be quiet easy abstract over the
+ * select model as well for single threaded uses or in a loop per thread
+ * scenario (currently thanks to epoll Edge-triggered + EPOLLONESHOT we can
+ * share a single loop over multiple threads).
+ */
+struct ev_ctx {
+    int events_nr;
+    int maxfd; // the maximum FD monitored by the event context,
+               // events_monitored must be at least maxfd long
+    int stop;
+    int maxevents;
+    unsigned long long fired_events;
+    struct ev *events_monitored;
+    void *api; // opaque pointer to platform defined backends
+};
+void ev_init(struct ev_ctx *, int);
+void ev_destroy(struct ev_ctx *);
+/*
+ * Poll an event context for events, accepts a timeout or block forever,
+ * returning only when a list of FDs are ready to either READ, WRITE or TIMER
+ * to be executed.
+ */
+int ev_poll(struct ev_ctx *, time_t);
+/*
+ * Blocks forever in a loop polling for events with ev_poll calls. At every
+ * cycle executes callbacks registered with each event
+ */
+int ev_run(struct ev_ctx *);
+/*
+ * Trigger a stop on a running event, it's meant to be run as an event in a
+ * running ev_ctx
+ */
+void ev_stop(struct ev_ctx *);
+/*
+ * Add a single FD to the underlying backend of the event loop. Equal to
+ * ev_fire_event just without an event to be carried. Useful to add simple
+ * descritors like a listening socket o message queue FD.
+ */
+int ev_watch_fd(struct ev_ctx *, int, int);
+/*
+ * Remove a FD from the loop, even tho a close syscall is sufficient to remove
+ * the FD from the underlying backend such as EPOLL/SELECT, this call ensure
+ * that any associated events is cleaned out an set to EV_NONE
+ */
+int ev_del_fd(struct ev_ctx *, int);
+/*
+ * Register a new event, semantically it's equal to ev_register_event but
+ * it's meant to be used when an FD is not already watched by the event loop.
+ * It could be easily integrated in ev_fire_event call but I prefer maintain
+ * the samantic separation of responsibilities.
+ */
+int ev_register_event(struct ev_ctx *, int, int,
+                      void (*callback)(struct ev_ctx *, void *), void *);
+int ev_register_cron(struct ev_ctx *,
+                     void (*callback)(struct ev_ctx *, void *),
+                     void *,
+                     long long, long long);
+/*
+ * Register a new event for the next loop cycle to a FD. Equal to ev_watch_fd
+ * but allow to carry an event object for the next cycle.
+ */
+int ev_fire_event(struct ev_ctx *, int, int,
+                  void (*callback)(struct ev_ctx *, void *), void *);
 {% endhighlight %}
 
-### Make the accept, IO and work parts communicate
+At the init of the server, the `ev_ctx` will be instructed to run some
+periodic tasks and to run a callback on accept on new connections. From now
+on start a simple juggling of callbacks to be scheduled on the event loop,
+typically after being accepted a connection his handle (fd) will be added to
+the backend of the loop (this case we're using `EPOLL` as a backend but also
+`KQUEUE` or `SELECT/POLL` should be easy to plug-in) and read_callback will be
+run every time there's new data incoming. If a complete packet is received
+and correctly parsed it will be processed by calling the right handler from
+the handler module, based on the command it carries and a response will be
+fired back.
 
-Epoll shared between threads presents some traps, and the main debate is to
-wether use an epoll descriptor for each thread or share a single descriptor
-between multiple threads. I personally prefer the second approach, in order to
-let the kernel do the load-balancing, epoll APIs is in-fact threadsafe, while
-the first one, thus being most of the time easier, gave up a bit of control on
-clients handling, thus every thread will have a subset of connections and work
-to handle, without any warranty that some threads could be starved and some
-other being over heavy load.<br/>
-The main issues to address are the thundering herd problem, communication and
-of course handling of shared resource on the business logic sections. The first
-problem should be tackled by the `EPOLLONESHOT` flag, in order to wake up just
-one thread per time and manually rearm the descriptor for read/write events.
-For the shared resources we opted for the `spinlock` solution on critical parts,
-the communications remain to be solved.
+{% highlight bash %}
 
-Queues are usually the go-to solutions in these cases, but instead of writing a
-threadsafe queue which could prove tricky, especially if our purpose is to
-improve performance, it was better to scratch a bit the surface and search for
-a lighweight already implemented solution. It came in the form of event handling
-at a kernel level. Running `man eventfd` I found the answers i seeked for, eventfd
-could be used to fire arbitrary events to different epoll descriptor, just registering
-one to different epoll descriptor, while looping waiting for events to be triggered
-they can be used to effectively communicate and share data safely between them.
-First I needed two structures to wrap and handle events and one to instantiate the
-involved epoll descriptors.
+                             MAIN THREAD
+                              [EV_CTX]
 
-{% highlight c %}
-/*
- * IO event strucuture, it's the main information that will be communicated
- * between threads, every request packet will be wrapped into an IO event and
- * passed to the work EPOLL, in order to be handled by the worker thread pool.
- * Then finally, after the execution of the command, it will be updated and
- * passed back to the IO epoll loop to be written back to the requesting client
- */
-struct io_event {
-    int epollfd;
-    eventfd_t eventfd;
-    bstring reply;
-    struct sol_client *client;
-    union mqtt_packet *data;
-};
-
-/*
- * Shared epoll object, contains the IO epoll and Worker epoll descriptors,
- * as well as the server descriptor and the timer fd for repeated routines.
- * Each thread will receive a copy of a pointer to this structure, to have
- * access to all file descriptor running the application
- */
-struct epoll {
-    int io_epollfd;
-    int w_epollfd;
-    int serverfd;
-    int expirefd;
-    int busfd;
-};
+    ACCEPT_CALLBACK         READ_CALLBACK         WRITE_CALLBACK
+  -------------------    ------------------    --------------------
+           |                     |                       |
+        ACCEPT                   |                       |
+           | ------------------> |                       |
+           |               READ AND DECODE               |
+           |                     |                       |
+           |                     |                       |
+           |                  PROCESS                    |
+           |                     |                       |
+           |                     |                       |
+           |                     | --------------------> |
+           |                     |                     WRITE
+        ACCEPT                   |                       |
+           | ------------------> | <-------------------- |
+           |                     |                       |
 {% endhighlight %}
 
-These two structures enable the communication between threads
-- `io_event` represents a I/O event, a wrapper around an interaction from a
-  connected client, it'll be the object that will be passed in as arguments to
-  all handler callbacks as a pointer, its content is mostly self-explanatory,
-  the epollfd is the one of the epoll instance where the fd "belongs", which
-  will be an IO thread epoll one, there's a reference to the source client of
-  the request, a bystestring for the reply, a payload and the `eventfd_t` field
-  which represents our trigger to wake up a worker epoll thread.
-- `epoll` is more of a `const` structure inited in the main entry point function
-  `start_server` passed around to the `accept_loop` function on the main thread,
-  to `io_worker` threads and finally to the `worker_thread` threads.
-  It store the epoll descriptor of the IO dedicated threadpool, and the one of
-  the worker threadpool, while `busfd` is still unused, it'll eventually come
-  useful later if I'll be crazy enough to try to scale-out the system across a
-  cluster of machines, implementing some sort of gossip protocol to share
-  informations, but that's another whole world to explore.
+This is the lifecycle of a connecting client, we got an accept-only callback
+that demand IO handling to read and write callbacks till the disconnection of
+the client.
 
-So we'll end up init the `epoll` struct on `start_server` like this
+The mentioned callbacks have been added to the server module and they're
+extremely simple, a thing always appreciated
 
 **server.c**
 
 {% highlight c %}
-int start_server(const char *addr, const char *port) {
-    // init logics here
-    ...
+/*
+ * Handle incoming connections, create a a fresh new struct client structure
+ * and link it to the fd, ready to be set in EV_READ event, then schedule a
+ * call to the read_callback to handle incoming streams of bytes
+ */
+static void accept_callback(struct ev_ctx *ctx, void *data) {
+    int serverfd = *((int *) data);
+    while (1) {
+        /*
+         * Accept a new incoming connection assigning ip address
+         * and socket descriptor to the connection structure
+         * pointer passed as argument
+         */
+        struct connection conn;
+        connection_init(&conn, conf->tls ? server.ssl_ctx : NULL);
+        int fd = accept_connection(&conn, serverfd);
+        if (fd == 0)
+            continue;
+        if (fd < 0) {
+            close_connection(&conn);
+            break;
+        }
+        /*
+         * Create a client structure to handle his context
+         * connection
+         */
+        struct client *c = memorypool_alloc(server.pool);
+        c->conn = conn;
+        client_init(c);
+        c->ctx = ctx;
+        /* Add it to the epoll loop */
+        ev_register_event(ctx, fd, EV_READ, read_callback, c);
+        /* Record the new client connected */
+        info.nclients++;
+        info.nconnections++;
+        log_info("[%p] Connection from %s", (void *) pthread_self(), conn.ip);
+    }
+}
+/*
+ * Reading packet callback, it's the main function that will be called every
+ * time a connected client has some data to be read, notified by the eventloop
+ * context.
+ */
+static void read_callback(struct ev_ctx *ctx, void *data) {
+    struct client *c = data;
+    if (c->status == SENDING_DATA)
+        return;
+    /*
+     * Received a bunch of data from a client, after the creation
+     * of an IO event we need to read the bytes and encoding the
+     * content according to the protocol
+     */
+    int rc = read_data(c);
+    switch (rc) {
+        case 0:
+            /*
+             * All is ok, raise an event to the worker poll EPOLL and
+             * link it with the IO event containing the decode payload
+             * ready to be processed
+             */
+            /* Record last action as of now */
+            c->last_seen = time(NULL);
+            c->status = SENDING_DATA;
+            process_message(ctx, c);
+            break;
+        case -ERRCLIENTDC:
+        case -ERRPACKETERR:
+        case -ERRMAXREQSIZE:
+            /*
+             * We got an unexpected error or a disconnection from the
+             * client side, remove client from the global map and
+             * free resources allocated such as io_event structure and
+             * paired payload
+             */
+            log_error("Closing connection with %s (%s): %s",
+                      c->client_id, c->conn.ip, solerr(rc));
+            // Publish, if present, LWT message
+            if (c->has_lwt == true) {
+                char *tname = (char *) c->session->lwt_msg.publish.topic;
+                struct topic *t = topic_get(&server, tname);
+                publish_message(&c->session->lwt_msg, t);
+            }
+            // Clean resources
+            ev_del_fd(ctx, c->conn.fd);
+            // Remove from subscriptions for now
+            if (c->session && list_size(c->session->subscriptions) > 0) {
+                struct list *subs = c->session->subscriptions;
+                list_foreach(item, subs) {
+                    log_debug("Deleting %s from topic %s",
+                              c->client_id, ((struct topic *) item->data)->name);
+                    topic_del_subscriber(item->data, c);
+                }
+            }
+            client_deactivate(c);
+            info.nclients--;
+            info.nconnections--;
+            break;
+        case -ERREAGAIN:
+            ev_fire_event(ctx, c->conn.fd, EV_READ, read_callback, c);
+            break;
+    }
+}
+/*
+ * This function is called only if the client has sent a full stream of bytes
+ * consisting of a complete packet as expected by the MQTT protocol and by the
+ * declared length of the packet.
+ * It uses eventloop APIs to react accordingly to the packet type received,
+ * validating it before proceed to call handlers. Depending on the handler
+ * called and its outcome, it'll enqueue an event to write a reply or just
+ * reset the client state to allow reading some more packets.
+ */
+static void process_message(struct ev_ctx *ctx, struct client *c) {
+    struct io_event io = { .client = c };
+    /*
+     * Unpack received bytes into a mqtt_packet structure and execute the
+     * correct handler based on the type of the operation.
+     */
+    mqtt_unpack(c->rbuf + c->rpos, &io.data, *c->rbuf, c->read - c->rpos);
+    c->toread = c->read = c->rpos = 0;
+    c->rc = handle_command(io.data.header.bits.type, &io);
+    switch (c->rc) {
+        case REPLY:
+        case MQTT_NOT_AUTHORIZED:
+        case MQTT_BAD_USERNAME_OR_PASSWORD:
+            /*
+             * Write out to client, after a request has been processed in
+             * worker thread routine. Just send out all bytes stored in the
+             * reply buffer to the reply file descriptor.
+             */
+            enqueue_event_write(c);
+            /* Free resource, ACKs will be free'd closing the server */
+            if (io.data.header.bits.type != PUBLISH)
+                mqtt_packet_destroy(&io.data);
+            break;
+        case -ERRCLIENTDC:
+            ev_del_fd(ctx, c->conn.fd);
+            client_deactivate(io.client);
+            // Update stats
+            info.nclients--;
+            info.nconnections--;
+            break;
+        case -ERRNOMEM:
+            log_error(solerr(c->rc));
+            break;
+        default:
+            c->status = WAITING_HEADER;
+            if (io.data.header.bits.type != PUBLISH)
+                mqtt_packet_destroy(&io.data);
+            break;
+    }
+}
+/*
+ * Callback dedicated to client replies, try to send as much data as possible
+ * epmtying the client buffer and rearming the socket descriptor for reading
+ * after
+ */
+static void write_callback(struct ev_ctx *ctx, void *arg) {
+    struct client *client = arg;
+    int err = write_data(client);
+    switch (err) {
+        case 0: // OK
+            /*
+             * Rearm descriptor making it ready to receive input,
+             * read_callback will be the callback to be used; also reset the
+             * read buffer status for the client.
+             */
+            client->status = WAITING_HEADER;
+            ev_fire_event(ctx, client->conn.fd, EV_READ, read_callback, client);
+            break;
+        case -ERREAGAIN:
+            enqueue_event_write(client);
+            break;
+        default:
+            log_info("Closing connection with %s (%s): %s %i",
+                     client->client_id, client->conn.ip,
+                     solerr(client->rc), err);
+            ev_del_fd(ctx, client->conn.fd);
+            client_deactivate(client);
+            // Update stats
+            info.nclients--;
+            info.nconnections--;
+            break;
+    }
+}
+{% endhighlight %}
 
+Of course the starting server will have to make a blocking call starting the
+eventloop, and we'll need a stop mechanism as well, thanks to `ev_stop` API it
+has been pretty simple to add an additional event routine to be called when we
+want to stop the running loop.
+
+{% highlight c %}
+/*
+ * Eventloop stop callback, will be triggered by an EV_CLOSEFD event and stop
+ * the running loop, unblocking the call.
+ */
+static void stop_handler(struct ev_ctx *ctx, void *arg) {
+    (void) arg;
+    ev_stop(ctx);
+}
+/*
+ * IO worker function, wait for events on a dedicated epoll descriptor which
+ * is shared among multiple threads for input and output only, following the
+ * normal EPOLL semantic, EPOLLIN for incoming bytes to be unpacked and
+ * processed by a worker thread, EPOLLOUT for bytes incoming from a worker
+ * thread, ready to be delivered out.
+ */
+static void eventloop_start(void *args) {
+    int sfd = *((int *) args);
+    struct ev_ctx ctx;
+    ev_init(&ctx, EVENTLOOP_MAX_EVENTS);
+    // Register stop event
+    ev_register_event(&ctx, conf->run, EV_CLOSEFD|EV_READ, stop_handler, NULL);
+    // Register listening FD with accept callback
+    ev_register_event(&ctx, sfd, EV_READ, accept_callback, &sfd);
+    // Register periodic tasks
+    ev_register_cron(&ctx, publish_stats, NULL, conf->stats_pub_interval, 0);
+    ev_register_cron(&ctx, inflight_msg_check, NULL, 0, 9e8);
+    // Start the loop, blocking call
+    ev_run(&ctx);
+    ev_destroy(&ctx);
+}
+/* Fire a write callback to reply after a client request */
+void enqueue_event_write(const struct client *c) {
+    ev_fire_event(c->ctx, c->conn.fd, EV_WRITE, write_callback, (void *) c);
+}
+{% endhighlight %}
+
+So the final `start_server` function, which is one of the two exposed APIs of
+the server module will just be changed to start an eventloop with an opened
+socket in listening mode:
+
+**server.c**
+
+{% highlight c %}
+/*
+ * Main entry point for the server, to be called with an address and a port
+ * to start listening
+ */
+int start_server(const char *addr, const char *port) {
+    /* Initialize global Sol instance */
+    trie_init(&server.topics, NULL);
+    server.authentications = NULL;
+    server.pool = memorypool_new(BASE_CLIENTS_NUM, sizeof(struct client));
+    server.clients_map = NULL;
+    server.sessions = NULL;
+    server.wildcards = list_new(wildcard_destructor);
+    if (conf->allow_anonymous == false)
+        config_read_passwd_file(conf->password_file, &server.authentications);
+    /* Generate stats topics */
+    for (int i = 0; i < SYS_TOPICS; i++)
+        topic_put(&server, topic_new(xstrdup(sys_topics[i].name)));
     /* Start listening for new connections */
     int sfd = make_listen(addr, port, conf->socket_family);
-
-    struct epoll epoll = {
-        .io_epollfd = epoll_create1(0),
-        .w_epollfd = epoll_create1(0),
-        .serverfd = sfd,
-        .busfd = -1  // unused
-    };
-
-    /* Start the expiration keys check routine */
-    struct itimerspec timervalue;
-
-    memset(&timervalue, 0x00, sizeof(timervalue));
-
-    timervalue.it_value.tv_sec = conf->stats_pub_interval;
-    timervalue.it_value.tv_nsec = 0;
-    timervalue.it_interval.tv_sec = conf->stats_pub_interval;
-    timervalue.it_interval.tv_nsec = 0;
-
-    // add expiration keys cron task
-    int exptimerfd = add_cron_task(epoll.w_epollfd, &timervalue);
-
-    epoll.expirefd = exptimerfd;
-
-    /*
-     * We need to watch for global eventfd in order to gracefully shutdown IO
-     * thread pool and worker pool
-     */
-    epoll_add(epoll.io_epollfd, conf->run, EPOLLIN, NULL);
-    epoll_add(epoll.w_epollfd, conf->run, EPOLLIN, NULL);
-
-    pthread_t iothreads[IOPOOLSIZE];
-    pthread_t workers[WORKERPOOLSIZE];
-
-    /* Start I/O thread pool */
-
-    for (int i = 0; i < IOPOOLSIZE; ++i)
-        pthread_create(&iothreads[i], NULL, &io_worker, &epoll);
-
-    /* Start Worker thread pool */
-
-    for (int i = 0; i < WORKERPOOLSIZE; ++i)
-        pthread_create(&workers[i], NULL, &worker, &epoll);
-
-    sol_info("Server start");
+    /* Setup SSL in case of flag true */
+    if (conf->tls == true) {
+        openssl_init();
+        server.ssl_ctx = create_ssl_context();
+        load_certificates(server.ssl_ctx, conf->cafile,
+                          conf->certfile, conf->keyfile);
+    }
+    log_info("Server start");
     info.start_time = time(NULL);
-
-    // Main thread for accept new connections
-    accept_loop(&epoll);
-    // resources release and clean out here
-    ...
-}
-{% endhighlight %}
-
-All we have to do is run an accept loop where all incoming connections will be
-handled, a new `struct client` will be instantiated with partial init (some fields
-could be modified later with commands, like the `connect` one) and the resulting
-connected descriptor wrapped in the `client` will be associated to the IO epoll
-descriptor, that's it, it's an IO worker problem now.
-
-{% highlight c %}
-static void accept_loop(struct epoll *epoll) {
-    int events = 0;
-    struct epoll_event *e_events =
-        malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
-    int epollfd = epoll_create1(0);
-    /*
-     * We want to watch for events incoming on the server descriptor (e.g. new
-     * connections)
-     */
-    epoll_add(epollfd, epoll->serverfd, EPOLLIN | EPOLLONESHOT, NULL);
-    /*
-     * And also to the global event fd, this one is useful to gracefully
-     * interrupt polling and thread execution
-     */
-    epoll_add(epollfd, conf->run, EPOLLIN, NULL);
-    while (1) {
-        events = epoll_wait(epollfd, e_events, EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
-        if (events < 0) {
-            /* Signals to all threads. Ignore it for now */
-            if (errno == EINTR)
-                continue;
-            /* Error occured, break the loop */
-            break;
-        }
-        for (int i = 0; i < events; ++i) {
-            /* Check for errors */
-            EPOLL_ERR(e_events[i]) {
-                /*
-                 * An error has occured on this fd, or the socket is not
-                 * ready for reading, closing connection
-                 */
-                perror("accept_loop :: epoll_wait(2)");
-                close(e_events[i].data.fd);
-            } else if (e_events[i].data.fd == conf->run) {
-                /* And quit event after that */
-                eventfd_t val;
-                eventfd_read(conf->run, &val);
-                sol_debug("Stopping epoll loop. Thread %p exiting.",
-                          (void *) pthread_self());
-                goto exit;
-            } else if (e_events[i].data.fd == epoll->serverfd) {
-                while (1) {
-                    /*
-                     * Accept a new incoming connection assigning ip address
-                     * and socket descriptor to the connection structure
-                     * pointer passed as argument
-                     */
-                    int fd = accept_connection(epoll->serverfd);
-                    if (fd < 0)
-                        break;
-                    /*
-                     * Create a client structure to handle his context
-                     * connection
-                     */
-                    struct sol_client *client = malloc(sizeof(*client));
-                    if (!client)
-                        return;
-                    /* Populate client structure */
-                    client->fd = fd;
-                    /* Record last action as of now */
-                    client->last_action_time = time(NULL);
-                    /* Add it to the epoll loop */
-                    epoll_add(epoll->io_epollfd, fd,
-                              EPOLLIN | EPOLLONESHOT, client);
-                    /* Rearm server fd to accept new connections */
-                    epoll_mod(epollfd, epoll->serverfd, EPOLLIN, NULL);
-                    /* Record the new client connected */
-                    info.nclients++;
-                    info.nconnections++;
-                }
-            }
-        }
+    // start eventloop, could be spread on multiple threads
+    eventloop_start(&sfd);
+    close(sfd);
+    AUTH_DESTROY(server.authentications);
+    list_destroy(server.wildcards, 1);
+    /* Destroy SSL context, if any present */
+    if (conf->tls == true) {
+        SSL_CTX_free(server.ssl_ctx);
+        openssl_cleanup();
     }
-exit:
-    free(e_events);
-}
-{% endhighlight %}
-
-From now on the IO worker will just handle, as the name explain, the IO
-operations of the connected client, like new instructions sent or output to be
-sent out after a subscription request for example.
-
-{% highlight c %}
-static void *io_worker(void *arg) {
-    struct epoll *epoll = arg;
-    int events = 0;
-    ssize_t sent = 0;
-    struct epoll_event *e_events =
-        malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
-    /* Raw bytes buffer to handle input from client */
-    unsigned char *buffer = malloc(conf->max_request_size);
-    while (1) {
-        events = epoll_wait(epoll->io_epollfd, e_events,
-                            EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
-        if (events < 0) {
-            /* Signals to all threads. Ignore it for now */
-            if (errno == EINTR)
-                continue;
-            /* Error occured, break the loop */
-            break;
-        }
-        for (int i = 0; i < events; ++i) {
-            /* Check for errors */
-            EPOLL_ERR(e_events[i]) {
-                /* An error has occured on this fd, or the socket is not
-                   ready for reading, closing connection */
-                perror("io_worker :: epoll_wait(2)");
-                close(e_events[i].data.fd);
-            } else if (e_events[i].data.fd == conf->run) {
-                /* And quit event after that */
-                eventfd_t val;
-                eventfd_read(conf->run, &val);
-                sol_debug("Stopping epoll loop. Thread %p exiting.",
-                          (void *) pthread_self());
-                goto exit;
-            } else if (e_events[i].events & EPOLLIN) {
-                struct io_event *event = malloc(sizeof(*event));
-                event->epollfd = epoll->io_epollfd;
-                event->data = malloc(sizeof(*event->data));
-                event->client = e_events[i].data.ptr;
-                /*
-                 * Received a bunch of data from a client, after the creation
-                 * of an IO event we need to read the bytes and encoding the
-                 * content according to the protocol
-                 */
-                int rc = read_data(event->client->fd, buffer, event->data); // here we essentially call recv_packet
-                if (rc == 0) {
-                    /*
-                     * All is ok, raise an event to the worker poll EPOLL and
-                     * link it with the IO event containing the decode payload
-                     * ready to be processed
-                     */
-                    eventfd_t ev = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-                    event->eventfd = ev;
-                    epoll_add(epoll->w_epollfd, ev,
-                              EPOLLIN | EPOLLONESHOT, event);
-                    /* Record last action as of now */
-                    event->client->last_action_time = time(NULL);
-                    /* Fire an event toward the worker thread pool */
-                    eventfd_write(ev, 1);
-                } else if (rc == -ERRCLIENTDC || rc == -ERRPACKETERR) {
-                    /*
-                     * We got an unexpected error or a disconnection from the
-                     * client side, remove client from the global map and
-                     * free resources allocated such as io_event structure and
-                     * paired payload
-                     */
-                    close(event->client->fd);
-                    hashtable_del(sol.clients, event->client->client_id);
-                    free(event->data);
-                    free(event);
-                }
-            } else if (e_events[i].events & EPOLLOUT) {
-                struct io_event *event = e_events[i].data.ptr;
-                /*
-                 * Write out to client, after a request has been processed in
-                 * worker thread routine. Just send out all bytes stored in the
-                 * reply buffer to the reply file descriptor.
-                 */
-                if ((sent = send_bytes(event->client->fd,
-                                       event->reply,
-                                       bstring_len(event->reply))) < 0) {
-                    close(event->client->fd);
-                } else {
-                    /*
-                     * Rearm descriptor, we're using EPOLLONESHOT feature to avoid
-                     * race condition and thundering herd issues on multithreaded
-                     * EPOLL
-                     */
-                    epoll_mod(epoll->io_epollfd,
-                              event->client->fd, EPOLLIN, event->client);
-                }
-                // Update information stats
-                info.bytes_sent += sent < 0 ? 0 : sent;
-                /* Free resource, ACKs will be free'd closing the server */
-                bstring_destroy(event->reply);
-                mqtt_packet_release(event->data, event->data->header.bits.type);
-                close(event->eventfd);
-                free(event);
-            }
-        }
-    }
-exit:
-    free(e_events);
-    free(buffer);
-    return NULL;
-}
-{% endhighlight %}
-
-As we can see, inside the `EPOLLIN if` branch we fire a new event to the target
-epoll instance, this case pointed by the worker epoll descriptor and we pass
-the control over the parsed packet to the worker pool, which will apply the
-business logic calling the right callback based on the received command including
-error handling.<br/> To be noted that the event is created directly in the
-`if` for each incoming event and closed right after the `EPOLLOUT` is triggered
-for each client. Essentially it has the lifespan of a request-response.
-
-{% highlight c %}
-static void *worker(void *arg) {
-    struct epoll *epoll = arg;
-    int events = 0;
-    long int timers = 0;
-    eventfd_t val;
-    struct epoll_event *e_events =
-        malloc(sizeof(struct epoll_event) * EPOLL_MAX_EVENTS);
-    while (1) {
-        events = epoll_wait(epoll->w_epollfd, e_events,
-                            EPOLL_MAX_EVENTS, EPOLL_TIMEOUT);
-        if (events < 0) {
-            /* Signals to all threads. Ignore it for now */
-            if (errno == EINTR)
-                continue;
-            /* Error occured, break the loop */
-            break;
-        }
-        for (int i = 0; i < events; ++i) {
-            /* Check for errors */
-            EPOLL_ERR(e_events[i]) {
-                /*
-                 * An error has occured on this fd, or the socket is not
-                 * ready for reading, closing connection
-                 */
-                perror("worker :: epoll_wait(2)");
-                close(e_events[i].data.fd);
-            } else if (e_events[i].data.fd == conf->run) {
-                /* And quit event after that */
-                eventfd_read(conf->run, &val);
-                sol_debug("Stopping epoll loop. Thread %p exiting.",
-                          (void *) pthread_self());
-                goto exit;
-            } else if (e_events[i].data.fd == epoll->expirefd) {
-                (void) read(e_events[i].data.fd, &timers, sizeof(timers));
-                // Check for keys about to expire out
-                publish_stats();
-            } else if (e_events[i].events & EPOLLIN) {
-                struct io_event *event = e_events[i].data.ptr;
-                eventfd_read(event->eventfd, &val);
-                // TODO free client and remove it from the global map in case
-                // of QUIT command (check return code)
-                int reply = handlers[event->data->header.bits.type](event);
-                if (reply == REPLY)
-                    epoll_mod(event->epollfd, event->client->fd, EPOLLOUT, event);
-                else if (reply != CLIENTDC) {
-                    epoll_mod(epoll->io_epollfd,
-                              event->client->fd, EPOLLIN, event->client);
-                    close(event->eventfd);
-                }
-            }
-        }
-    }
-exit:
-    free(e_events);
-    return NULL;
+    log_info("Sol v%s exiting", VERSION);
+    return 0;
 }
 {% endhighlight %}
 
 Commands are handled through a dispatch table, a common pattern used in C where
 we map function pointers inside an array, in this case each position in the
-array corresponds to an MQTT command.
+array corresponds to an MQTT command.<br>
+As you can see, there's also a `memorypool_new` call for clients, I decided
+to pre-allocate a fixed number of clients, allowing the reuse of them when
+disconnection occurs, the memory cost is negligible and totally worth it, as
+long as the connecting clients are lazily inited, specifically their read and
+write buffer, which can also be MB size.
 
 This of course is only a fraction of what the ordeal has been but eventually I
-came up with a somewhat working prototype, the next step will be to stress test
-it a bit and see how it goes compared to the battle-tested and indisputably
-better pieces of software like Mosquitto or Mosca; messing around with the
-threads number and the mutex type. Lot of missing features still, no auth, no
-SSL/TLS communication, no session recovery and QoS 2 handling (started some
-basic work here) but the mere pub/sub part should be testable. Hopefully, this
-tutorial would work as a starting point for something neater and carefully
-designed.
-Cya.
+came up with a decent prototype, the next step will be to stress test it a bit
+and see how it goes compared to the battle-tested and indisputably better
+pieces of software like Mosquitto or Mosca. Lot of missing features still, like
+a persistence layer for session storing, but the mere pub/sub part should be
+testable. Hopefully, this tutorial would work as a starting point for something
+neater and carefully designed. Cya.
