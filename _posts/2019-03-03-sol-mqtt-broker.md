@@ -108,7 +108,7 @@ and a second to fifth byte to store the remaining length of the packet.
  | Byte 1 | MQTT type     |  Flags        |
  |--------|-------------------------------|
  | Byte 2 |                               |
- |  .     |      Remaning Length          |
+ |  .     |      Remaining Length         |
  |  .     |                               |
  | Byte 5 |                               |
 
@@ -298,7 +298,7 @@ struct mqtt_ack {
 
 {% endhighlight %}
 
-The remaning ACK packets, namely:
+The remaining ACK packets, namely:
 - PUBACK
 - PUBREC
 - PUBREL
@@ -359,7 +359,7 @@ To handle the communication using the MQTT protocol we need essentially 4 functi
 - An unpacking function (deserializing/unmarshalling)
 
 Supported by 2 functions to handle the encoding and decoding of the
-Remaning Length in the Fixed Header part.
+Remaining Length in the Fixed Header part.
 
 **src/mqtt.h**
 
@@ -562,7 +562,7 @@ After the creation of `pack` module we should include it into the `mqtt` source:
 
 {% endhighlight %}
 
-The first step will be the implemetation of the Fixed Header Remaning Length
+The first step will be the implemetation of the Fixed Header Remaining Length
 functions. The MQTT documentation suggests a pseudo-code implementation in one
 of the first paragraphs, we'll stick to that, it's quiet simple and clear.
 We'll see why and how after the first byte of the Fixed Header, the next 1 or
@@ -789,7 +789,7 @@ The PUBLISH packet now:
  | Byte 1   |      MQTT type 3      | dup |    QoS    | retain |
  |----------|--------------------------------------------------|
  | Byte 2   |                                                  |
- |  .       |               Remaning Length                    |
+ |  .       |               Remaining Length                   |
  |  .       |                                                  |
  | Byte 5   |                                                  |
  |----------|--------------------------------------------------|  <-- Variable Header
@@ -885,7 +885,7 @@ static size_t unpack_mqtt_subscribe(const unsigned char *raw,
     remaining_bytes -= sizeof(uint16_t);
 
     /*
-     * Read in a loop all remaning bytes specified by len of the Fixed Header.
+     * Read in a loop all remaining bytes specified by len of the Fixed Header.
      * From now on the payload consists of 3-tuples formed by:
      *  - topic length
      *  - topic filter (string)
@@ -934,7 +934,7 @@ static size_t unpack_mqtt_unsubscribe(const unsigned char *raw,
     remaining_bytes -= sizeof(uint16_t);
 
     /*
-     * Read in a loop all remaning bytes specified by len of the Fixed Header.
+     * Read in a loop all remaining bytes specified by len of the Fixed Header.
      * From now on the payload consists of 2-tuples formed by:
      *  - topic length
      *  - topic filter (string)

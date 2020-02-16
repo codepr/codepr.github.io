@@ -282,7 +282,7 @@ static ssize_t recv_packet(int clientfd, unsigned char *buf, char *command) {
         return -ERRPACKETERR;
 
     /*
-     * Read remaning length bytes which starts at byte 2 and can be long to 4
+     * Read remaining length bytes which starts at byte 2 and can be long to 4
      * bytes based on the size stored, so byte 2-5 is dedicated to the packet
      * length.
      */
@@ -895,14 +895,14 @@ static void publish_message(unsigned short pkt_id,
         pkt.publish.header.bits.qos = sub->qos;
         if (pkt.publish.header.bits.qos > AT_MOST_ONCE)
             len += sizeof(uint16_t);
-        int remaninglen_offset = 0;
+        int remaininglen_offset = 0;
         if ((len - 1) > 0x200000)
-            remaninglen_offset = 3;
+            remaininglen_offset = 3;
         else if ((len - 1) > 0x4000)
-            remaninglen_offset = 2;
+            remaininglen_offset = 2;
         else if ((len - 1) > 0x80)
-            remaninglen_offset = 1;
-        len += remaninglen_offset;
+            remaininglen_offset = 1;
+        len += remaininglen_offset;
         packed = pack_mqtt_packet(&pkt, PUBLISH);
         if ((sent = send_bytes(sc->fd, packed, len)) < 0)
             sol_error("Error publishing to %s: %s",

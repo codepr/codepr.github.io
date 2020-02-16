@@ -232,22 +232,22 @@ static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
     if (pkt->header.bits.qos > AT_MOST_ONCE)
         pktlen += sizeof(uint16_t);
 
-    int remaninglen_offset = 0;
+    int remaininglen_offset = 0;
     if ((pktlen - 1) > 0x200000)
-        remaninglen_offset = 3;
+        remaininglen_offset = 3;
     else if ((pktlen - 1) > 0x4000)
-        remaninglen_offset = 2;
+        remaininglen_offset = 2;
     else if ((pktlen - 1) > 0x80)
-        remaninglen_offset = 1;
+        remaininglen_offset = 1;
 
-    pktlen += remaninglen_offset;
+    pktlen += remaininglen_offset;
 
     unsigned char *packed = malloc(pktlen);
     unsigned char *ptr = packed;
     pack_u8(&ptr, pkt->publish.header.byte);
 
     // Total len of the packet excluding fixed header len
-    len += (pktlen - MQTT_HEADER_LEN - remaninglen_offset);
+    len += (pktlen - MQTT_HEADER_LEN - remaininglen_offset);
 
     /*
      * TODO handle case where step is > 1, e.g. when a message longer than 128
