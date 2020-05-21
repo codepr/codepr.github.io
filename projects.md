@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Projects
+title: Some pet projects
 description: "Personal pet projects, mostly learning experiences. As a side note, these are just a part of all the code I produced in the last years, being it for a significant part experimental work."
 permalink: /projects/
 ---
@@ -41,6 +41,23 @@ fallback, dependencies-free.
 Extracted and improved from another project (sol).
 
 [link](https://github.com/codepr/ev.git){:target="_blank"}
+
+### TTS - Transient Time Series, a naive implementation of a time series DB
+--------------------------------------------------------------------------
+
+Transient Time Series, lightweight in-memory time-series database. Rudimental
+TSDB without persistence, allow to create named time-series and store points
+with nanosecods precision.
+
+[link](https://github.com/codepr/tts.git){:target="_blank"}
+
+### Timepipe - Simple Go implementation of an in-memory TSDB
+--------------------------------------------------------------------------
+
+Lightweight in-memory time series database, it's a rewrite of TTS aimed to
+learn and improve with Go programming language.
+
+[link](https://github.com/codepr/timepipe.git){:target="_blank"}
 
 ### Narwhal - PoC of a simple continuous integration system
 --------------------------------------------------------------------------

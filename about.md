@@ -25,7 +25,7 @@ mainly on IoT software and cloud architectures.
 
 - GitHub: [codepr](https://github.com/codepr)
 - LinkedIn: [andrea](https://www.linkedin.com/in/andrea-giacomo-baldan-000776aa)
-- Gmail: a.g.baldab@gmail.com
+- Gmail: [a.g.baldab@gmail.com](mailto:a.g.baldan@gmail.com)
 
 <!-- ## Resume -->
 <!--  -->
