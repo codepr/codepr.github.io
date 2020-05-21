@@ -1,15 +1,32 @@
 ---
 layout: default
-title: About
+title: Hi
 description: "About me and resume"
 permalink: /about/
 ---
-My name is Andrea Baldan, I am a software engineer, currently focusing on
-Python on my day to day job, working mainly on IoT software and cloud
-architectures. Passionate about programming, particularly on the topics of
-distributed and concurrent systems and lower level system programming,
-constantly looking forward to extend my knowledge.
 
-## Resume
+My name is Andrea, I'm a software engineer messing with computer-related stuff
+since my childhood, currently focussing on Python on my day to day job, working
+mainly on IoT software and cloud architectures.
 
-<object data="{{site.url}}{{site.baseurl}}/assets/images/CV.pdf#toolbar=0&navpanes=0&scrollbar=0" style="overflow:hidden;min-height:102vh;width:100%" type='application/pdf'></object>
+## Me in pills
+
+- Prefer Linux environment, with some degree of bias
+- Passionate about programming, intrigued by distributed and concurrent systems
+- Love to learn by doing
+- Really love to watch movies (and re-watch them lot of times)
+- Somewhat obsessed with minimalistic and the neat and lightweight concept
+- Dislike bloated interfaces, fancy graphical websites, heavyweight IDEs etc
+- Bash over GUI
+- Strength workout over cardio
+- Constantly looking forward to extend my knowledge
+
+## Links
+
+- GitHub: [codepr](https://github.com/codepr)
+- LinkedIn: [andrea](https://www.linkedin.com/in/andrea-giacomo-baldan-000776aa)
+- Gmail: a.g.baldab@gmail.com
+
+<!-- ## Resume -->
+<!--  -->
+<!-- <object data="{{site.url}}{{site.baseurl}}/assets/images/CV.pdf#toolbar=0&navpanes=0&scrollbar=0" style="overflow:hidden;min-height:102vh;width:100%" type='application/pdf'></object> -->
