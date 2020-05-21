@@ -16,7 +16,7 @@ It currently supports a bunch of most common balancing algorithms like
 round-robin, weighted round-robin, leastconn, hash-balancing and of course
 random-balancing.
 
-Written out of boredom/learning pupose (50/50) during self-isolation. Sure
+Written out of boredom/learning purpose (50/50) during self-isolation. Sure
 thing there will be bugs and plenty of corner cases to be addressed.
 
 [link](https://github.com/codepr/llb.git){:target="_blank"}

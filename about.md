@@ -15,7 +15,7 @@ mainly on IoT software and cloud architectures.
 - Passionate about programming, intrigued by distributed and concurrent systems
 - Love to learn by doing
 - Really love to watch movies (and re-watch them lot of times)
-- Somewhat obsessed with minimalistic and the neat and lightweight concept
+- Somewhat obsessed with minimalism and the neat and lightweight concept
 - Dislike bloated interfaces, fancy graphical websites, heavyweight IDEs etc
 - Bash over GUI
 - Strength workout over cardio
