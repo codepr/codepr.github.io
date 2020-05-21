@@ -24,6 +24,7 @@ mainly on IoT software and cloud architectures.
 ## Links
 
 - GitHub: [codepr](https://github.com/codepr)
+- Blog: [blog]({{site.url}}{{site.baseurl}}/blog)
 - LinkedIn: [andrea](https://www.linkedin.com/in/andrea-giacomo-baldan-000776aa)
 - Gmail: [a.g.baldab@gmail.com](mailto:a.g.baldan@gmail.com)
 
