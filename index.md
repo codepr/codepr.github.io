@@ -16,7 +16,7 @@ mainly on IoT software and cloud architectures.
 
 ## Me in pills
 
-- Prefer Linux environment, with some degree of bias
+- Prefer Linux environment, with a certain degree of bias
 - Passionate about programming, intrigued by distributed and concurrent systems
 - Love to learn by doing
 - Really love to watch movies (and re-watch them lot of times)
