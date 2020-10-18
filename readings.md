@@ -5,7 +5,7 @@ description: "Readings & articles I find insightful"
 permalink: /readings/
 ---
 
-Some reading links I found elightening or interesting in some ways, spanning
+Some reading links I found enlightening or interesting in some ways, spanning
 from generic computer science topics to more specific tutorials/consideration
 thoughts. Hardly ever updated.
 
