@@ -16,6 +16,7 @@ thoughts. Hardly ever updated.
 - [Climbing the infinite ladder of abstraction](https://lexi-lambda.github.io/blog/2016/08/11/climbing-the-infinite-ladder-of-abstraction/)
 - [Questions I'm asking in interviews](https://jvns.ca/blog/2013/12/30/questions-im-asking-in-interviews/)
 - [Choosing a programming language](https://thesquareplanet.com/blog/choosing-a-programming-language/)
+- [The organized chaos of programming language design](https://medium.com/coinmonks/the-organized-chaos-of-programming-language-design-1e0a95067afb)
 
 ### Go best practices
 
