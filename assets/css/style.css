@@ -100,8 +100,9 @@ code {
 }
 
 #content-left a:link, #content-left a:visited	{
-	text-decoration: underline;
-	color:#000
+	text-decoration: none;
+    font-style: italic;
+	color:#00a
 }
 
 #content-left a:hover	{
@@ -132,7 +133,7 @@ code {
 }
 
 #categories a, #categories a:link, #categories a:visited {
-	background-color: grey;
+	background-color: #b0e0e6;
 	text-decoration: none;
 	padding: 0.1em 0.5em 0.1em 0.5em;
 	border-radius: 25px;
