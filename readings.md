@@ -36,3 +36,4 @@ thoughts. Hardly ever updated.
 - [From Data-Swamp to Data-Lake on AWS (Part 2)](https://engineering.depop.com/data-swamp-to-data-lake-on-aws-part-2-12b2bf80ba7a)
 - [In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf)
 - [The Log: What every software engineer should know about real-time data's unifying abstraction](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying)
+- [What do you mean by "Event-Driven"?](https://martinfowler.com/articles/201701-event-driven.html)
