@@ -22,11 +22,15 @@ thoughts. Hardly ever updated.
 
 - [The Go type system for newcomers](https://rakyll.org/typesystem/)
 - [Go style packages](https://rakyll.org/style-packages/)
+- [How goroutines work](https://blog.nindalf.com/posts/how-goroutines-work/)
 
 ### System programming
 
 - [Writing system software: code comments](http://antirez.com/news/124)
 - [Adventures in message queues](http://antirez.com/news/88)
+- [The method to epoll's madness](https://copyconstruct.medium.com/the-method-to-epolls-madness-d9d2d6378642)
+- [Epoll is fundamentally broken - part 1](https://idea.popcount.org/2017-02-20-epoll-is-fundamentally-broken-12/)
+- [Epoll is fundamentally broken - part 2](https://idea.popcount.org/2017-03-20-epoll-is-fundamentally-broken-22/)
 
 ### Distributed systems
 
