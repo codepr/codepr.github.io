@@ -31,6 +31,8 @@ thoughts. Hardly ever updated.
 - [The method to epoll's madness](https://copyconstruct.medium.com/the-method-to-epolls-madness-d9d2d6378642)
 - [Epoll is fundamentally broken - part 1](https://idea.popcount.org/2017-02-20-epoll-is-fundamentally-broken-12/)
 - [Epoll is fundamentally broken - part 2](https://idea.popcount.org/2017-03-20-epoll-is-fundamentally-broken-22/)
+- [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/html/)
+- [Concurrent programming, with examples](https://begriffs.com/posts/2020-03-23-concurrent-programming.html)
 
 ### Distributed systems
 
