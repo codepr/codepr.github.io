@@ -17,6 +17,8 @@ thoughts. Hardly ever updated.
 - [Questions I'm asking in interviews](https://jvns.ca/blog/2013/12/30/questions-im-asking-in-interviews/)
 - [Choosing a programming language](https://thesquareplanet.com/blog/choosing-a-programming-language/)
 - [The organized chaos of programming language design](https://medium.com/coinmonks/the-organized-chaos-of-programming-language-design-1e0a95067afb)
+- [Transactional Memory and Tech Hype Waves](https://blog.jessfraz.com/post/transactional-memory-and-tech-hype-waves/)
+- [Defining a Distinguished Engineer](https://blog.jessfraz.com/post/defining-a-distinguished-engineer/)
 
 ### Go best practices
 
@@ -33,6 +35,7 @@ thoughts. Hardly ever updated.
 - [Epoll is fundamentally broken - part 2](https://idea.popcount.org/2017-03-20-epoll-is-fundamentally-broken-22/)
 - [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/html/)
 - [Concurrent programming, with examples](https://begriffs.com/posts/2020-03-23-concurrent-programming.html)
+- [Concurrent Servers series](https://eli.thegreenplace.net/2017/concurrent-servers-part-1-introduction/)
 
 ### Distributed systems
 
