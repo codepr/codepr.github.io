@@ -5,14 +5,14 @@ description: "Simple SSH trick to open a tunnel"
 categories: bash devops
 ---
 
-Many times I found myself in need to have access and a reliable connection to
-my machine at work for quick'n dirty hacks, but something went wrong with the
-VPN settings <!--more-->or the third-party HTTPS tunnel software stopped
-working out of the blue, so I remembered that all that I need is already at
-hand, courtesy of the SSH daemon. I know, exposing 22 to internet is bad, just
-stick to the VPN, but sometimes you don't have any chance and a dirty trick is
-just what you demand for. All you need is an accessible remote box, for example
-an EC2, could also be a `micro` one on free tier.
+Many times I found myself in need of an access to my machine at work for
+quick'n dirty hacks, but something went wrong with the VPN settings
+<!--more-->or the third-party HTTPS tunnel software stopped working out of the
+blue, so I remembered that all that I need is already at hand, courtesy of the
+SSH daemon. I know, exposing 22 to internet is bad, just stick to the VPN, but
+sometimes you don't have any chance and a dirty trick is just what you demand
+for. All you need is an accessible remote box, for example an EC2, could also
+be a `micro` one on free tier.
 
 So from the target machine, the one you want to be accessible remotely, you can
 run the following command:
@@ -52,6 +52,6 @@ $ ssh user@localhost -p 18765
 {% endhighlight %}
 
 It's easy to customize all by tweaking the `~/.ssh/config` or abusing `crontab`
-to schedule the opening of the tunnel just for a determined amount of time or
-at a requested hour/day
+to schedule the opening of the tunnel just for a fixed amount of time or at a
+requested hour/day
 Why? Because why not. Bye.
