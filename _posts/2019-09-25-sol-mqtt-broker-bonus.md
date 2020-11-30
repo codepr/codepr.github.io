@@ -55,7 +55,9 @@ the thread ever.
 I also moved core parts of the application, specifically main MQTT abstractions
 like client session and topics to an "internal" header.
 
+<hr>
 **sol_internal.h**
+<hr>
 
 {% highlight c %}
 /*
@@ -150,12 +152,15 @@ struct client_session {
 };
 
 {% endhighlight %}
+<hr>
 
 So the client structure is a bit more beefy now and it stores the status of
 each packet read/write in order to resume it in case of `EAGAIN` errors from
 the kernel space.
 
+<hr>
 **server.c**
+<hr>
 
 {% highlight c %}
 static ssize_t recv_packet(struct client *c) {
@@ -302,6 +307,7 @@ static inline int write_data(struct client *c) {
     return 0;
 }
 {% endhighlight %}
+<hr>
 
 Worth a note, `recv_packet` and `write_data` functions calls in turn two lower
 level functions defined in the **network.h** header:
@@ -328,7 +334,9 @@ on the communication type chosen, be it plain or TLS encrypted, allowing to use
 just a single function in both cases.
 It's definition is:
 
-**network.h**
+<hr>
+**src/network.h**
+<hr>
 
 {% highlight c %}
 /*
@@ -359,6 +367,7 @@ struct connection {
     void (*close) (struct connection *);
 };
 {% endhighlight %}
+<hr>
 
 It also stores an `SSL *` and an `SSL_CTX *`, those are left `NULL` in case of
 plain communication.
@@ -369,7 +378,9 @@ guide](https://beej.us/guide/bgnet/html/single/bgnet.html#serialization), this
 guide is pure gold) and the addition of some helper functions to handle
 integer and bytes unpacking:
 
-**pack.c**
+<hr>
+**src/pack.c**
+<hr>
 
 {% highlight c %}
 /* Helper functions */
@@ -420,6 +431,7 @@ unsigned char *unpack_bytes(unsigned char **buf, size_t len) {
     return dest;
 }
 {% endhighlight %}
+<hr>
 
 ### Adding a tiny eventloop: ev
 
@@ -436,7 +448,9 @@ write).
 Using an opaque `void *` pointer allows us to plug-in whatever underlying API
 the host machine provide, be it `EPOLL`, `SELECT` or `KQUEUE`.
 
-**ev.h**
+<hr>
+**src/ev.h**
+<hr>
 {% highlight c %}
 #include <sys/time.h>
 #define EV_OK  0
@@ -537,6 +551,7 @@ int ev_register_cron(struct ev_ctx *,
 int ev_fire_event(struct ev_ctx *, int, int,
                   void (*callback)(struct ev_ctx *, void *), void *);
 {% endhighlight %}
+<hr>
 
 At the init of the server, the `ev_ctx` will be instructed to run some
 periodic tasks and to run a callback on accept on new connections. From now
@@ -579,7 +594,9 @@ the client.
 The mentioned callbacks have been added to the server module and they're
 extremely simple, a thing always appreciated
 
-**server.c**
+<hr>
+**src/server.c**
+<hr>
 
 {% highlight c %}
 /*
@@ -767,11 +784,16 @@ static void write_callback(struct ev_ctx *ctx, void *arg) {
     }
 }
 {% endhighlight %}
+<hr>
 
 Of course the starting server will have to make a blocking call starting the
 eventloop, and we'll need a stop mechanism as well, thanks to `ev_stop` API it
 has been pretty simple to add an additional event routine to be called when we
 want to stop the running loop.
+
+<hr>
+**src/server.c**
+<hr>
 
 {% highlight c %}
 /*
@@ -809,12 +831,15 @@ void enqueue_event_write(const struct client *c) {
     ev_fire_event(c->ctx, c->conn.fd, EV_WRITE, write_callback, (void *) c);
 }
 {% endhighlight %}
+<hr>
 
 So the final `start_server` function, which is one of the two exposed APIs of
 the server module will just be changed to start an eventloop with an opened
 socket in listening mode:
 
-**server.c**
+<hr>
+**src/server.c**
+<hr>
 
 {% highlight c %}
 /*
@@ -859,6 +884,7 @@ int start_server(const char *addr, const char *port) {
     return 0;
 }
 {% endhighlight %}
+<hr>
 
 Commands are handled through a dispatch table, a common pattern used in C where
 we map function pointers inside an array, in this case each position in the
