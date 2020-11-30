@@ -35,7 +35,9 @@ The remaining packets will have a dedicated function. There's probably better
 ways to reuse code and to model this but for now let's stick to something
 that works, as previously stated time to optimize and refactor will come.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
@@ -127,6 +129,7 @@ void mqtt_packet_release(union mqtt_packet *pkt, unsigned type) {
 }
 
 {% endhighlight %}
+<hr>
 
 We move on to packing functions now, essentially they reflect unpacking ones,
 but acting in the opposite direction: We start from structs and unions to build a
@@ -147,7 +150,9 @@ where position reflects the packet type. To make the source a little more
 concise we could group pack and unpack handlers into a structure, so it'll be
 possible to use a single array as they share the same positions.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
@@ -177,7 +182,6 @@ static unsigned char *pack_mqtt_header(const union mqtt_header *hdr) {
     unsigned char *packed = malloc(MQTT_HEADER_LEN);
     unsigned char *ptr = packed;
     pack_u8(&ptr, hdr->byte);
-
     /* Encode 0 length bytes, message like this have only a fixed header */
     mqtt_encode_length(ptr, 0);
     return packed;
@@ -219,19 +223,16 @@ static unsigned char *pack_mqtt_suback(const union mqtt_packet *pkt) {
 }
 
 static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
-
     /*
      * We must calculate the total length of the packet including header and
      * length field of the fixed header part
      */
     size_t pktlen = MQTT_HEADER_LEN + sizeof(uint16_t) +
         pkt->publish.topiclen + pkt->publish.payloadlen;
-
     // Total len of the packet excluding fixed header len
     size_t len = 0L;
     if (pkt->header.bits.qos > AT_MOST_ONCE)
         pktlen += sizeof(uint16_t);
-
     int remaininglen_offset = 0;
     if ((pktlen - 1) > 0x200000)
         remaininglen_offset = 3;
@@ -239,34 +240,26 @@ static unsigned char *pack_mqtt_publish(const union mqtt_packet *pkt) {
         remaininglen_offset = 2;
     else if ((pktlen - 1) > 0x80)
         remaininglen_offset = 1;
-
     pktlen += remaininglen_offset;
-
     unsigned char *packed = malloc(pktlen);
     unsigned char *ptr = packed;
     pack_u8(&ptr, pkt->publish.header.byte);
-
     // Total len of the packet excluding fixed header len
     len += (pktlen - MQTT_HEADER_LEN - remaininglen_offset);
-
     /*
      * TODO handle case where step is > 1, e.g. when a message longer than 128
      * bytes is published
      */
     int step = mqtt_encode_length(ptr, len);
     ptr += step;
-
     // Topic len followed by topic name in bytes
     pack_u16(&ptr, pkt->publish.topiclen);
     pack_bytes(&ptr, pkt->publish.topic);
-
     // Packet id
     if (pkt->header.bits.qos > AT_MOST_ONCE)
         pack_u16(&ptr, pkt->publish.pkt_id);
-
     // Finally the payload, same way of topic, payload len -> payload
     pack_bytes(&ptr, pkt->publish.payload);
-
     return packed;
 }
 
@@ -277,6 +270,7 @@ unsigned char *pack_mqtt_packet(const union mqtt_packet *pkt, unsigned type) {
 }
 
 {% endhighlight %}
+<hr>
 
 
 ### The server
@@ -289,7 +283,9 @@ BSD-like (Mac OSX) systems is **kqueue**.
 
 We're gonna need some functions to manage our socket descriptors.
 
+<hr>
 **src/network.h**
+<hr>
 
 {% highlight c %}
 
@@ -327,6 +323,7 @@ int make_listen(const char *, const char *, int);
 int accept_connection(int);
 
 {% endhighlight %}
+<hr>
 
 Just some well-known helper functions to create and bind socket to listen for
 new connections and to set socket in non-blocking mode (a requirement to use
@@ -344,7 +341,9 @@ regarding TCP communication:
   error codes
 
 
+<hr>
 **src/network.h**
+<hr>
 
 {% highlight c %}
 
@@ -365,10 +364,13 @@ ssize_t recv_bytes(int, unsigned char *, size_t);
 #endif
 
 {% endhighlight %}
+<hr>
 
 And the implementation on network.c.
 
+<hr>
 **src/network.c**
+<hr>
 
 {% highlight c %}
 
@@ -443,7 +445,6 @@ static int create_and_bind_tcp(const char *host, const char *port) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
         sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (sfd == -1) continue;
-
         /* set SO_REUSEADDR so the socket will be reusable after process kill */
         if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,
                        &(int) { 1 }, sizeof(int)) < 0)
@@ -481,7 +482,6 @@ int make_listen(const char *host, const char *port, int socket_family) {
         abort();
     if ((set_nonblocking(sfd)) == -1)
         abort();
-
     // Set TCP_NODELAY only for TCP sockets
     if (socket_family == INET)
         set_tcp_nodelay(sfd);
@@ -561,6 +561,7 @@ err:
 }
 
 {% endhighlight %}
+<hr>
 
 ### Basic closure system
 
@@ -621,7 +622,9 @@ We're going to declare two structures and a function pointer:
 Plus, we'll declare and implement on the .c file some creation, delete and
 managing functions.
 
+<hr>
 **src/network.h**
+<hr>
 
 {% highlight c %}
 
@@ -724,6 +727,7 @@ int epoll_mod(int, int, int, void *);
 int epoll_del(int, int);
 
 {% endhighlight %}
+<hr>
 
 After some declarations on the header for network utility we can move on to the
 implementation of the functions.
@@ -735,7 +739,9 @@ we'll block the loop, the status of the loop (will probably contain error codes
 for faulting cases) and finally a dynamic array of periodic tasks that will be
 executed.
 
+<hr>
 **src/network.c**
+<hr>
 
 {% highlight c %}
 
@@ -772,6 +778,7 @@ void evloop_free(struct evloop *loop) {
 }
 
 {% endhighlight %}
+<hr>
 
 Now, epoll API is extensively documentated on its manpage, but we’ll need 3
 functions to add, remove and modify monitored descriptors and trigger events,
@@ -783,14 +790,15 @@ a new event is triggered and one or more descriptor are ready to read or write
 (thundering herd problem), but this is another story, also this explained
 clearly on the man page.
 
+<hr>
 **src/network.c**
+<hr>
 
 {% highlight c %}
 
 int epoll_add(int efd, int fd, int evs, void *data) {
     struct epoll_event ev;
     ev.data.fd = fd;
-
     // Being ev.data a union, in case of data != NULL, fd will be set to random
     if (data)
         ev.data.ptr = data;
@@ -801,7 +809,6 @@ int epoll_add(int efd, int fd, int evs, void *data) {
 int epoll_mod(int efd, int fd, int evs, void *data) {
     struct epoll_event ev;
     ev.data.fd = fd;
-
     // Being ev.data a union, in case of data != NULL, fd will be set to random
     if (data)
         ev.data.ptr = data;
@@ -814,6 +821,7 @@ int epoll_del(int efd, int fd) {
 }
 
 {% endhighlight %}
+<hr>
 
 Two things to be noted:
 
@@ -838,7 +846,9 @@ Two things to be noted:
 We move forward now to implement the basic closure system and the wait loop for
 read and write events, as well as periodic timed callbacks.
 
+<hr>
 **src/network.c**
+<hr>
 
 {% highlight c %}
 
@@ -854,7 +864,6 @@ void evloop_add_periodic_task(struct evloop *loop,
     struct itimerspec timervalue;
     int timerfd = timerfd_create(CLOCK_MONOTONIC, 0);
     memset(&timervalue, 0x00, sizeof(timervalue));
-
     // Set initial expire time and periodic interval
     timervalue.it_value.tv_sec = seconds;
     timervalue.it_value.tv_nsec = ns;
@@ -864,7 +873,6 @@ void evloop_add_periodic_task(struct evloop *loop,
         perror("timerfd_settime");
         return;
     }
-
     // Add the timer to the event loop
     struct epoll_event ev;
     ev.data.fd = timerfd;
@@ -873,7 +881,6 @@ void evloop_add_periodic_task(struct evloop *loop,
         perror("epoll_ctl(2): EPOLLIN");
         return;
     }
-
     /* Store it into the event loop */
     if (loop->periodic_nr + 1 > loop->periodic_maxsize) {
         loop->periodic_maxsize *= 2;
@@ -897,24 +904,20 @@ int evloop_wait(struct evloop *el) {
         events = epoll_wait(el->epollfd, el->events,
                             el->max_events, el->timeout);
         if (events < 0) {
-
             /* Signals to all threads. Ignore it for now */
             if (errno == EINTR)
                 continue;
-
             /* Error occured, break the loop */
             rc = -1;
             el->status = errno;
             break;
         }
         for (int i = 0; i < events; i++) {
-
             /* Check for errors */
             if ((el->events[i].events & EPOLLERR) ||
                 (el->events[i].events & EPOLLHUP) ||
                 (!(el->events[i].events & EPOLLIN) &&
                  !(el->events[i].events & EPOLLOUT))) {
-
                 /* An error has occured on this fd, or the socket is not
                    ready for reading, closing connection */
                 perror ("epoll_wait(2)");
@@ -935,7 +938,6 @@ int evloop_wait(struct evloop *el) {
             }
             if (periodic_done == 1)
                 continue;
-
             /* No error events, proceed to run callback */
             closure->call(el, closure->args);
         }
@@ -956,6 +958,7 @@ int evloop_del_callback(struct evloop *el, struct closure *cb) {
 }
 
 {% endhighlight %}
+<hr>
 
 Of all defined functions, `evloop_wait` is the most interesting, start an
 `epoll_wait` loop and after error check, it proceeds to apply the callback
