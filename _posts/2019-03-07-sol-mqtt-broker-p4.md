@@ -31,7 +31,9 @@ taken index in the array) as much as possible.
 Buckets is the array, usually dynamic, which will store the information
 associated to the keys.
 
+<hr>
 **src/hashtable.h**
+<hr>
 
 {% highlight c %}
 
@@ -108,12 +110,15 @@ int hashtable_map2(HashTable *,
 #endif
 
 {% endhighlight %}
+<hr>
 
 We define some sort of encapsulation by defining the structure in the source
 file instead od the header, this way it will be only accessible through
 functions (like methods in a class).
 
+<hr>
 **src/hashtable.c**
+<hr>
 
 {% highlight c %}
 
@@ -531,6 +536,7 @@ static unsigned long crc32(const uint8_t *s, unsigned int len) {
 }
 
 {% endhighlight %}
+<hr>
 
 Our hash function just compute the CRC32 of a given string, using the knuth
 multiplicative method, another valid hash could be the Murmur3, but I won't
@@ -543,7 +549,9 @@ we're going to do, O(1) in insertion will be good enough for our use-cases.
 Our sequential container will be based on a singly-linked list, with a pointer
 to head and tail, this way we ensure O(1) for insertion on either sides.
 
+<hr>
 **src/list.h**
+<hr>
 
 {% highlight c %}
 
@@ -615,8 +623,11 @@ struct list_node *bisect_list(struct list_node *);
 #endif
 
 {% endhighlight %}
+<hr>
 
+<hr>
 **src/list.c**
+<hr>
 
 {% highlight c %}
 
@@ -830,6 +841,7 @@ struct list_node *bisect_list(struct list_node *head) {
 }
 
 {% endhighlight %}
+<hr>
 
 We have successfully implemented two classic data structures that offer useful
 features to our project:
