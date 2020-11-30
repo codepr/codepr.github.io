@@ -33,7 +33,14 @@ a:hover	{
 }
 
 code {
-    font-size: .85em
+    font-size: .85em;
+}
+
+hr {
+    height: 0.5px;
+    border-width:0;
+    color:black;
+    background-color:black
 }
 
 .s, .cm, .c1 {
@@ -50,7 +57,7 @@ code {
 
 
 #main {
-	width: 50%;
+	width: 60%;
 	margin: 0 auto;
 }
 

@@ -129,7 +129,9 @@ So fire up Vim (or your favourite editor) and start writing `mqtt.h` header
 file containing the Control Packet Types and a struct to handle the Fixed
 Header:
 
+<hr>
 **src/mqtt.h**
+<hr>
 {% highlight c %}
 #ifndef MQTT_H
 #define MQTT_H
@@ -184,7 +186,7 @@ union mqtt_header {
 };
 
 {% endhighlight %}
-
+<hr>
 The first 2 `#define` refers to fixed sizes of the MQTT Fixed Header and of
 every type of MQTT ACK packets, set for convenience, we'll use those later.
 
@@ -200,8 +202,9 @@ be extactly one, more than one CONNECT per client must be treated as a
 violation of the protocol and the client must be dropped.<br>
 For each CONNECT, a CONNACK packet must be sent in response.
 
+<hr>
 **src/mqtt.h**
-
+<hr>
 {% highlight c %}
 
 struct mqtt_connect {
@@ -241,7 +244,7 @@ struct mqtt_connack {
 };
 
 {% endhighlight %}
-
+<hr>
 From now on, the definition of other packets are trivial by reproducing the
 pattern, accordingly to the documentation of MQTT v3.1.1.
 
@@ -250,7 +253,9 @@ only packet with a dedicated packet definition SUBACK, the other can be
 defined as generic ACK, and typenamed using **typedef** for semantic
 separation.
 
+<hr>
 **src/mqtt.h**
+<hr>
 
 {% highlight c %}
 
@@ -297,6 +302,7 @@ struct mqtt_ack {
 };
 
 {% endhighlight %}
+<hr>
 
 The remaining ACK packets, namely:
 - PUBACK
@@ -312,7 +318,9 @@ can be obtained by typedef'ing `struct ack`, just for semantic separation of
 concerns. The last one, DISCONNECT, is not really an ACK but the format is
 the same.
 
+<hr>
 **src/mqtt.h**
+<hr>
 
 {% highlight c %}
 
@@ -326,11 +334,14 @@ typedef union mqtt_header mqtt_pingresp;
 typedef union mqtt_header mqtt_disconnect;
 
 {% endhighlight %}
+<hr>
 
 We can finally define a generic MQTT packet as a `union` of the previously
 defined packets.
 
+<hr>
 **src/mqtt.h**
+<hr>
 
 {% highlight c %}
 
@@ -346,6 +357,7 @@ union mqtt_packet {
 };
 
 {% endhighlight %}
+<hr>
 
 We proceed now with the definition of some public functions, here in the header
 we want to collect only those functions and structure that should be used by
@@ -361,7 +373,9 @@ To handle the communication using the MQTT protocol we need essentially 4 functi
 Supported by 2 functions to handle the encoding and decoding of the
 Remaining Length in the Fixed Header part.
 
+<hr>
 **src/mqtt.h**
+<hr>
 
 {% highlight c %}
 int mqtt_encode_length(unsigned char *, size_t);
@@ -369,11 +383,14 @@ unsigned long long mqtt_decode_length(const unsigned char **);
 int unpack_mqtt_packet(const unsigned char *, union mqtt_packet *);
 unsigned char *pack_mqtt_packet(const union mqtt_packet *, unsigned);
 {% endhighlight %}
+<hr>
 
 We also add some utility functions to build packets and to release
 heap-alloc'ed ones, nothing special here.
 
+<hr>
 **src/mqtt.h**
+<hr>
 
 {% highlight c %}
 
@@ -392,6 +409,7 @@ void mqtt_packet_release(union mqtt_packet *, unsigned);
 #endif
 
 {% endhighlight %}
+<hr>
 
 Fine. We have a decent header module that define all that we need for handling
 the communication using the protocol. Let's now implement those functions.
@@ -399,7 +417,9 @@ First of all we define some "private" helpers, to pack and unpack each MQTT
 packet, these will be called by the previously defined "public" functions
 `unpack_mqtt_packet` and `pack_mqtt_packet`.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
@@ -429,6 +449,7 @@ static unsigned char *pack_mqtt_suback(const union mqtt_packet *);
 static unsigned char *pack_mqtt_publish(const union mqtt_packet *);
 
 {% endhighlight %}
+<hr>
 
 ### Packing and unpacking
 
@@ -442,7 +463,9 @@ the network byte order (endianness, usually network byte order refers to
 Big-endian order, while the majority of machines follow Little-endian
 convention) of the packets.
 
+<hr>
 **src/pack.h**
+<hr>
 
 {% highlight c %}
 
@@ -455,36 +478,34 @@ convention) of the packets.
 /* Reading data on const uint8_t pointer */
 // bytes -> uint8_t
 uint8_t unpack_u8(const uint8_t **);
-
 // bytes -> uint16_t
 uint16_t unpack_u16(const uint8_t **);
-
 // bytes -> uint32_t
 uint32_t unpack_u32(const uint8_t **);
-
 // read a defined len of bytes
 uint8_t *unpack_bytes(const uint8_t **, size_t, uint8_t *);
-
+// Unpack a string prefixed by its length as a uint16 value
+uint16_t unpack_string16(uint8_t **buf, uint8_t **dest)
 /* Write data on const uint8_t pointer */
 // append a uint8_t -> bytes into the bytestring
 void pack_u8(uint8_t **, uint8_t);
-
 // append a uint16_t -> bytes into the bytestring
 void pack_u16(uint8_t **, uint16_t);
-
 // append a uint32_t -> bytes into the bytestring
 void pack_u32(uint8_t **, uint32_t);
-
 // append len bytes into the bytestring
 void pack_bytes(uint8_t **, uint8_t *);
 
 #endif
 
 {% endhighlight %}
+<hr>
 
 And the corresponding implementation
 
+<hr>
 **src/pack.c**
+<hr>
 
 {% highlight c %}
 
@@ -521,6 +542,13 @@ uint8_t *unpack_bytes(const uint8_t **buf, size_t len, uint8_t *str) {
     return str;
 }
 
+uint16_t unpack_string16(uint8_t **buf, uint8_t **dest) {
+    uint16_t len = unpack_u16(buf);
+    *dest = malloc(len + 1);
+    *dest = unpack_bytes(buf, len, *dest);
+    return len;
+}
+
 // Write data
 void pack_u8(uint8_t **buf, uint8_t val) {
     **buf = val;
@@ -546,6 +574,7 @@ void pack_bytes(uint8_t **buf, uint8_t *str) {
 }
 
 {% endhighlight %}
+<hr>
 
 This allow us to handle incoming stream of bytes and forge them to respond to
 connected clients. Let's move one.
@@ -554,13 +583,16 @@ connected clients. Let's move one.
 
 After the creation of `pack` module we should include it into the `mqtt` source:
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
 #include "pack.h"
 
 {% endhighlight %}
+<hr>
 
 The first step will be the implemetation of the Fixed Header Remaining Length
 functions. The MQTT documentation suggests a pseudo-code implementation in one
@@ -581,7 +613,9 @@ We'll see why and how after the first byte of the Fixed Header, the next 1 or
 
 No need for further explanation, the MQTT documentation is crystal clear.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
@@ -633,6 +667,7 @@ unsigned long long mqtt_decode_length(const unsigned char **buf) {
 }
 
 {% endhighlight %}
+<hr>
 
 Now we can read the first header byte and the total length of the packet. Let's
 move on with the unpacking of the CONNECT packet.
@@ -701,7 +736,9 @@ Having will flags to 0 there's no need to decode those fields, as they don't
 even appear. We have as a result a total length 34 bytes packet including fixed
 header.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
@@ -709,76 +746,50 @@ header.
  * MQTT unpacking functions
  */
 
-static size_t unpack_mqtt_connect(const unsigned char *raw,
+static size_t unpack_mqtt_connect(const unsigned char *buf,
                                   union mqtt_header *hdr,
                                   union mqtt_packet *pkt) {
-
     struct mqtt_connect connect = { .header = *hdr };
     pkt->connect = connect;
-
-    const unsigned char *init = raw;
+    const unsigned char *init = buf;
     /*
      * Second byte of the fixed header, contains the length of remaining bytes
      * of the connect packet
      */
-    size_t len = mqtt_decode_length(&raw);
-
+    size_t len = mqtt_decode_length(&buf);
     /*
      * For now we ignore checks on protocol name and reserved bits, just skip
      * to the 8th byte
      */
-    raw = init + 8;
-
+    buf = init + 8;
     /* Read variable header byte flags */
-    pkt->connect.byte = unpack_u8((const uint8_t **) &raw);
-
+    pkt->connect.byte = unpack_u8((const uint8_t **) &buf);
     /* Read keepalive MSB and LSB (2 bytes word) */
-    pkt->connect.payload.keepalive = unpack_u16((const uint8_t **) &raw);
-
+    pkt->connect.payload.keepalive = unpack_u16((const uint8_t **) &buf);
     /* Read CID length (2 bytes word) */
-    uint16_t cid_len = unpack_u16((const uint8_t **) &raw);
-
+    uint16_t cid_len = unpack_u16((const uint8_t **) &buf);
     /* Read the client id */
     if (cid_len > 0) {
         pkt->connect.payload.client_id = malloc(cid_len + 1);
-        unpack_bytes((const uint8_t **) &raw, cid_len,
+        unpack_bytes((const uint8_t **) &buf, cid_len,
                      pkt->connect.payload.client_id);
     }
-
     /* Read the will topic and message if will is set on flags */
     if (pkt->connect.bits.will == 1) {
-
-        uint16_t will_topic_len = unpack_u16((const uint8_t **) &raw);
-        pkt->connect.payload.will_topic = malloc(will_topic_len + 1);
-        unpack_bytes((const uint8_t **) &raw, will_topic_len,
-                     pkt->connect.payload.will_topic);
-
-        uint16_t will_message_len = unpack_u16((const uint8_t **) &raw);
-        pkt->connect.payload.will_message = malloc(will_message_len + 1);
-        unpack_bytes((const uint8_t **) &raw, will_message_len,
-                     pkt->connect.payload.will_message);
+        unpack_string16(&buf, &pkt->connect.payload.will_topic);
+        unpack_string16(&buf, &pkt->connect.payload.will_message);
     }
-
     /* Read the username if username flag is set */
-    if (pkt->connect.bits.username == 1) {
-        uint16_t username_len = unpack_u16((const uint8_t **) &raw);
-        pkt->connect.payload.username = malloc(username_len + 1);
-        unpack_bytes((const uint8_t **) &raw, username_len,
-                     pkt->connect.payload.username);
-    }
-
+    if (pkt->connect.bits.username == 1)
+        unpack_string16(&buf, &pkt->connect.payload.username);
     /* Read the password if password flag is set */
-    if (pkt->connect.bits.password == 1) {
-        uint16_t password_len = unpack_u16((const uint8_t **) &raw);
-        pkt->connect.payload.password = malloc(password_len + 1);
-        unpack_bytes((const uint8_t **) &raw, password_len,
-                     pkt->connect.payload.password);
-    }
-
+    if (pkt->connect.bits.password == 1)
+        unpack_string16(&buf, &pkt->connect.payload.password);
     return len;
 }
 
 {% endhighlight %}
+<hr>
 
 The PUBLISH packet now:
 
@@ -814,36 +825,30 @@ level is > 0, with a QoS set to *at most once* there's no need for a packet ID.
 Payload length is calculated by subtracting the Remaining Length with all the
 other fields already unpacked.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
-static size_t unpack_mqtt_publish(const unsigned char *raw,
+static size_t unpack_mqtt_publish(const unsigned char *buf,
                                   union mqtt_header *hdr,
                                   union mqtt_packet *pkt) {
     struct mqtt_publish publish = { .header = *hdr };
     pkt->publish = publish;
-
     /*
      * Second byte of the fixed header, contains the length of remaining bytes
      * of the connect packet
      */
-    size_t len = mqtt_decode_length(&raw);
-
+    size_t len = mqtt_decode_length(&buf);
     /* Read topic length and topic of the soon-to-be-published message */
-    uint16_t topic_len = unpack_u16((const uint8_t **) &raw);
-    pkt->publish.topiclen = topic_len;
-    pkt->publish.topic = malloc(topic_len + 1);
-    unpack_bytes((const uint8_t **) &raw, topic_len, pkt->publish.topic);
-
+    pkt->publish.topiclen = unpack_string16(&buf, &pkt->publish.topic);
     uint16_t message_len = len;
-
     /* Read packet id */
     if (publish.header.bits.qos > AT_MOST_ONCE) {
-        pkt->publish.pkt_id = unpack_u16((const uint8_t **) &raw);
+        pkt->publish.pkt_id = unpack_u16((const uint8_t **) &buf);
         message_len -= sizeof(uint16_t);
     }
-
     /*
      * Message len is calculated subtracting the length of the variable header
      * from the Remaining Length field that is in the Fixed Header
@@ -851,12 +856,12 @@ static size_t unpack_mqtt_publish(const unsigned char *raw,
     message_len -= (sizeof(uint16_t) + topic_len);
     pkt->publish.payloadlen = message_len;
     pkt->publish.payload = malloc(message_len + 1);
-    unpack_bytes((const uint8_t **) &raw, message_len, pkt->publish.payload);
-
+    unpack_bytes((const uint8_t **) &buf, message_len, pkt->publish.payload);
     return len;
 }
 
 {% endhighlight %}
+<hr>
 
 Subscribe and unsubscribe packets are fairly similar, they reflect the
 PUBLISH packet, but for payload they have a list of tuple consisting in a
@@ -864,26 +869,25 @@ pair (topic, QoS). Their implementation is practically identical, with the
 only difference in the payload part, where UNSUBSCRIBE doesn't specify QoS
 for each topic.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
-static size_t unpack_mqtt_subscribe(const unsigned char *raw,
+static size_t unpack_mqtt_subscribe(const unsigned char *buf,
                                     union mqtt_header *hdr,
                                     union mqtt_packet *pkt) {
     struct mqtt_subscribe subscribe = { .header = *hdr };
-
     /*
      * Second byte of the fixed header, contains the length of remaining bytes
      * of the connect packet
      */
-    size_t len = mqtt_decode_length(&raw);
+    size_t len = mqtt_decode_length(&buf);
     size_t remaining_bytes = len;
-
     /* Read packet id */
-    subscribe.pkt_id = unpack_u16((const uint8_t **) &raw);
+    subscribe.pkt_id = unpack_u16((const uint8_t **) &buf);
     remaining_bytes -= sizeof(uint16_t);
-
     /*
      * Read in a loop all remaining bytes specified by len of the Fixed Header.
      * From now on the payload consists of 3-tuples formed by:
@@ -893,46 +897,36 @@ static size_t unpack_mqtt_subscribe(const unsigned char *raw,
      */
     int i = 0;
     while (remaining_bytes > 0) {
-
         /* Read length bytes of the first topic filter */
-        uint16_t topic_len = unpack_u16((const uint8_t **) &raw);
         remaining_bytes -= sizeof(uint16_t);
-
         /* We have to make room for additional incoming tuples */
         subscribe.tuples = realloc(subscribe.tuples,
                                    (i+1) * sizeof(*subscribe.tuples));
-        subscribe.tuples[i].topic_len = topic_len;
-        subscribe.tuples[i].topic = malloc(topic_len + 1);
-        unpack_bytes((const uint8_t **) &raw, topic_len,
-                     subscribe.tuples[i].topic);
-        remaining_bytes -= topic_len;
-        subscribe.tuples[i].qos = unpack_u8((const uint8_t **) &raw);
-        remaining_bytes -= sizeof(uint8_t);
+        subscribe.tuples[i].topic_len =
+            unpack_string16(&buf, &subscribe.tuples[i].topic);
+        remaining_bytes -= subscribe.tuples[i].topic_len;
+        subscribe.tuples[i].qos = unpack_u8((const uint8_t **) &buf);
+        len -= sizeof(uint8_t);
         i++;
     }
-
     subscribe.tuples_len = i;
     pkt->subscribe = subscribe;
-
     return len;
 }
 
-static size_t unpack_mqtt_unsubscribe(const unsigned char *raw,
+static size_t unpack_mqtt_unsubscribe(const unsigned char *buf,
                                       union mqtt_header *hdr,
                                       union mqtt_packet *pkt) {
     struct mqtt_unsubscribe unsubscribe = { .header = *hdr };
-
     /*
      * Second byte of the fixed header, contains the length of remaining bytes
      * of the connect packet
      */
-    size_t len = mqtt_decode_length(&raw);
+    size_t len = mqtt_decode_length(&buf);
     size_t remaining_bytes = len;
-
     /* Read packet id */
-    unsubscribe.pkt_id = unpack_u16((const uint8_t **) &raw);
+    unsubscribe.pkt_id = unpack_u16((const uint8_t **) &buf);
     remaining_bytes -= sizeof(uint16_t);
-
     /*
      * Read in a loop all remaining bytes specified by len of the Fixed Header.
      * From now on the payload consists of 2-tuples formed by:
@@ -941,30 +935,23 @@ static size_t unpack_mqtt_unsubscribe(const unsigned char *raw,
      */
     int i = 0;
     while (remaining_bytes > 0) {
-
         /* Read length bytes of the first topic filter */
-        uint16_t topic_len = unpack_u16((const uint8_t **) &raw);
         remaining_bytes -= sizeof(uint16_t);
-
         /* We have to make room for additional incoming tuples */
         unsubscribe.tuples = realloc(unsubscribe.tuples,
                                      (i+1) * sizeof(*unsubscribe.tuples));
-        unsubscribe.tuples[i].topic_len = topic_len;
-        unsubscribe.tuples[i].topic = malloc(topic_len + 1);
-        unpack_bytes((const uint8_t **) &raw, topic_len,
-                     unsubscribe.tuples[i].topic);
-        remaining_bytes -= topic_len;
-
+        unsubscribe.tuples[i].topic_len =
+            unpack_string16(&buf, &unsubscribe.tuples[i].topic);
+        remaining_bytes -= unsubscribe.tuples[i].topic_len;
         i++;
     }
-
     unsubscribe.tuples_len = i;
     pkt->unsubscribe = unsubscribe;
-
     return len;
 }
 
 {% endhighlight %}
+<hr>
 
 And finally the ACK. In MQTT doesn't exists generic acks, but the structure
 of most of the ack-like packets is practically the same for each one, formed by
@@ -978,28 +965,28 @@ These are:
 - PUBCOMP
 - UNSUBACK
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
-static size_t unpack_mqtt_ack(const unsigned char *raw,
+static size_t unpack_mqtt_ack(const unsigned char *buf,
                               union mqtt_header *hdr,
                               union mqtt_packet *pkt) {
     struct mqtt_ack ack = { .header = *hdr };
-
     /*
      * Second byte of the fixed header, contains the length of remaining bytes
      * of the connect packet
      */
-    size_t len = mqtt_decode_length(&raw);
-
-    ack.pkt_id = unpack_u16((const uint8_t **) &raw);
+    size_t len = mqtt_decode_length(&buf);
+    ack.pkt_id = unpack_u16((const uint8_t **) &buf);
     pkt->ack = ack;
-
     return len;
 }
 
 {% endhighlight %}
+<hr>
 
 We have now all needed helpers functions to implement our only exposed function
 on the header `mqtt_mqtt_packet`. It ended up being a fairly short and simple
@@ -1008,14 +995,15 @@ the selection of the correct unpack function based on the Control Packet type.
 To be noted that in case of a disconnect, a pingreq or pingresp packet we only
 need a single byte, with remaining length 0.
 
+<hr>
 **src/mqtt.c**
+<hr>
 
 {% highlight c %}
 
 typedef size_t mqtt_unpack_handler(const unsigned char *,
                                    union mqtt_header *,
                                    union mqtt_packet *);
-
 /*
  * Unpack functions mapping unpacking_handlers positioned in the array based
  * on message type
@@ -1034,11 +1022,10 @@ static mqtt_unpack_handler *unpack_handlers[11] = {
     unpack_mqtt_unsubscribe
 };
 
-int unpack_mqtt_packet(const unsigned char *raw, union mqtt_packet *pkt) {
+int unpack_mqtt_packet(const unsigned char *buf, union mqtt_packet *pkt) {
     int rc = 0;
-
     /* Read first byte of the fixed header */
-    unsigned char type = *raw;
+    unsigned char type = *buf;
     union mqtt_header header = {
         .byte = type
     };
@@ -1048,12 +1035,12 @@ int unpack_mqtt_packet(const unsigned char *raw, union mqtt_packet *pkt) {
         pkt->header = header;
     else
         /* Call the appropriate unpack handler based on the message type */
-        rc = unpack_handlers[header.bits.type](++raw, &header, pkt);
-
+        rc = unpack_handlers[header.bits.type](++buf, &header, pkt);
     return rc;
 }
 
 {% endhighlight %}
+<hr>
 
 The first part ends here, at this point we have two modules, one of utility for
 general serialization operations and one to handle the protocol itself accordingly
