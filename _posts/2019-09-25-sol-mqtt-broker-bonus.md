@@ -56,7 +56,7 @@ I also moved core parts of the application, specifically main MQTT abstractions
 like client session and topics to an "internal" header.
 
 <hr>
-**sol_internal.h**
+**src/sol_internal.h**
 <hr>
 
 {% highlight c %}
@@ -159,7 +159,7 @@ each packet read/write in order to resume it in case of `EAGAIN` errors from
 the kernel space.
 
 <hr>
-**server.c**
+**src/server.c**
 <hr>
 
 {% highlight c %}
