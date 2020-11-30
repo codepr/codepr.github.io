@@ -41,7 +41,9 @@ They provide a big-O runtime complexity of O(m) on worst case, for insertion
 and lookup, where m is the length of the key. The main advantage is the
 possibility to query the tree by prefix, executing range scans in an easy way.
 
+<hr>
 **src/trie.h**
+<hr>
 
 {% highlight c %}
 
@@ -128,6 +130,7 @@ void trie_prefix_map_tuple(Trie *, const char *,
 #endif
 
 {% endhighlight %}
+<hr>
 
 Implementation of this data structure is a bit tricky and there're lot of
 different approaches, the most simple one would involve the use of a fixed
@@ -195,7 +198,9 @@ Luckily we've just written a **linked list** before (Perhaps I knew the answer?
 
 Let's implement our trie with the third solution:
 
+<hr>
 **src/trie.c**
+<hr>
 
 {% highlight c %}
 
@@ -571,6 +576,7 @@ void trie_release(Trie *trie) {
 }
 
 {% endhighlight %}
+<hr>
 
 Well, we have enough in our plate for now, our project should now have 3 more
 modules:
