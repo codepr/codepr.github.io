@@ -16,7 +16,9 @@ the previously written code usable.
 
 Let's fire vim src/core.h:
 
+<hr>
 **src/core.h**
+<hr>
 
 {% highlight c %}
 
@@ -75,6 +77,7 @@ struct topic *sol_topic_get(struct sol *, const char *);
 #endif
 
 {% endhighlight %}
+<hr>
 
 This module contains the major abstractions to handle the clients and his
 interactions with the server, specifically:
@@ -89,7 +92,9 @@ interactions with the server, specifically:
 
 Here the implementation:
 
+<hr>
 **src/core.c**
+<hr>
 
 {% highlight c %}
 
@@ -121,7 +126,6 @@ void topic_add_subscriber(struct topic *t,
     sub->client = client;
     sub->qos = qos;
     t->subscribers = list_push(t->subscribers, sub);
-
     // It must be added to the session if cleansession is false
     if (!cleansession)
         client->session.subscriptions =
@@ -133,7 +137,6 @@ void topic_del_subscriber(struct topic *t,
                           struct sol_client *client,
                           bool cleansession) {
     list_remove_node(t->subscribers, client, compare_cid);
-
     // TODO remomve in case of cleansession == false
 }
 
@@ -152,7 +155,7 @@ struct topic *sol_topic_get(struct sol *sol, const char *name) {
 }
 
 {% endhighlight %}
-
+<hr>
 
 ### Finally, the handlers
 
@@ -170,7 +173,9 @@ ready for being sent to the client and return a code, which can be:
 The first handler we'll add will be the `connect_handler`, which as the name
 suggests will handle CONNECT packet coming just after a TCP connection happens.
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -244,6 +249,7 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
 }
 
 {% endhighlight %}
+<hr>
 
 Essentially it behaves exactly as defined by the protocol standard, except for
 the *clean session* thing, which for now we ignore; if a double CONNECT
@@ -253,30 +259,29 @@ the `on_write` handler.
 
 Next command, DISCONNECT:
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
 static int disconnect_handler(struct closure *cb, union mqtt_packet *pkt) {
-
     // TODO just return error_code and handle it on `on_read`
-
     /* Handle disconnection request from client */
     struct sol_client *c = cb->obj;
     sol_debug("Received DISCONNECT from %s", c->client_id);
     close(c->fd);
     hashtable_del(sol.clients, c->client_id);
     hashtable_del(sol.closures, cb->closure_id);
-
     // Update stats
     info.nclients--;
     info.nconnections--;
-
     // TODO remove from all topic where it subscribed
     return -REARM_W;
 }
 
 {% endhighlight %}
+<hr>
 
 Straight forward, just log the disconnection, update the infos, close the fd,
 remove the client from the global map and return a negative code, neat.
@@ -297,7 +302,9 @@ trie structure kick-in, in fact we have to:
 Nothing special for the UNSUBSCRIBE command, remove the client from the
 specified topic and answer with an UNSUBACK:
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -394,6 +401,7 @@ static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
 }
 
 {% endhighlight %}
+<hr>
 
 The PUBLISH handler is the longer of our handlers, but it's fairly easy to
 follow
@@ -414,7 +422,9 @@ follow
 ![QoS2 sequential diagram]({{site.url}}{{site.baseurl}}/assets/images/QoS2-sample.png#content-image)
 <br>
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -531,6 +541,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
 }
 
 {% endhighlight %}
+<hr>
 
 All the remaining ACK handlers now, they're basically all the same, for now we
 limit ourselves to just log their execution, in the future we'll handle the
@@ -540,7 +551,9 @@ The last one, is the PINGREQ handler, it's only purpose is to guarantee the
 health of connected clients who are inactive for some time, receiving one
 expects a PINGRESP as answer.
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -599,6 +612,7 @@ static int pingreq_handler(struct closure *cb, union mqtt_packet *pkt) {
 }
 
 {% endhighlight %}
+<hr>
 
 Our lightweight broker is taking shape, code should now be enough to try and
 play a bit, using `mosquitto_sub` and `mosquitto_pub` or Python `paho-mqtt`
@@ -609,7 +623,9 @@ settings of the system and after that we will soon to be finished.
 The format of the configuration file will be the classical key value one
 used by most services on Linux, something like this:
 
+<hr>
 **conf/sol.conf**
+<hr>
 
 {% highlight bash %}
 
@@ -646,10 +662,13 @@ tcp_backlog 128
 stats_publish_interval 10s
 
 {% endhighlight %}
+<hr>
 
 So, let's define a new header:
 
+<hr>
 **src/config.h**
+<hr>
 
 {% highlight c %}
 
@@ -713,6 +732,7 @@ char *memory_to_string(size_t);
 #endif
 
 {% endhighlight %}
+<hr>
 
 The configuration explains itself, for now we want control over host and port
 to listen on, the socket family (between TCP and UNIX) log level and log file
@@ -722,7 +742,9 @@ The implementation will involve mainly utility functions to parse strings
 and to read from file the configuration and populate the global configuration
 strucuture:
 
+<hr>
 **src/config.c**
+<hr>
 
 {% highlight c %}
 
@@ -1001,10 +1023,13 @@ void config_print(void) {
 }
 
 {% endhighlight %}
+<hr>
 
 Let's add the last brick, a main:
 
+<hr>
 **src/sol.c**
+<hr>
 
 {% highlight c %}
 
@@ -1061,6 +1086,7 @@ int main (int argc, char **argv) {
 }
 
 {% endhighlight %}
+<hr>
 
 Short and clean, the project should now have all that is needed to work:
 
