@@ -22,7 +22,9 @@ number of events we want to monitor concurrently and the timeout, two
 properties which could be easily moved to a configuration module for further
 improvements.
 
+<hr>
 **src/server.h**
+<hr>
 
 {% highlight c %}
 
@@ -58,6 +60,7 @@ int start_server(const char *, const char *);
 #endif
 
 {% endhighlight %}
+<hr>
 
 The implementation part will be a little bigger than expected, all our handler
 functions and callbacks will be contained here for now, so let's start with
@@ -72,7 +75,9 @@ We will also forward declare some functions, mostly handlers and a mapping much
 like the one used to pack and unpack payloads on mqtt module, we took them as is,
 to make thing easier for the near-future developments.
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -174,14 +179,11 @@ static void publish_stats(struct evloop *, void *);
 static int accept_new_client(int fd, struct connection *conn) {
     if (!conn)
         return -1;
-
     /* Accept the connection */
     int clientsock = accept_connection(fd);
-
     /* Abort if not accepted */
     if (clientsock == -1)
         return -1;
-
     /* Just some informations retrieval of the new accepted client connection */
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(addr);
@@ -204,18 +206,14 @@ static int accept_new_client(int fd, struct connection *conn) {
  * it to the fd, ready to be set in EPOLLIN event
  */
 static void on_accept(struct evloop *loop, void *arg) {
-
     /* struct connection *server_conn = arg; */
     struct closure *server = arg;
     struct connection conn;
-
     accept_new_client(server->fd, &conn);
-
     /* Create a client structure to handle his context connection */
     struct closure *client_closure = malloc(sizeof(*client_closure));
     if (!client_closure)
         return;
-
     /* Populate client structure */
     client_closure->fd = conn.fd;
     client_closure->obj = NULL;
@@ -223,23 +221,19 @@ static void on_accept(struct evloop *loop, void *arg) {
     client_closure->args = client_closure;
     client_closure->call = on_read;
     generate_uuid(client_closure->closure_id);
-
     hashtable_put(sol.closures, client_closure->closure_id, client_closure);
-
     /* Add it to the epoll loop */
     evloop_add_callback(loop, client_closure);
-
     /* Rearm server fd to accept new connections */
     evloop_rearm_callback_read(loop, server);
-
     /* Record the new client connected */
     info.nclients++;
     info.nconnections++;
-
     sol_info("New connection from %s on port %s", conn.ip, conf->port);
 }
 
 {% endhighlight %}
+<hr>
 
 As you can see, I defined two static functions (in C, while not strictly a
 correct use of the term, static functions can only be seen in the scope of the
@@ -253,7 +247,9 @@ The `accept_new_client` function expects a struct `connection` that I added
 for convenience and for reuse of old code from another codebase of mine,
 not strictly necessary to follow this pattern.
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -417,6 +413,7 @@ static void on_write(struct evloop *loop, void *arg) {
 }
 
 {% endhighlight %}
+<hr>
 
 Another 3 static functions added, as shown, there's a `recv_packet` function
 that like foretold by his name, have the duty of receiving streams of bytes till
@@ -437,7 +434,9 @@ simpler to track number of bytes on an array, this case to know how many bytes
 to write out.
 We have to edit the `src/pack.h` and `src/pack.c` to add these utilities.
 
+<hr>
 **src/pack.h**
+<hr>
 
 {% highlight c %}
 
@@ -462,10 +461,13 @@ void bytestring_release(struct bytestring *);
 void bytestring_reset(struct bytestring *);
 
 {% endhighlight %}
+<hr>
 
 And their trivial implementation
 
+<hr>
 **src/pack.c**
+<hr>
 
 {% highlight c %}
 
@@ -498,6 +500,7 @@ void bytestring_reset(struct bytestring *bstring) {
 }
 
 {% endhighlight %}
+<hr>
 
 ### Generic utilities
 
@@ -509,7 +512,9 @@ and `sol_error` on those chunks of code previously analysed.
 Our logging requirements is so simple that there's no need for a dedicated
 module yet, so I generally add those logging functions to the `util` module.
 
+<hr>
 **src/util.h**
+<hr>
 
 {% highlight c %}
 
@@ -548,12 +553,15 @@ void sol_log(int, const char *, ...);
 #endif
 
 {% endhighlight %}
+<hr>
 
 And here we go, a log function with some macros to conveniently call the
 correct level of logging, with an additional utility macro `STREQ` to compare two
 strings.
 
+<hr>
 **src/util.c**
+<hr>
 
 {% highlight c %}
 
@@ -676,6 +684,7 @@ int generate_uuid(char *uuid_placeholder) {
 }
 
 {% endhighlight %}
+<hr>
 
 These simple functions allow us to have a pretty decent logging system, by
 calling `sol_log_init` on the main function we can also persist logs on disk
@@ -685,7 +694,9 @@ We finally arrive to write our `start_server` function, which uses all other
 functions already defined. Basically it acts as an entry point, setting up all
 global structures and the first closure for accepting incoming connections.
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -792,13 +803,16 @@ int start_server(const char *addr, const char *port) {
     return 0;
 }
 {% endhighlight %}
+<hr>
 
 Ok, we have now a (almost) fully functioning server that uses our toyish
 callback system to handle traffic. Let's add some additional code to the server
 header, like that `info` structure and a global structure named `sol` on the
 source .c, we'll be back on that soon.
 
+<hr>
 **src/server.h**
+<hr>
 
 {% highlight c %}
 
@@ -821,6 +835,7 @@ struct sol_info {
 };
 
 {% endhighlight %}
+<hr>
 
 This is directly linked to the periodic task added in the start_server function.
 
@@ -848,7 +863,9 @@ defined on a configuration global pointer that we're going to implement soon.
 
 But let's add the callback first:
 
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -950,14 +967,16 @@ static void publish_stats(struct evloop *loop, void *args) {
 }
 
 {% endhighlight %}
+<hr>
 
 Ok now we have our first periodic callback, it publishes general informations
 on the status of the broker to a set of topics called `$SYS topics`, that we
 called instead `$SOL topics` breaking the standards in a blink of an eye. These
 informations could be added incrementally in the future.
 
-
+<hr>
 **src/server.c**
+<hr>
 
 {% highlight c %}
 
@@ -971,6 +990,7 @@ static struct sol_info info;
 static struct sol sol;
 
 {% endhighlight %}
+<hr>
 
 There're still some parts that we have to write in order to have this piece of
 code to compile and work, for example, what is that `closure_destructor`
