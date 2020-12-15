@@ -1,23 +1,24 @@
 ---
 layout: default
-title: Hi
+title: Hey
 description: "About me and resume"
 permalink: /about/
 ---
 
-My name is Andrea, I'm a software engineer messing with computer-related stuff
-since my childhood, currently focussing on Python on my day to day job, working
-mainly on IoT software and cloud architectures.
+My name is Andrea, I'm a backend software engineer computering since my
+childhood, staying safe away from UX.
 
 ## Me in pills
 
 - Prefer Linux environment, with a certain degree of bias
 - Passionate about programming, intrigued by distributed and concurrent systems
 - Love to learn by doing
+- Every side-project is forever half-work, even when it's not
 - Really love to watch movies (and re-watch them lot of times)
 - Somewhat obsessed with minimalism and the neat and lightweight concept
 - Dislike bloated interfaces, fancy graphical websites, heavyweight IDEs etc
-- Bash over GUI
+- TUI over GUI
+- Tea beats coffee anyday
 - Strength workout over cardio
 - Constantly looking forward to extend my knowledge
 
