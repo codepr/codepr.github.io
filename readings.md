@@ -25,6 +25,7 @@ thoughts. Hardly ever updated.
 - [The Go type system for newcomers](https://rakyll.org/typesystem/)
 - [Go style packages](https://rakyll.org/style-packages/)
 - [How goroutines work](https://blog.nindalf.com/posts/how-goroutines-work/)
+- [Go - Graceful shutdown of worker goroutines](https://callistaenterprise.se/blogg/teknik/2019/10/05/go-worker-cancellation/)
 
 ### System programming
 
