@@ -5,7 +5,7 @@ description: "Simple SSH trick to open a tunnel"
 categories: bash devops
 ---
 
-Many times I found myself in need of an access to my machine at work for
+Many times I've found myself in need of an access to my machine at work for
 quick'n dirty hacks, but something went wrong with the VPN settings
 <!--more-->or the third-party HTTPS tunnel software stopped working out of the
 blue, so I remembered that all that I need is already at hand, courtesy of the
