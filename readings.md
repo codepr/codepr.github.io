@@ -47,3 +47,7 @@ thoughts. Hardly ever updated.
 - [In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf)
 - [The Log: What every software engineer should know about real-time data's unifying abstraction](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying)
 - [What do you mean by "Event-Driven"?](https://martinfowler.com/articles/201701-event-driven.html)
+
+### Programming languages
+
+- [Rust vs. Go: Why They're Better Together](https://thenewstack.io/rust-vs-go-why-theyre-better-together/)
