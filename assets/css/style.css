@@ -18,7 +18,8 @@ img[src*="#content-image"] {
 body	{
 	margin-top: 0px;
 	padding:0;
-	font-family: 'Cutive Mono', serif;
+	/* font-family: 'Cutive Mono', serif; */
+	font-family: 'Roboto', serif;
 	font-size:100%;
 	line-height:150%;
 }
@@ -33,7 +34,7 @@ a:hover	{
 }
 
 code {
-    font-size: .85em;
+    font-size: 1em;
 }
 
 hr {
@@ -72,7 +73,8 @@ hr {
 }
 
 #content-left {
-	text-align:left;
+	text-align:justify;
+	text-justify: inter-word;
 	margin:auto;
 	padding-top:5px;
 	margin-bottom:20px;
