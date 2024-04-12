@@ -502,7 +502,7 @@ multiple separate-but-related Elixir apps that use path dependencies instead of
 
 #### References
 
-- [Raspberry PI 4B](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)
+- [Raspberry PI 4B - https://www.raspberrypi.com/products/raspberry-pi-4-model-b/](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)
 - [MQTT - https://mqtt.org/](https://mqtt.org/)
 - [Docker - https://www.docker.com/](https://www.docker.com/)
 - [Elixir - https://elixir-lang.org/](https://elixir-lang.org/)
