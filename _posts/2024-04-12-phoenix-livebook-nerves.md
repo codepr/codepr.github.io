@@ -39,7 +39,6 @@ Small dump of a tiny presentation I made for a rather small audience on [Elixir]
 - Nerves HUB
 - Peridio
 
-
 ### Quickstart
 
 Check [nerves](https://nerves-project.org/), the getting started link points directly to
@@ -265,7 +264,6 @@ First thing, let's add the required dependencies to the `mix.exs`
 **temp_dashboard/mix.exs**
 <hr>
 {% highlight elixir %}
-# temp_dashboard/mix.exs
   defp deps do
     [
       ...,
@@ -288,8 +286,6 @@ Let's add few lines to the main configuration and the development one:
 **temp_dashboard/config/config.exs**
 <hr>
 {% highlight elixir %}
-
-# temp_dashboard/config/config.exs
 config :temp_dashboard, :emqtt,
   host: '192.168.10.12',  # Again, the MQTT broker address here
   port: 1883
@@ -323,8 +319,6 @@ and replace the content with the following snippet.
 **temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.ex**
 <hr>
 {% highlight elixir %}
-# temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.ex
-
 defmodule TempDashboardWeb.TemperatureLive.Index do
   use TempDashboardWeb, :live_view
 
@@ -478,7 +472,6 @@ Last step, adding a handler to route our requests to index, removing the existin
 **lib/temp_dasboard_web/router.ex**
 <hr>
 {% highlight elixir %}
-  # lib/temp_dashboard_web/router.ex
   scope "/", TempDashboardWeb do
     pipe_through :browser
 
