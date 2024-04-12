@@ -4,12 +4,12 @@
   <body>
 	<div id="main">
   	<!-- {% include logo.html %} -->
-    <center><h1>Init 5</h1></center>
+    <center><h1>Init 1</h1></center>
   	{% include nav.html %}
 		<div id="content-left">
       <div id="post">
         <h2>{{ page.title }}</h2>
-        <i>posted on {{ page.date | date: "%-d %b %Y" }}</i>
+        <i>posted on {{ page.date | date: "%Y %b %d" }}</i>
         {{ content }}
         {% if page.categories.size > 0 %}
           <div id="categories">

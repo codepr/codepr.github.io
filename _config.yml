@@ -1,7 +1,7 @@
-title: Init 5
+title: Init 1
 owner: Andrea Baldan
 email:
-description: Unix, Computer Science, imperative and functional programming. In an ordinary way.
+description: Unix, CS, system programming.
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 language: en

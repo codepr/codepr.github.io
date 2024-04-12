@@ -1,6 +1,7 @@
+/* @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap&') */
 @import url('https://fonts.googleapis.com/css?family=Oswald&display=swap');
 h1 {
-    font-family: Oswald;
+    font-family: 'Oswald';
     font-weight: 700;
     font-size: 3.8em;
     letter-spacing: 3px
@@ -24,17 +25,26 @@ body	{
 	line-height:150%;
 }
 
+.date {
+	font-family: "source code pro", monospace;
+}
+
 a:link, a:visited	{
 	text-decoration: none;
 	color:#000
 }
+/**/
+/* a:hover	{ */
+/* 	/* text-decoration: underline; */ */
+/* } */
 
-a:hover	{
-	text-decoration: underline;
+.highlight {
+	background-color: #f10101;
+
 }
 
 code {
-    font-size: 1em;
+	font-size: 1em;
 }
 
 hr {
@@ -110,26 +120,25 @@ hr {
 
 #content-left a:link, #content-left a:visited	{
 	text-decoration: none;
-    font-style: italic;
 	color:#00a
 }
 
-#content-left a:hover	{
-	text-decoration: none;
-}
+/* #content-left a:hover	{ */
+/* 	text-decoration: none; */
+/* } */
 
-#post-short a:link, #post-short a:visited	{
-	text-decoration: none;
-	color:#000
-}
+/* #post-short a:link, #post-short a:visited	{ */
+/* 	text-decoration: none; */
+/* 	color:#000 */
+/* } */
 
-#post-short a:hover	{
-	text-decoration: underline;
-}
+/* #post-short a:hover	{ */
+/* 	text-decoration: underline; */
+/* } */
 
-#post-short h3, #post h2	{
-	margin-bottom: 0px;
-}
+/* #post-short h3, #post h2	{ */
+/* 	margin-bottom: 0px; */
+/* } */
 
 #post-short i	{
 	font-size:0.8em;
