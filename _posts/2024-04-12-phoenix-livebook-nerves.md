@@ -116,10 +116,10 @@ cd nerves_livebook
 
 Add dependency to the `mix.exs`
 
-{% highlight elixir %}
 <hr>
 **mix.exs**
 <hr>
+{% highlight elixir %}
 defp deps do
     [
       ...,
