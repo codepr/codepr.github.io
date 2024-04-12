@@ -1,11 +1,11 @@
 ---
 layout: post
-title: "Exploring nerves on a RPI4"
+title: "Exploring nerves on an RPI4"
 description: "Trying out nerves and phoenix liveview on a Raspberry PI 4"
 categories: elixir iot
 ---
 
-Small dump of a tiny presentation I made for a rather small audience on Elixir nerves and Phoenix liveview. Can be followed as a mini tutorial step by step to get an IoT system running a livebook with a small application backed by Phoenix.
+Small dump of a tiny presentation I made for a rather small audience on [Elixir](https://elixir-lang.org/) [Nerves](https://nerves-project.org/) and [Phoenix liveview](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html). Can be followed as a mini tutorial step by step to get an IoT system running a livebook with a small application backed by Phoenix.
 
 ### Requirements
 
@@ -16,8 +16,8 @@ Small dump of a tiny presentation I made for a rather small audience on Elixir n
 
 #### Software dependencies
 
-- elixir + mix [install](https://elixir-lang.org/install.html#macos) (alternatively [asdf](https://github.com/asdf-vm/asdf))
-- docker
+- Elixir + mix [install](https://elixir-lang.org/install.html#macos) (alternatively [asdf](https://github.com/asdf-vm/asdf))
+- Docker
 
 ### Touched arguments
 
@@ -499,3 +499,15 @@ Let's open the brower to `localhost:4000`.
 A "poncho project" is similar to an umbrella project except that it's actually
 multiple separate-but-related Elixir apps that use path dependencies instead of
 `in_umbrella` dependencies
+
+#### References
+
+- [Raspberry PI 4B](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/)
+- [MQTT](https://mqtt.org/)
+- [Docker](https://www.docker.com/)
+- [Elixir](https://elixir-lang.org/)
+- [Mix](https://hexdocs.pm/elixir/introduction-to-mix.html)
+- [GenServer](https://hexdocs.pm/elixir/GenServer.html)
+- [Livebook](https://livebook.dev/)
+- [Nerves](https://nerves-project.org/)
+- [Phoenix liveview](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html)
