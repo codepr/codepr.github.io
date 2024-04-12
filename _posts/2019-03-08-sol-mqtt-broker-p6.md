@@ -334,14 +334,12 @@ static int subscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
     /* Subscribe packets contains a list of topics and QoS tuples */
     for (unsigned i = 0; i < pkt->subscribe.tuples_len; i++) {
         sol_debug("Received SUBSCRIBE from %s", c->client_id);
-
         /*
          * Check if the topic exists already or in case create it and store in
          * the global map
          */
         char *topic = (char *) pkt->subscribe.tuples[i].topic;
         sol_debug("\t%s (QoS %i)", topic, pkt->subscribe.tuples[i].qos);
-
         /* Recursive subscribe to all children topics if the topic ends with "/#" */
         if (topic[pkt->subscribe.tuples[i].topic_len - 1] == '#' &&
             topic[pkt->subscribe.tuples[i].topic_len - 2] == '/') {
@@ -507,7 +505,6 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
     }
 
     // TODO free publish
-
     if (qos == AT_LEAST_ONCE) {
         mqtt_puback *puback = mqtt_packet_ack(PUBACK_BYTE, pkt->publish.pkt_id);
         mqtt_packet_release(pkt, PUBLISH);
@@ -519,7 +516,6 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
         sol_debug("Sending PUBACK to %s", c->client_id);
         return REARM_W;
     } else if (qos == EXACTLY_ONCE) {
-
         // TODO add to a hashtable to track PUBREC clients last
         mqtt_pubrec *pubrec = mqtt_packet_ack(PUBREC_BYTE, pkt->publish.pkt_id);
         mqtt_packet_release(pkt, PUBLISH);
@@ -532,7 +528,6 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
         return REARM_W;
     }
     mqtt_packet_release(pkt, PUBLISH);
-
     /*
      * We're in the case of AT_MOST_ONCE QoS level, we don't need to sent out
      * any byte, it's a fire-and-forget.
@@ -678,7 +673,6 @@ So, let's define a new header:
 #include <stdio.h>
 
 // Default parameters
-
 #define VERSION                     "0.0.1"
 #define DEFAULT_SOCKET_FAMILY       INET
 #define DEFAULT_LOG_LEVEL           DEBUG
@@ -973,10 +967,8 @@ int config_load(const char *configpath) {
 }
 
 void config_set_default(void) {
-
     // Set the global pointer
     conf = &config;
-
     // Set default values
     config.version = VERSION;
     config.socket_family = DEFAULT_SOCKET_FAMILY;
@@ -1025,6 +1017,7 @@ void config_print(void) {
 {% endhighlight %}
 <hr>
 
+At this point we have all the pieces needed to have something running.
 Let's add the last brick, a main:
 
 <hr>
@@ -1124,7 +1117,10 @@ sol/
 
 That's a moderate amount of code to manage, for compilation I'd like to write
 custom `Makefile` usually, but this time, as shown on the folder tree, I'll
-consider using a `CMakeLists.txt` defined template ad `cmake` to generate it:
+consider using a `CMakeLists.txt` defined template and `cmake` to generate it;
+probably not the advisable as `cmake` is such a huge piece of software to generate
+artifacts for such a small and dependency-free software, however I was curious to
+see how it worked and took the moment:
 
 {% highlight bash %}
 

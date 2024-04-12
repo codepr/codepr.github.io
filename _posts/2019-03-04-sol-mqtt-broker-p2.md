@@ -17,19 +17,19 @@ revisions.
 
 ### Build, pack and send.
 
-For now we only need CONNACK, SUBACK and PUBLISH packet builder, the
-other ACK like packets can be created at the same manner with a single
+For now we only need `CONNACK`, `SUBACK` and `PUBLISH` packet builder, the
+other `ACK` like packets can be created at the same manner with a single
 function, that's why the use of **typedef** for different ack codes.
 
 - `union mqtt_header *mqtt_packet_header(unsigned char)` will cover packet
   Fixed Header as well as PINGREQ, PINGRESP and DISCONNECT packets
 - `struct mqtt_ack *mqtt_packet_ack(unsigned char, unsigned short)` will be
   used to  build:
-  - PUBACK
-  - PUBREC
-  - PUBREL
-  - PUBCOMP
-  - UNSUBACK
+  - `PUBACK`
+  - `PUBREC`
+  - `PUBREL`
+  - `PUBCOMP`
+  - `UNSUBACK`
 
 The remaining packets will have a dedicated function. There's probably better
 ways to reuse code and to model this but for now let's stick to something
@@ -334,10 +334,10 @@ from the host, this two functions never fail to appear in every C codebase
 regarding TCP communication:
 
 - `ssize_t send_bytes(int, const unsigned char *, size_t)` used to send all
-  bytes out at once in while loop till no bytes left, by handling EAGAIN and
-  EWOUDLBLOCK error codes
+  bytes out at once in while loop till no bytes left, by handling `EAGAIN` and
+  `EWOUDLBLOCK` error codes
 - `ssize_t recv_bytes(int, unsigned char *, size_t)`, read an arbitrary number
-  of bytes in a while loop, again handling correctly EAGAIN and EWOUDLBLOCK
+  of bytes in a while loop, again handling correctly `EAGAIN` and `EWOUDLBLOCK`
   error codes
 
 
@@ -366,7 +366,7 @@ ssize_t recv_bytes(int, unsigned char *, size_t);
 {% endhighlight %}
 <hr>
 
-And the implementation on network.c.
+And the implementation on network.c. Omitting includes to spare some space.
 
 <hr>
 **src/network.c**
@@ -375,22 +375,8 @@ And the implementation on network.c.
 {% highlight c %}
 
 #define _DEFAULT_SOURCE
-#include <stdlib.h>
-#include <errno.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <sys/un.h>
-#include <sys/epoll.h>
-#include <sys/timerfd.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/eventfd.h>
-#include "network.h"
-#include "config.h"
+
+// -- omitted includes
 
 /* Set non-blocking socket */
 int set_nonblocking(int fd) {
@@ -714,8 +700,8 @@ int evloop_rearm_callback_write(struct evloop *, struct closure *);
 int epoll_add(int, int, int, void *);
 
 /*
- * Modify an epoll-monitored descriptor, automatically set EPOLLONESHOT in
- * addition to the other flags, which can be EPOLLIN for read and EPOLLOUT for
+ * Modify an epoll-monitored descriptor, automatically set `EPOLLONESHOT` in
+ * addition to the other flags, which can be `EPOLLIN` for read and EPOLLOUT for
  * write
  */
 int epoll_mod(int, int, int, void *);
@@ -782,7 +768,7 @@ void evloop_free(struct evloop *loop) {
 
 Now, epoll API is extensively documentated on its manpage, but we’ll need 3
 functions to add, remove and modify monitored descriptors and trigger events,
-using EPOLLET flag, in order to use epoll on edge-triggered behaviour (the
+using `EPOLLET` flag, in order to use epoll on edge-triggered behaviour (the
 default one is Level-triggered, see
 [manpage](http://man7.org/linux/man-pages/man7/epoll.7.html) and avoid in a
 future multithreaded implementation to wake up all threads at once every time
@@ -832,7 +818,7 @@ Two things to be noted:
   inside the structure pointed.
 
 - Second, our add and mod functions accepts as third parameters a set of
-  events, mostly EPOLLIN or EPOLLOUT, but they add EPOLLONESHOT to them,
+  events, mostly `EPOLLIN` or `EPOLLOUT`, but they add `EPOLLONESHOT` to them,
   in other words after an event if fired for a descriptor, that descriptor will
   be disabled, until manually rearmed.<br>
   This way every time an event is triggered, the descriptor must be manually
@@ -841,7 +827,7 @@ Two things to be noted:
   future multithreaded implementation, [this great
   article](https://idea.popcount.org/2017-02-20-epoll-is-fundamentally-broken-12/)
   explains wonderfully the advantages (or the broken parts) of the epoll and
-  why it's better to use EPOLLONESHOT flag.
+  why it's better to use `EPOLLONESHOT` flag.
 
 We move forward now to implement the basic closure system and the wait loop for
 read and write events, as well as periodic timed callbacks.

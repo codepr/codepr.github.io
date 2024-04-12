@@ -35,7 +35,7 @@ less powerful.
 ### Handling topic abstraction: the trie
 
 We move now to the **trie**, the structure of choice to store topics. Trie is a
-kind of tree in which each node is a prefix for a key, the node position
+type of tree in which each node is a prefix for a key, the node position
 define the keys and the associated values are set on the last node of each key.
 They provide a big-O runtime complexity of O(m) on worst case, for insertion
 and lookup, where m is the length of the key. The main advantage is the

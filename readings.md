@@ -11,6 +11,8 @@ thoughts. Hardly ever updated.
 
 ### General computer science
 
+- [Crafting Interpreters](https://craftinginterpreters.com/)
+- [One Billion Rows Challenge in Golang](https://r2p.dev/b/2024-03-18-1brc-go/)
 - [No, dynamic type systems are not inherently more open](https://lexi-lambda.github.io/blog/2020/01/19/no-dynamic-type-systems-are-not-inherently-more-open/)
 - [Parse, don't validate](https://lexi-lambda.github.io/blog/2019/11/05/parse-don-t-validate/)
 - [Climbing the infinite ladder of abstraction](https://lexi-lambda.github.io/blog/2016/08/11/climbing-the-infinite-ladder-of-abstraction/)
@@ -29,6 +31,8 @@ thoughts. Hardly ever updated.
 
 ### System programming
 
+- [Home-grown bytecode interpreters](https://medium.com/bumble-tech/home-grown-bytecode-interpreters-51e12d59b25c)
+- [A Database Without Dynamic Memory Allocation](https://tigerbeetle.com/blog/a-database-without-dynamic-memory/)
 - [Writing system software: code comments](http://antirez.com/news/124)
 - [Adventures in message queues](http://antirez.com/news/88)
 - [The method to epoll's madness](https://copyconstruct.medium.com/the-method-to-epolls-madness-d9d2d6378642)
@@ -40,6 +44,7 @@ thoughts. Hardly ever updated.
 
 ### Distributed systems
 
+- [Building a Distributed Log From Scratch](https://bravenewgeek.com/building-a-distributed-log-from-scratch-part-1-storage-mechanics/)
 - [My favorite algorithm (and data structure): HyperLogLog](https://odino.org/my-favorite-data-structure-hyperloglog/)
 - [Building petabyte-scale analytics with BigQuery and HLL](https://medium.com/permutive/petabyte-analytics-with-bigquery-hll-af0f7a70b66d)
 - [From Data-Swamp to Data-Lake on AWS (Part 1)](https://engineering.depop.com/from-data-swamp-to-data-lake-on-aws-part-1-6fcf83f2c26e)

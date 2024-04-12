@@ -6,7 +6,7 @@ layout: default
 title: Oi
 ---
 
-Andrea - I mostly upset the thinking sand.
+Andrea - upsetting sand for living
 
 ## Projects
 
@@ -14,6 +14,9 @@ Andrea - I mostly upset the thinking sand.
 - [EV](https://github.com/codepr/ev.git){:target="_blank"}: lightweight event-loop library based on multiplexing IO
 - [llb](https://github.com/codepr/llb.git){:target="_blank"}: dead simple event-driven load balancer
 - [rlb](https://github.com/codepr/rlb.git){:target="_blank"}: rough-and-ready lightweight load-balancer in Rust
+- [Roach](https://github.com/codepr/roach){:target="_blank"}: basic timeseries library and server with WAL and log-based persistence
+- [SLS](https://github.com/codepr/sls){:target="_blank"}: bitcask basic implementation in Elixir
+- [Rublo](https://github.com/codepr/rublo){:target="_blank"}: Bloom filter with barebone features in Rust
 - [Drain](https://github.com/codepr/drain.git){:target="_blank"}: a sewer of streams
 - [TTS](https://github.com/codepr/tts.git){:target="_blank"}: Transient Time Series, a naive implementation of a time series DB
 - [Timepipe](https://github.com/codepr/timepipe.git){:target="_blank"}: simple Go implementation of an in-memory TSDB

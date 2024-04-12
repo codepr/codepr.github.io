@@ -122,13 +122,7 @@ functions (like methods in a class).
 
 {% highlight c %}
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <assert.h>
-#include "util.h"
-#include "hashtable.h"
+// -- Omitted includes
 
 /* Hashtable definition */
 struct hashtable {
@@ -172,7 +166,6 @@ static uint64_t hashtable_hash_int(HashTable *m, const uint8_t *keystr) {
  */
 static int hashtable_hash(HashTable *table, const uint8_t *key) {
     assert(table && key);
-
     /* If full, return immediately */
     if (table->size >= (table->table_size / 2))
         return -HASHTABLE_FULL;
@@ -202,7 +195,6 @@ static int hashtable_rehash(HashTable *table) {
     assert(table);
     size_t old_size;
     struct hashtable_entry *curr;
-
     /* Setup the new elements */
     struct hashtable_entry *temp =
         calloc(2 * table->table_size, sizeof(*temp));
@@ -280,7 +272,6 @@ int hashtable_exists(HashTable *table, const char *key) {
    case of collision. */
 int hashtable_put(HashTable *table, const char *key, void *val) {
     assert(table && key);
-
     /* Find a place to put our value */
     int index = hashtable_hash(table, (const uint8_t *) key);
     while (index == -HASHTABLE_FULL){
@@ -306,7 +297,6 @@ int hashtable_put(HashTable *table, const char *key, void *val) {
  */
 void *hashtable_get(HashTable *table, const char *key) {
     assert(table && key);
-
     /* Find data location */
     uint64_t curr = hashtable_hash_int(table, (const uint8_t *) key);
 
@@ -328,23 +318,18 @@ void *hashtable_get(HashTable *table, const char *key) {
  */
 int hashtable_del(HashTable *table, const char *key) {
     assert(table && key);
-
     /* Find key */
     uint64_t curr = hashtable_hash_int(table, (const uint8_t *) key);
 
     /* Linear probing, if necessary */
     for (int i = 0; i < MAX_CHAIN_LENGTH; i++) {
-
         // check wether the position in array is in use
         if (table->entries[curr].taken == true) {
             if (STREQ(table->entries[curr].key, key, strlen(key)) == true) {
-
                 /* Blank out the fields */
                 table->entries[curr].taken = false;
-
                 /* Reduce the size */
                 table->size--;
-
                 /* Destroy the entry */
                 table->destructor(&table->entries[curr]);
 
@@ -365,7 +350,6 @@ int hashtable_del(HashTable *table, const char *key) {
  */
 int hashtable_map(HashTable *table, int (*func)(struct hashtable_entry *)) {
     assert(func);
-
     /* On empty hashmap, return immediately */
     if (!table || table->size <= 0)
         return -HASHTABLE_ERR;
@@ -373,7 +357,6 @@ int hashtable_map(HashTable *table, int (*func)(struct hashtable_entry *)) {
     /* Linear probing */
     for (size_t i = 0; i < table->table_size; i++) {
         if (table->entries[i].taken == true) {
-
             /* Apply function to the key-value entry */
             struct hashtable_entry data = table->entries[i];
             int status = func(&data);
@@ -392,7 +375,6 @@ int hashtable_map2(HashTable *table,
                    int (*func)(struct hashtable_entry *, void *),
                    void *param) {
     assert(func);
-
     /* On empty hashmap, return immediately */
     if (!table || table->size <= 0)
         return -HASHTABLE_ERR;
@@ -400,7 +382,6 @@ int hashtable_map2(HashTable *table,
     /* Linear probing */
     for (size_t i = 0; i < table->table_size; i++) {
         if (table->entries[i].taken == true) {
-
             /* Apply function to the key-value entry */
             struct hashtable_entry data = table->entries[i];
             int status = func(&data, param);

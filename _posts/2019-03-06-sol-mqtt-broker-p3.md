@@ -78,26 +78,12 @@ to make thing easier for the near-future developments.
 <hr>
 **src/server.c**
 <hr>
+Omitting includes to spare some space.
 
 {% highlight c %}
 
 #define _POSIX_C_SOURCE 200809L
-#include <time.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include "pack.h"
-#include "util.h"
-#include "mqtt.h"
-#include "core.h"
-#include "network.h"
-#include "hashtable.h"
-#include "config.h"
-#include "server.h"
+// -- Omitted includes
 
 /* Seconds in a Sol, easter egg */
 static const double SOL_SECONDS = 88775.24;
@@ -562,19 +548,11 @@ strings.
 <hr>
 **src/util.c**
 <hr>
+Includes are omitted for brevity.
 
 {% highlight c %}
 
-#include <time.h>
-#include <ctype.h>
-#include <errno.h>
-#include <assert.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <uuid/uuid.h>
-#include "util.h"
-#include "config.h"
+// -- Omitted includes
 
 static FILE *fh = NULL;
 

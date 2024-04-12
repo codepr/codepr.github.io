@@ -396,14 +396,11 @@ heap-alloc'ed ones, nothing special here.
 
 union mqtt_header *mqtt_packet_header(unsigned char);
 struct mqtt_ack *mqtt_packet_ack(unsigned char , unsigned short);
-struct mqtt_connack *mqtt_packet_connack(unsigned char ,
-                                         unsigned char ,
-                                         unsigned char);
+struct mqtt_connack *mqtt_packet_connack(unsigned char, unsigned char, unsigned char);
 struct mqtt_suback *mqtt_packet_suback(unsigned char, unsigned short,
                                        unsigned char *, unsigned short);
 struct mqtt_publish *mqtt_packet_publish(unsigned char, unsigned short, size_t,
-                                         unsigned char *,
-                                         size_t, unsigned char *);
+                                         unsigned char *, size_t, unsigned char *);
 void mqtt_packet_release(union mqtt_packet *, unsigned);
 
 #endif
@@ -427,21 +424,11 @@ packet, these will be called by the previously defined "public" functions
 #include <string.h>
 #include "mqtt.h"
 
-static size_t unpack_mqtt_connect(const unsigned char *,
-                                  union mqtt_header *,
-                                  union mqtt_packet *);
-static size_t unpack_mqtt_publish(const unsigned char *,
-                                  union mqtt_header *,
-                                  union mqtt_packet *);
-static size_t unpack_mqtt_subscribe(const unsigned char *,
-                                    union mqtt_header *,
-                                    union mqtt_packet *);
-static size_t unpack_mqtt_unsubscribe(const unsigned char *,
-                                      union mqtt_header *,
-                                      union mqtt_packet *);
-static size_t unpack_mqtt_ack(const unsigned char *,
-                              union mqtt_header *,
-                              union mqtt_packet *);
+static size_t unpack_mqtt_connect(const unsigned char *, union mqtt_header *, union mqtt_packet *);
+static size_t unpack_mqtt_publish(const unsigned char *, union mqtt_header *, union mqtt_packet *);
+static size_t unpack_mqtt_subscribe(const unsigned char *, union mqtt_header *, union mqtt_packet *);
+static size_t unpack_mqtt_unsubscribe(const unsigned char *, union mqtt_header *, union mqtt_packet *);
+static size_t unpack_mqtt_ack(const unsigned char *, union mqtt_header *, union mqtt_packet *);
 static unsigned char *pack_mqtt_header(const union mqtt_header *);
 static unsigned char *pack_mqtt_ack(const union mqtt_packet *);
 static unsigned char *pack_mqtt_connack(const union mqtt_packet *);
