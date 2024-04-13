@@ -5,7 +5,11 @@ description: "Trying out nerves and phoenix liveview on a Raspberry PI 4"
 categories: elixir iot
 ---
 
-Small dump of a tiny presentation I made for a rather small audience on [Elixir](https://elixir-lang.org/) [Nerves](https://nerves-project.org/) and [Phoenix liveview](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html). Can be followed as a mini tutorial step by step to get an IoT system running a livebook with a small application backed by Phoenix.
+Small dump of a tiny presentation I made for a rather small audience on
+[Elixir](https://elixir-lang.org/) [Nerves](https://nerves-project.org/) and
+[Phoenix liveview](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html).
+Can be followed as a mini tutorial step by step to get an IoT system running a
+livebook with a small application backed by Phoenix.
 
 ### Requirements
 
@@ -54,7 +58,8 @@ the simplest example: [running livebook on embedded systems](https://github.com/
 
 #### Testing MQTT communication, setup:
 
-Run an MQTT broker on the host machine, let's use `mosquitto` (if an `Address not available error` happens, use the following conf)
+Run an MQTT broker on the host machine, let's use `mosquitto` (if an `Address
+not available error` happens, use the following conf)
 
 {% highlight ini %}
 persistence false
@@ -65,7 +70,6 @@ allow_anonymous true
 {% endhighlight %}
 
 Finally run a `mosquitto` container mounting the local config
-
 
 {% highlight bash %}
 docker run -it -p 1883:1883 -v $PWD/mosquitto.conf:/mosquitto/config/mosquitto.conf eclipse-mosquitto
@@ -102,9 +106,9 @@ payload = Jason.encode!(message)
 :emqtt.stop(pid)
 {% endhighlight %}
 
-Oh no, must rebuild the livebook :( one current limitation of livebook in `nerves` is that
-`Mix.install` is not supported yet. Livebook can be customized easily on the host machine
-(your PC).
+Oh no, must rebuild the livebook :( one current limitation of livebook in
+`nerves` is that `Mix.install` is not supported yet. Livebook can be customized
+easily on the host machine.
 
 Flash `nerves_livebook` into device (`rpi4`)
 
@@ -128,7 +132,7 @@ defp deps do
 end
 {% endhighlight %}
 
-Build firmware and push it to the device
+Build the firmware and push it to the device
 
 {% highlight bash %}
 
@@ -145,12 +149,13 @@ mix firmware.gen.script
 ./upload.sh livebook@nerves.local
 {% endhighlight %}
 
-Now the previous snippet should work correctly and we should see the message published onto our MQTT broker.
+Now the previous snippet should work correctly and we should see the message
+published onto our MQTT broker.
 
 ### Daring something more
 
-Let's expand the previous snippet: a `GenServer` perpetually generating temperature values and also
-accepting command from the broker
+Let's expand the previous snippet: a `GenServer` perpetually generating
+temperature values and also accepting command from the broker
 
 {% highlight elixir %}
 
@@ -250,9 +255,10 @@ mosquitto_sub -t reports/weather_sensor/temperature -h 127.0.0.1
 
 ### Phoenix liveview
 
-Let's build a simple Phoenix app to subscribe to the topic and see real-time data coming through `LiveView`.
-Let's not forget `--no-ecto` we don't need DBs here, `--no-mailer`, `--no-gettext`, `--no-dashboard`, and `--live`.
-This should cut out a fair amount of boilerplate.
+Let's build a simple Phoenix app to subscribe to the topic and see real-time
+data coming through `LiveView`. Let's not forget `--no-ecto` we don't need DBs
+here, `--no-mailer`, `--no-gettext`, `--no-dashboard`, and `--live`. This
+should cut out a fair amount of boilerplate.
 
 {% highlight bash %}
 mix phx.new temp_dashboard --no-ecto --no-mailer --no-gettext --no-dashboard --live
@@ -312,8 +318,9 @@ rm lib/temp_dashboard_web/live/temperature_live/show.*
 rm lib/temp_dashboard_web/live/live_helpers.ex
 {% endhighlight %}
 
-Finally, we want to add some business logic to our app, fire up the editor on `temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.ex`
-and replace the content with the following snippet.
+Finally, we want to add some business logic to our app, fire up the editor on
+`temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.ex` and
+replace the content with the following snippet.
 
 <hr>
 **temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.ex**
@@ -450,7 +457,6 @@ We also need a template view for our page, let's replace the `index.html.heex`
 **temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.html.heex**
 <hr>
 {% highlight html %}
-<!-- temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.html.heex -->
 <div>
   <%= if @plot do %>
     <%= @plot %>
@@ -466,7 +472,8 @@ We also need a template view for our page, let's replace the `index.html.heex`
 </div>
 {% endhighlight %}
 
-Last step, adding a handler to route our requests to index, removing the existing `/` `scope`
+Last step, adding a handler to route our requests to index, removing the
+existing `/` `scope`
 
 <hr>
 **lib/temp_dasboard_web/router.ex**
@@ -479,7 +486,8 @@ Last step, adding a handler to route our requests to index, removing the existin
   end
 {% endhighlight %}
 
-Get the dependencies and run the application, we should see it connecting to the broker
+Get the dependencies and run the application, we should see it connecting to
+the broker
 
 {% highlight bash %}
 mix phx.server
