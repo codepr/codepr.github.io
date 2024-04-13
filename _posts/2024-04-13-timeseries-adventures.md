@@ -65,7 +65,7 @@ where it belongs. The WAL acts as a disaster recovery policy, it is solely
 responsible for storing incoming records in order to be able to read them and
 re-populate the segment on restarts.
 
-![Disk_1]({{site.url}}{{site.baseurl}}/assets/images/roach_disk_1.png#content-image-1)
+![Disk_1]({{site.url}}{{site.baseurl}}/assets/images/roach_disk_2.png#content-image-1)
 
 In short:
 
@@ -79,6 +79,101 @@ In short:
     - the head segment becomes the new tail segment
     - a new head in-memory segment is generated
 - immutable segments on disk are paired with an index file to read records from the past
+
+Although there are plenty of improvements, fixes and  other things to take care
+of, this function is roughly at the heart of the logic (there is a secondary
+logic in here for which we flush on disk also based on the WAL size, nothing of
+interest for the purpose of simplicity)
+
+<hr>
+<hr>
+{% highlight c %}
+/*
+ * Set a record in a timeseries.
+ *
+ * This function sets a record with the specified timestamp and value in the
+ * given timeseries. The function handles the storage of records in memory and
+ * on disk to ensure data integrity and efficient usage of resources.
+ *
+ * @param ts A pointer to the Timeseries structure representing the timeseries.
+ * @param timestamp The timestamp of the record to be set, in nanoseconds.
+ * @param value The value of the record to be set.
+ * @return 0 on success, -1 on failure.
+ */
+int ts_insert(Timeseries *ts, uint64_t timestamp, double_t value) {
+    // Extract seconds and nanoseconds from timestamp
+    uint64_t sec = timestamp / (uint64_t)1e9;
+    uint64_t nsec = timestamp % (uint64_t)1e9;
+
+    char pathbuf[MAX_PATH_SIZE];
+    snprintf(pathbuf, sizeof(pathbuf), "%s/%s/%s", BASE_PATH, ts->db_data_path,
+             ts->name);
+
+    // if the limit is reached we dump the chunks into disk and create 2 new
+    // ones
+    if (wal_size(&ts->head.wal) >= TS_FLUSH_SIZE) {
+        uint64_t base = ts->prev.base_offset > 0 ? ts->prev.base_offset
+                                                 : ts->head.base_offset;
+        size_t partition_nr = ts->partition_nr == 0 ? 0 : ts->partition_nr - 1;
+
+        if (ts->partitions[partition_nr].clog.base_timestamp < base) {
+            if (partition_init(&ts->partitions[ts->partition_nr], pathbuf,
+                               base) < 0) {
+                return -1;
+            }
+            partition_nr = ts->partition_nr;
+            ts->partition_nr++;
+        }
+
+        // Dump chunks into disk and create new ones
+        if (partition_flush_chunk(&ts->partitions[partition_nr], &ts->prev) < 0)
+            return -1;
+        if (partition_flush_chunk(&ts->partitions[partition_nr], &ts->head) < 0)
+            return -1;
+
+        // Reset clean both head and prev in-memory chunks
+        ts_deinit(ts);
+    }
+    // Let it crash for now if the timestamp is out of bounds in the ooo
+    if (sec < ts->head.base_offset) {
+        // If the chunk is empty, it also means the base offset is 0, we set
+        // it here with the first record inserted
+        if (ts->prev.base_offset == 0)
+            ts_chunk_init(&ts->prev, pathbuf, sec, 0);
+
+        // Persist to disk for disaster recovery
+        wal_append_record(&ts->prev.wal, timestamp, value);
+
+        // If we successfully insert the record, we can return
+        if (ts_chunk_record_fit(&ts->prev, sec) == 0)
+            return ts_chunk_set_record(&ts->prev, sec, nsec, value);
+    }
+
+    if (ts->head.base_offset == 0)
+        ts_chunk_init(&ts->head, pathbuf, sec, 1);
+
+    // Persist to disk for disaster recovery
+    wal_append_record(&ts->head.wal, timestamp, value);
+    // Check if the timestamp is in range of the current chunk, otherwise
+    // create a new in-memory segment
+    if (ts_chunk_record_fit(&ts->head, sec) < 0) {
+        // Flush the prev chunk to persistence
+        if (partition_flush_chunk(&ts->partitions[ts->partition_nr],
+                                  &ts->prev) < 0)
+            return -1;
+        // Clean up the prev chunk and delete it's WAL
+        ts_chunk_destroy(&ts->prev);
+        wal_delete(&ts->prev.wal);
+        // Set the current head as new prev
+        ts->prev = ts->head;
+        // Reset the current head as new head
+        ts_chunk_destroy(&ts->head);
+        wal_delete(&ts->head.wal);
+    }
+    // Insert it into the head chunk
+    return ts_chunk_set_record(&ts->head, sec, nsec, value);
+}
+{% endhighlight %}
 
 ## The current state
 
