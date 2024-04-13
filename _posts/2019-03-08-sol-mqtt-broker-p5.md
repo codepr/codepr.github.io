@@ -119,7 +119,7 @@ void trie_release(Trie *);
 void trie_prefix_delete(Trie *, const char *);
 
 /*
- * Apply a given function to all ndoes which keys match a given prefix. The
+ * Apply a given function to all nodes which keys match a given prefix. The
  * function accepts two arguments, a struct trie_node pointer which correspond
  * to each node on the trie after the prefix node and a void pointer, used for
  * additional data which can be useful to the execution of `mapfunc`.
@@ -132,7 +132,7 @@ void trie_prefix_map_tuple(Trie *, const char *,
 {% endhighlight %}
 <hr>
 
-Implementation of this data structure is a bit tricky and there're lot of
+Implementation of this data structure is a bit tricky and there are lot of
 different approaches, the most simple one would involve the use of a fixed
 length array on each node of the trie, with the complete alphabet size as
 length.
@@ -157,7 +157,7 @@ queries on the keyspace (this one will come handy for wildcard subscriptions
 and management of topics), is in terms of average performances over hashtables
 or B-Trees, it gives in fact on worst case O(L) insert, delete and search time
 complexity where L is the length of the key. This comes at a cost, the main
-drawback is that the structure itself, following this imlementation is really
+drawback is that the structure itself, following this implementation is really
 memory hungry. In the example case with an alphabet of size 96, starting from
 the `<space>` character and ending with the `~` each node has 96 NULL pointer
 to their children, this means that on a 64 bit arch machine with 8 bytes per
@@ -172,7 +172,7 @@ another 1 non-null pointer o, here lies our first value for key foo, and the
 last children o have 1 non-null pointer for t, which will also store our second
 value for foot key. So we have a total of 4 nodes, that means 4 * 96 = 384
 pointers, of which only 4 are used. Now that's a lot of wasted space! There's
-some techniques to mitigate this homongous amount of wasting bytes while
+some techniques to mitigate this humongous amount of wasting bytes while
 maintaining good time-complexity performances, called compressed trie and
 adaptive trie.
 
@@ -183,7 +183,7 @@ Without going too deep into these concepts, best solutions so far seems three:
   store the index in the main vector for each children;
 
 - Use sized node based on the number of children and adapting lookup
-  algorithm accordingly e.g.  with # children <= 4 use a fixed length array
+  algorithm accordingly e.g. with # children <= 4 use a fixed length array
   of 4 pointers and linear search for children, growing up set fixed steps of
   size and use a different mapping for characters on the array of children
   pointers.

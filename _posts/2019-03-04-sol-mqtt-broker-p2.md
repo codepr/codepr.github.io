@@ -12,7 +12,7 @@ and the packing functions to serialize packet for output.<br>
 <!--more-->
 As a side note we're probably not going to write perfect and efficient
 memory-wise code, but again, premature optimization is the root of all evil,
-there'll be plenty of time to improve the quality of the software with future
+there will be plenty of time to improve the quality of the software with future
 revisions.
 
 ### Build, pack and send.
@@ -136,14 +136,14 @@ but acting in the opposite direction: We start from structs and unions to build 
 bytearray, ready to be written out over a socket.
 
 A sure thing to underline, where you see functions returning pointer to static
-structure, this trick is ok with little structure that can be instantiated on
+structure, this trick is OK with little structure that can be instantiated on
 the stack and on a single-thread context. **Passing to a multithreaded
 environment this approach will surely bite us in the ass**, cause every pointer
 to packet built like this will point to the same area of memory, causing
 conflicts and undefined results (different from dreadful undefined behaviour,
 the ultimate frightening beast of C/C++), so for future improvements it will
 probably better to refactor these parts to malloc some bytes for these
-strucutures.
+structures.
 
 Let's map them like we've done before with the unpacking functions, an array
 where position reflects the packet type. To make the source a little more
@@ -314,7 +314,7 @@ int set_tcp_nodelay(int);
 int create_and_bind(const char *, const char *, int);
 
 /*
- * Create a non-blocking socket and make it listen on the specfied address and
+ * Create a non-blocking socket and make it listen on the specified address and
  * port
  */
 int make_listen(const char *, const char *, int);
@@ -552,15 +552,15 @@ err:
 ### Basic closure system
 
 To make more easy and comfortable the usage of the **epoll** API,with this
-project requiring not so complex operations to handle, I’ve built a simple
+project requiring not so complex operations to handle, I built a simple
 abstraction on top of the multiplexing interface to make it possible to
 register callback functions that will be executed on events happening.
 
-There’re a lot of examples of using epoll on the web, the mojority of them just
+There’re a lot of examples of using epoll on the web, the majority of them just
 show the basic usage, where we register a set of socket descriptors and start a
 loop to monitor them for incoming events, each time a descriptor is ready for
 reading or writing, a function is called to make use of them, which is surely a
-neat implementation, but a bit limitating. The solution I decided to use,
+neat implementation, but a bit constrained. The solution I decided to use,
 leverage the union `epoll_data`:
 
 {% highlight c %}
@@ -575,7 +575,7 @@ typedef union epoll_data {
 {% endhighlight %}
 
 As shown, there is a `void *`, an int commonly used to store the descriptor we
-were talking about and two integer of different size. I prefered to use a
+were talking about and two integer of different size. I preferred to use a
 custom structure with the descriptor inside and some other context fields,
 specifically a function pointer and its optional arguments. We’ll register a
 pointer to this structure passing it to the pointer `void *ptr`. This way,

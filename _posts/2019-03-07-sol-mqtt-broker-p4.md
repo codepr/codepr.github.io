@@ -113,7 +113,7 @@ int hashtable_map2(HashTable *,
 <hr>
 
 We define some sort of encapsulation by defining the structure in the source
-file instead od the header, this way it will be only accessible through
+file instead of the header, this way it will be only accessible through
 functions (like methods in a class).
 
 <hr>
@@ -393,7 +393,7 @@ int hashtable_map2(HashTable *table,
 }
 
 /*
- * Deallocate the hashtable using the defined destructor, if the destructor is
+ * De-allocate the hashtable using the defined destructor, if the destructor is
  * NULL it call normal free on key-value pairs.
  */
 void hashtable_release(HashTable *table){
@@ -406,7 +406,7 @@ void hashtable_release(HashTable *table){
     free(table);
 }
 
-/* The implementation here was originally done by Gary S. Brown. Slighltly
+/* The implementation here was originally done by Gary S. Brown. Slightly
  * modified by Pete Warden, without any imposition on the reuse of the code.
  */
 
@@ -431,7 +431,7 @@ void hashtable_release(HashTable *table){
 /*  order from highest-order term to lowest-order term.  UARTs transmit   */
 /*  characters in order from LSB to MSB.  By storing the CRC this way,    */
 /*  we hand it to the UART in the order low-byte to high-byte; the UART   */
-/*  sends each low-bit to hight-bit; and the result is transmission bit   */
+/*  sends each low-bit to high-bit; and the result is transmission bit   */
 /*  by bit from highest- to lowest-order term without requiring any bit   */
 /*  shuffling on our part.  Reception works similarly.                    */
 /*                                                                        */
@@ -519,7 +519,7 @@ static unsigned long crc32(const uint8_t *s, unsigned int len) {
 {% endhighlight %}
 <hr>
 
-Our hash function just compute the CRC32 of a given string, using the knuth
+Our hash function just compute the CRC32 of a given string, using the Knuth
 multiplicative method, another valid hash could be the Murmur3, but I won't
 analyze the best algorithms and implementations around that best work for key
 hashing.

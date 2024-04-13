@@ -12,14 +12,14 @@ some data with different computation times to different destinations, sure the
 first thing coming to mind is a broker or a simple job queue, and there's a
 plethora of battle-tested solutions out there, from `Apache Kafka` to
 `RabbitMQ` to even `Redis` or the solid AWS `SNS/SQS` combination, where topics
-can be defined on `SNS` with Lambdas or `SQS` enqueuing triggered at each
+can be defined on `SNS` with Lambdas or `SQS` queuing triggered at each
 message received. Why? Because why not, it gives solid performances and near
 unlimited scalability for just some bucks per month, with low to none
 maintenance costs beside your business logic; something to consider if you
 already have a part or your entire backend hosted on AWS.
 
 Sometimes though it can be an overkill or all we need is just a prototype, a
-proof of concept, in those cases a simple microservice can do well enough with
+proof of concept, in those cases a simple micro-service can do well enough with
 little costs.
 
 ### Asyncio pubsub
@@ -126,7 +126,7 @@ class AsyncDeliver:
 <hr>
 
 Let's define a simple subscriber interface, it will only need an `update`
-method. Subclasses can easily define some logics or different communication
+method. Sub-classes can easily define some logic or different communication
 types such as HTTP clients, Kinesis/Kafka producers.
 
 To be noted that for the sake of the example, all `deliver` methods doesn't
@@ -186,9 +186,9 @@ if __name__ == '__main__':
 #### Callback based approach
 
 In python, `asyncio` implementation support either coroutines as well as
-callbacks, this was borrowed from the `Twisted` framework which pre-dated the
+callbacks, this was borrowed from the `Twisted` framework which predates the
 `asyncio` coming, and by no surprise, built-in APIs for TCP/UDP communication
-offer both patterns, divinding them in [low-level
+offer both patterns, dividing them in [low-level
 APIs](https://docs.python.org/3/library/asyncio-protocol.html) and [high-level
 APIs](https://docs.python.org/3/library/asyncio-stream.html), the first using
 a callback approach and the latter, called streams, using a wrapper around
@@ -302,7 +302,7 @@ if __name__ == '__main__':
 <hr>
 
 And that's it, these two snippets should be a good comparison of the two
-methods, overall, as we can see, there're not many differences between them,
+methods, overall, as we can see, there are not many differences between them,
 both systems accomplish to the results we expected, callback approach is probably
 neater and require a bit less code to be written, but it assumes that `deliver`
 method doesn't block in any situation, so for the majority of cases it expects

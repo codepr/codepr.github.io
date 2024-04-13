@@ -29,7 +29,7 @@ livebook with a small application backed by Phoenix.
 - Docs "Getting started" and the actual procedure to burn a firmware
 - Burn firmware into RPI4 Model B
 - Connect to livebook on http://nerves.local
-  - Walkthrough some examples
+  - Walk through some examples
 - Connect through ssh by `ssh nerves.local`
   - `h Toolshed`
   - `weather/0` :)
@@ -61,7 +61,7 @@ the simplest example: [running livebook on embedded systems](https://github.com/
 Run an MQTT broker on the host machine, let's use `mosquitto` (if an `Address
 not available error` happens, use the following conf)
 
-{% highlight ini %}
+{% highlight conf %}
 persistence false
 log_dest file /mosquitto/log/mosquitto.log
 log_dest stdout

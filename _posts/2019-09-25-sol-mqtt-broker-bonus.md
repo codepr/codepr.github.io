@@ -15,7 +15,7 @@ Out of curiosity, I wanted to test how close to something usable this pet
 project could get and decided to make a huge refactoring to something less
 hacky and a bit more structured, paying also attention to portability.
 I won't walk through all the refactoring process, it would be deadly boring,
-I'll just highlight some of the most important parts that needed adjustements,
+I'll just highlight some of the most important parts that needed adjustments,
 the rest can be safely applied by merging the `master` branch into the
 `tutorial` one or directly cloning it.
 
@@ -66,7 +66,7 @@ like client session and topics to an "internal" header.
  * - WAITING_HEADER it's the base state, waiting for the next packet to be
  *                  received
  * - WAITING_LENGTH the second state, a packet has arrived but it's not
- *                  complete yet. Accorting to MQTT protocol, after the first
+ *                  complete yet. According to MQTT protocol, after the first
  *                  byte we need to wait 1 to 4 more bytes based on the
  *                  encoded length (use continuation bit to state the number
  *                  of bytes needed, see http://docs.oasis-open.org/mqtt/mqtt/
@@ -87,7 +87,7 @@ enum client_status {
 /*
  * Wrapper structure around a connected client, each client can be a publisher
  * or a subscriber, it can be used to track sessions too.
- * As of now, no allocations will be fired, jsut a big pool of memory at the
+ * As of now, no allocations will be fired, just a big pool of memory at the
  * start of the application will serve us a client pool, read and write buffers
  * are initialized lazily.
  *
@@ -95,7 +95,7 @@ enum client_status {
  * application, see https://troydhanson.github.io/uthash/userguide.html.
  */
 struct client {
-    struct ev_ctx *ctx; /* An event context refrence mostly used to fire write events */
+    struct ev_ctx *ctx; /* An event context reference mostly used to fire write events */
     int rc;  /* Return code of the message just handled */
     int status; /* Current status of the client (state machine) */
     int rpos; /* The nr of bytes to skip after a complete packet has been read.
@@ -127,7 +127,7 @@ struct client {
 /*
  * Every client has a session which track his subscriptions, possible missed
  * messages during disconnection time (that iff clean_session is set to false),
- * inflight messages and the message ID for each one.
+ * in-flight messages and the message ID for each one.
  * A maximum of 65535 mid can be used at the same time according to MQTT specs,
  * so i_acks, i_msgs and in_i_acks, thus being allocated on the heap during the
  * init, will be of 65535 length each.
@@ -140,7 +140,7 @@ struct client_session {
     int next_free_mid; /* The next 'free' message ID */
     List *subscriptions; /* All the clients subscriptions, stored as topic structs */
     List *outgoing_msgs; /* Outgoing messages during disconnection time, stored as mqtt_packet pointers */
-    bool has_inflight; /* Just a flag stating the presence of inflight messages */
+    bool has_inflight; /* Just a flag stating the presence of in-flight messages */
     bool clean_session; /* Clean session flag */
     char session_id[MQTT_CLIENT_ID_LEN]; /* The client_id the session refers to */
     struct mqtt_packet lwt_msg; /* A possibly NULL LWT message, will be set on connection */
@@ -207,7 +207,7 @@ static ssize_t recv_packet(struct client *c) {
             }
         }
         /*
-         * Read 2 extra bytes, because the first 4 bytes could countain the
+         * Read 2 extra bytes, because the first 4 bytes could contain the
          * total size in bytes of the entire packet
          */
         nread = recv_data(&c->conn, c->rbuf + c->read, 4 - c->read);
@@ -321,7 +321,7 @@ read/write.
 
 That connection structure directly address the 3rd point described earlier in
 the improvements list, it's an abstraction over a socket connection with a
-client and it is comprised of 4 fundamental callbacks neeed to manage the
+client and it is comprised of 4 fundamental callbacks need to manage the
 communication:
 
 - accept
@@ -470,7 +470,7 @@ enum ev_type {
 };
 struct ev_ctx;
 /*
- * Event struture used as the main carrier of clients informations, it will be
+ * Event structure used as the main carrier of clients information, it will be
  * tracked by an array in every context created
  */
 struct ev {
@@ -523,7 +523,7 @@ void ev_stop(struct ev_ctx *);
 /*
  * Add a single FD to the underlying backend of the event loop. Equal to
  * ev_fire_event just without an event to be carried. Useful to add simple
- * descritors like a listening socket o message queue FD.
+ * descriptors like a listening socket o message queue FD.
  */
 int ev_watch_fd(struct ev_ctx *, int, int);
 /*
@@ -536,7 +536,7 @@ int ev_del_fd(struct ev_ctx *, int);
  * Register a new event, semantically it's equal to ev_register_event but
  * it's meant to be used when an FD is not already watched by the event loop.
  * It could be easily integrated in ev_fire_event call but I prefer maintain
- * the samantic separation of responsibilities.
+ * the semantic separation of responsibilities.
  */
 int ev_register_event(struct ev_ctx *, int, int,
                       void (*callback)(struct ev_ctx *, void *), void *);
@@ -600,7 +600,7 @@ extremely simple, a thing always appreciated
 
 {% highlight c %}
 /*
- * Handle incoming connections, create a a fresh new struct client structure
+ * Handle incoming connections, create a fresh new struct client structure
  * and link it to the fd, ready to be set in EV_READ event, then schedule a
  * call to the read_callback to handle incoming streams of bytes
  */
@@ -655,7 +655,7 @@ static void read_callback(struct ev_ctx *ctx, void *data) {
     switch (rc) {
         case 0:
             /*
-             * All is ok, raise an event to the worker poll EPOLL and
+             * All is OK, raise an event to the worker poll EPOLL and
              * link it with the IO event containing the decode payload
              * ready to be processed
              */
@@ -707,7 +707,7 @@ static void read_callback(struct ev_ctx *ctx, void *data) {
  * declared length of the packet.
  * It uses eventloop APIs to react accordingly to the packet type received,
  * validating it before proceed to call handlers. Depending on the handler
- * called and its outcome, it'll enqueue an event to write a reply or just
+ * called and its outcome, it'll queue an event to write a reply or just
  * reset the client state to allow reading some more packets.
  */
 static void process_message(struct ev_ctx *ctx, struct client *c) {
@@ -752,7 +752,7 @@ static void process_message(struct ev_ctx *ctx, struct client *c) {
 }
 /*
  * Callback dedicated to client replies, try to send as much data as possible
- * epmtying the client buffer and rearming the socket descriptor for reading
+ * emptying the client buffer and rearming the socket descriptor for reading
  * after
  */
 static void write_callback(struct ev_ctx *ctx, void *arg) {
@@ -892,7 +892,7 @@ array corresponds to an MQTT command.<br>
 As you can see, there's also a `memorypool_new` call for clients, I decided
 to pre-allocate a fixed number of clients, allowing the reuse of them when
 disconnection occurs, the memory cost is negligible and totally worth it, as
-long as the connecting clients are lazily inited, specifically their read and
+long as the connecting clients are lazily init-ed, specifically their read and
 write buffer, which can also be MB size.
 
 This of course is only a fraction of what the ordeal has been but eventually I

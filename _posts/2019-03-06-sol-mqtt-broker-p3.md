@@ -33,7 +33,7 @@ improvements.
 
 /*
  * Epoll default settings for concurrent events monitored and timeout, -1
- * means no timeout at all, blocking undefinitely
+ * means no timeout at all, blocking indefinitely
  */
 #define EPOLL_MAX_EVENTS    256
 #define EPOLL_TIMEOUT       -1
@@ -115,7 +115,7 @@ static int pubrel_handler(struct closure *, union mqtt_packet *);
 static int pubcomp_handler(struct closure *, union mqtt_packet *);
 static int pingreq_handler(struct closure *, union mqtt_packet *);
 
-/* Command handler mapped usign their position paired with their type */
+/* Command handler mapped using their position paired with their type */
 static handler *handlers[15] = {
     NULL,
     connect_handler,
@@ -188,7 +188,7 @@ static int accept_new_client(int fd, struct connection *conn) {
 }
 
 /*
- * Handle new connection, create a a fresh new struct client structure and link
+ * Handle new connection, create a fresh new struct client structure and link
  * it to the fd, ready to be set in EPOLLIN event
  */
 static void on_accept(struct evloop *loop, void *arg) {
@@ -493,7 +493,7 @@ void bytestring_reset(struct bytestring *bstring) {
 Let's open a brief parenthesis, from my experience, generally there's always
 need for generic helpers and utility functions, I usually collect them into a
 dedicated `util` module; that's the case for calls like `sol_info`, `sol_debug`
-and `sol_error` on those chunks of code previously analysed.
+and `sol_error` on those chunks of code previously analyzed.
 
 Our logging requirements is so simple that there's no need for a dedicated
 module yet, so I generally add those logging functions to the `util` module.
@@ -783,7 +783,7 @@ int start_server(const char *addr, const char *port) {
 {% endhighlight %}
 <hr>
 
-Ok, we have now a (almost) fully functioning server that uses our toyish
+Ok, we have now a (almost) fully functioning server that uses our toy-ish
 callback system to handle traffic. Let's add some additional code to the server
 header, like that `info` structure and a global structure named `sol` on the
 source .c, we'll be back on that soon.
@@ -794,7 +794,7 @@ source .c, we'll be back on that soon.
 
 {% highlight c %}
 
-/* Global informations statistics structure */
+/* Global information statistics structure */
 struct sol_info {
     /* Number of clients currently connected */
     int nclients;
@@ -913,7 +913,7 @@ static void publish_message(unsigned short pkt_id,
 
 /*
  * Publish statistics periodic task, it will be called once every N config
- * defined seconds, it publish some informations on predefined topics
+ * defined seconds, it publish some information on predefined topics
  */
 static void publish_stats(struct evloop *loop, void *args) {
     char cclients[number_len(info.nclients) + 1];
@@ -947,10 +947,10 @@ static void publish_stats(struct evloop *loop, void *args) {
 {% endhighlight %}
 <hr>
 
-Ok now we have our first periodic callback, it publishes general informations
+Ok now we have our first periodic callback, it publishes general information
 on the status of the broker to a set of topics called `$SYS topics`, that we
 called instead `$SOL topics` breaking the standards in a blink of an eye. These
-informations could be added incrementally in the future.
+information could be added incrementally in the future.
 
 <hr>
 **src/server.c**
@@ -959,7 +959,7 @@ informations could be added incrementally in the future.
 {% highlight c %}
 
 /*
- * General informations of the broker, all fields will be published
+ * General information of the broker, all fields will be published
  * periodically to internal topics
  */
 static struct sol_info info;
@@ -970,7 +970,7 @@ static struct sol sol;
 {% endhighlight %}
 <hr>
 
-There're still some parts that we have to write in order to have this piece of
+There are still some parts that we have to write in order to have this piece of
 code to compile and work, for example, what is that `closure_destructor`
 function? What about that `info` structure that we update in `on_write` and
 `on_read`? We can see that those have to do with some calls to `hashtable_*`

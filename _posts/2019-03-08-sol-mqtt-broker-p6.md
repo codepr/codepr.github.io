@@ -283,7 +283,7 @@ static int disconnect_handler(struct closure *cb, union mqtt_packet *pkt) {
 {% endhighlight %}
 <hr>
 
-Straight forward, just log the disconnection, update the infos, close the fd,
+Straight forward, just log the disconnection, update the info, close the fd,
 remove the client from the global map and return a negative code, neat.
 
 Let's move to a more interesting operation, SUBSCRIBE, this is where our
@@ -734,7 +734,7 @@ path, plus some minor utilities regarding network communication tuning.
 
 The implementation will involve mainly utility functions to parse strings
 and to read from file the configuration and populate the global configuration
-strucuture:
+structure:
 
 <hr>
 **src/config.c**
@@ -1181,7 +1181,7 @@ $ sol -v
 
 {% endhighlight %}
 
-And that's it for now, there're probably a lot of bugs, memory leaks that must
+And that's it for now, there are probably a lot of bugs, memory leaks that must
 be fixed and redundant code, as well as messy includes, but the skeleton is all
 there and have to be considered an MVP. Part-7 will come soon, with testing and
 some snippets using `paho-mqtt` to play with the newborn. Of course some tests

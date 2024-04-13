@@ -1,11 +1,11 @@
 ---
 layout: post
-title: "Timeseries adventures"
-description: "Small summary of my journey implementing a little timeseries library"
+title: "Time-series adventures"
+description: "Small summary of my journey implementing a little time-series library"
 categories: c unix system-programming database
 ---
 
-Databases, how they interact with the filesystem at low-leve, have always
+Databases, how they interact with the filesystem at low-level, have always
 represented a fascinating topic for me. I implemented countless in-memory
 key-value stores at various level of abstraction and various stages of
 development; with multiple languages, Scala, Python, Elixir, Go. Gradually
@@ -19,13 +19,13 @@ extremely versatile and powerful structure, the log.
 I wanted something that could be implemented on top of a this simple concept,
 in my mind the system should've basically been a variation of a Kafka commit
 log, but instead of forwarding binary chunks to connected consumers (sendfile
-and how kafka works internally is another quite interesting topic I explored
-and I'd like to dig into a bit more in the future); a Timeseries seemed
+and how Kafka works internally is another quite interesting topic I explored
+and I'd like to dig into a bit more in the future); a time-series seemed
 interesting and fitting my initial thoughts.
 
 The programming language to write it in was the next decision to make, I considered a couple of choices:
 
-- **Elixir/Erlang** - a marvel, fantastic backend language, the BEAM is a piece of art, I use Elixir daily at work though so I craved for something of a change my scenery
+- **Elixir/Erlang** - a marvel, fantastic back-end language, the BEAM is a piece of art, I use Elixir daily at work though so I craved for something of a change my scenery
 - **Go** - great design, simplicity and productivity like no others, also a bit boring too
 - **Rust** - different beast from anything else, requires discipline and perseverance to retain productivity, I like it, but for it's very nature and focus on safety, I always feel kinda constrained and fighting the compiler more than the problem I'm solving (gotta put some more effort into it to make it click completely). Will certainly pick it up again for something else in the future.
 - **C++** - Nope, this was a joke, didn't consider this at all
@@ -41,7 +41,7 @@ with consistency (borrow checker and lifetimes can be hellish to deal and
 re-learn if out of shape).
 
 With C, I reckon it all boils down to it's compactness, conceptually simple and
-leaving very little to immagination of what's happening under the hood. I'm
+leaving very little to imagination of what's happening under the hood. I'm
 perfectly conscious how easy it is to introduce memory-related bugs, and
 implementing the same dynamic array for each project can get old pretty fast;
 but what matters to me, ultimately, is having fun, and C provides me with that.
@@ -51,11 +51,11 @@ Timeseries have always been a fascinating topic for me
 
 Conceptually it's not really an efficient or particularly smart architecture,
 I approached the implementation on a best-effort way, the idea being to delay
-as much as possible the need of non-basic data-strucutures such as arrays.
+as much as possible the need of non-basic data-structures such as arrays.
 
 The two main segments are just fixed size arrays where each position stores a
 pointer to the first position of a dynamic array. This to be able to store all
-the datapoints included in the time range that the segment covers
+the data points included in the time range that the segment covers
 
 ![Segments]({{site.url}}{{site.baseurl}}/assets/images/Roach_segment.png#content-image-1)
 
@@ -91,13 +91,13 @@ into a dynamic library to be used on a server. The repository can be found at
 ### Main features
 
 - **Fixed size records:** to keep things simple each record is represented by just a timestamp with nanoseconds precision and a double
-- **In memory segments:** Data is stored in timeseries format, allowing efficient querying and retrieval based on timestamps, with the last slice of data in memory, composed by two segments (currently covering 15 minutes of data each)
+- **In memory segments:** Data is stored in time series format, allowing efficient querying and retrieval based on timestamp, with the last slice of data in memory, composed by two segments (currently covering 15 minutes of data each)
     - The last 15 minutes of data
-    - The previous 15 minutes for records out of order, totalling 30 minutes
+    - The previous 15 minutes for records out of order, totaling 30 minutes
 - **Commit Log:** Persistence is achieved using a commit log at the base, ensuring durability of data on disk.
 - **Write-Ahead Log (WAL):** In-memory segments are managed using a write-ahead log, providing durability and recovery in case of crashes or failures.
 
-### What's in the roadmap
+### What's in the road map
 
 - Duplicate points policy
 - CRC32 of records for data integrity
@@ -109,14 +109,14 @@ into a dynamic library to be used on a server. The repository can be found at
 
 - `tsdb_init(1)` creates a new database
 - `tsdb_close(1)` closes the database
-- `ts_create(3)` creates a new timeseries in a given database
-- `ts_get(2)` retrieve an existing timeseries from a database
-- `ts_insert(3)` inserts a new point into the timeseries
-- `ts_find(3)` finds a point inside the timeseries
-- `ts_range(4)` finds a range of points in the timeseries, returning a vector with the results
-- `ts_close(1)` closes a timeseries
+- `ts_create(3)` creates a new Timeseries in a given database
+- `ts_get(2)` retrieve an existing Timeseries from a database
+- `ts_insert(3)` inserts a new point into the Timeseries
+- `ts_find(3)` finds a point inside the Timeseries
+- `ts_range(4)` finds a range of points in the Timeseries, returning a vector with the results
+- `ts_close(1)` closes a Timeseries
 
-#### Makefile
+#### Writing a Makefile
 
 A simple `Makefile` to build the library as a `.so` file that can be linked to any project as an external lightweight dependency or used alone.
 <hr>

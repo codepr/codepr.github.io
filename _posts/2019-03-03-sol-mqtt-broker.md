@@ -56,7 +56,7 @@ concept/module of the project:
 - [Part 4 - Data structures](../sol-mqtt-broker-p4), utility and educational modules
 - [Part 5 - Topic abstraction](../sol-mqtt-broker-p5), handling the main scaling and grouping abstraction of the broker
 - [Part 6 - Handlers](../sol-mqtt-broker-p6), server completion, for each packet there's a handler dedicated
-- [Bonus - Multithreading](../sol-mqtt-broker-bonus), improvements, bug fixing and integration of multithreading model
+- [Bonus - Multi-threading](../sol-mqtt-broker-bonus), improvements, bug fixing and integration of multi-threading model
 
 I'd like to underline that the resulting software will be a fully functioning
 broker, but with large space for improvements and optimization as well as code
@@ -66,7 +66,7 @@ quality improvements and probably, with some hidden features as well (aka bugs
 ### General architecture
 
 In essence a broker is a middleware, a software that accepts input from
-multiple clients (producers) and forward it to a set of destinatary clients
+multiple clients (producers) and forward it to a set of recipient clients
 (consumers) using an abstraction to define and manage these groups of clients
 in the form of a channel, or **topic**, as it's called by the protocol standards.
 Much like an IRC channel or equivalent in a generic chat, each consumer client
@@ -198,7 +198,7 @@ one field with a value. Their position in memory are shared, this way using
 
 The first Control Packet we're going to define is the CONNECT. It' s the first
 packet that must be sent when a client establish a new connection and it must
-be extactly one, more than one CONNECT per client must be treated as a
+be exactly one, more than one CONNECT per client must be treated as a
 violation of the protocol and the client must be dropped.<br>
 For each CONNECT, a CONNACK packet must be sent in response.
 
@@ -250,7 +250,7 @@ pattern, accordingly to the documentation of MQTT v3.1.1.
 
 We proceed with SUBSCRIBE, UNSUBSCRIBE and PUBLISH. SUBSCRIBE is the
 only packet with a dedicated packet definition SUBACK, the other can be
-defined as generic ACK, and typenamed using **typedef** for semantic
+defined as generic ACK, and type-named using **typedef** for semantic
 separation.
 
 <hr>
@@ -366,9 +366,9 @@ other modules.
 To handle the communication using the MQTT protocol we need essentially 4 functions,
 2 for each direction of the interaction between server and client:
 
-- A packing function (serializing or marshalling, I won't dive here in a
-  dissertion on the correct usage of these terms)
-- An unpacking function (deserializing/unmarshalling)
+- A packing function (serializing or marshaling, I won't dive here in a
+  dissertation on the correct usage of these terms)
+- An unpacking function (deserializing/unmarshaling)
 
 Supported by 2 functions to handle the encoding and decoding of the
 Remaining Length in the Fixed Header part.
@@ -581,11 +581,11 @@ After the creation of `pack` module we should include it into the `mqtt` source:
 {% endhighlight %}
 <hr>
 
-The first step will be the implemetation of the Fixed Header Remaining Length
+The first step will be the implementation of the Fixed Header Remaining Length
 functions. The MQTT documentation suggests a pseudo-code implementation in one
 of the first paragraphs, we'll stick to that, it's quiet simple and clear.
 We'll see why and how after the first byte of the Fixed Header, the next 1 or
-2 or 3 or 4 bytes are used to encode the remainig bytes of the packet.
+2 or 3 or 4 bytes are used to encode the remaining bytes of the packet.
 
 > The Remaining Length is the number of bytes remaining within the current
 > packet, including data in the variable header and the payload. The Remaining

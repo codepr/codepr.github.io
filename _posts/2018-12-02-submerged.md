@@ -24,8 +24,8 @@ something completely different while at the same time maintaining my modest
 low-level coding skills as sharp as possible on my pet projects; you know, just
 not to lay down too much, I'm a developer after all, I'm already lazy by
 definition, no need to add more laziness in my laziness. So I often happen to
-read a lot of documentation, tutorials etc. mostly regarding FP, like the
-famous *Learn You A Haskell For Great Good*, everytime with more and more
+read a lot of documentation, tutorials etc; mostly regarding FP, like the
+famous *Learn You A Haskell For Great Good*, every time with more and more
 willing to go a little deeper down the Rabbit's hole. During my last year of
 university I had a chance to learn a bit of Scala, but I have to admit that I'm
 not a huge fan of JVM languages (Java the least of them all, though I've found
