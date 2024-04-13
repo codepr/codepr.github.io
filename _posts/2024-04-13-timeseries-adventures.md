@@ -5,9 +5,23 @@ description: "Small summary of my journey implementing a little timeseries libra
 categories: c unix system-programming database
 ---
 
-Databases, how they interact with the filesystem at low-leve, have always represented a fascinating topic for me. I implemented countless in-memory key-value stores at various level of abstraction and various stages of development; with multiple languages, Scala, Python, Elixir, Go. Gradually going more and more in details, it was finally time to try and write something a bit more challenging.
-A relational database was too big of a step to begin with and being the persistence the very first big problem I could think of facing almost immediately, I wanted something that could be implemented based on a simple but extremely versatile and powerful structure, the log.
-I wanted something that could be implemented on top of a this simple concept, in my mind the system should've basically been a variation of a Kafka commit log, but instead of forwarding binary chunks to connected consumers (sendfile and how kafka works internally is another quite interesting topic I explored and I'd like to dig into a bit more in the future); a Timeseries seemed interesting and fitting my initial thoughts.
+Databases, how they interact with the filesystem at low-leve, have always
+represented a fascinating topic for me. I implemented countless in-memory
+key-value stores at various level of abstraction and various stages of
+development; with multiple languages, Scala, Python, Elixir, Go. Gradually
+going more and more in details, it was finally time to try and write something
+a bit more challenging.
+
+A relational database was too big of a step to begin with and being the
+persistence the very first big problem I could think of facing almost
+immediately, I wanted something that could be implemented based on a simple but
+extremely versatile and powerful structure, the log.
+I wanted something that could be implemented on top of a this simple concept,
+in my mind the system should've basically been a variation of a Kafka commit
+log, but instead of forwarding binary chunks to connected consumers (sendfile
+and how kafka works internally is another quite interesting topic I explored
+and I'd like to dig into a bit more in the future); a Timeseries seemed
+interesting and fitting my initial thoughts.
 
 The programming language to write it in was the next decision to make, I considered a couple of choices:
 
@@ -16,14 +30,80 @@ The programming language to write it in was the next decision to make, I conside
 - **Rust** - different beast from anything else, requires discipline and perseverance to retain productivity, I like it, but for it's very nature and focus on safety, I always feel kinda constrained and fighting the compiler more than the problem I'm solving (gotta put some more effort into it to make it click completely). Will certainly pick it up again for something else in the future.
 - **C++** - Nope, this was a joke, didn't consider this at all
 
-Eventually I always find myself coming back to a place of comfort with C. I can't really say the reason, it's a powerful tool with many dangers and when I used it for my toy projects in the past, I almost never felt enough confidence to say "this could to be used in a prod environment". I fought with myself on it for many years, learning Rust, flirting with Go, but I eventually gave up and embraced my comfort place. They're great languages, I used Go for work for a while and Rust seems a good C++ replacement most of time, provided you use it with consistency (borrow checker and lifetimes can be hellish to deal and re-learn if out of shape).
+Eventually I always find myself coming back to a place of comfort with C. I
+can't really say the reason, it's a powerful tool with many dangers and when I
+used it for my toy projects in the past, I almost never felt enough confidence
+to say "this could to be used in a prod environment". I fought with myself on
+it for many years, learning Rust, flirting with Go, but I eventually gave up
+and embraced my comfort place. They're great languages, I used Go for work for
+a while and Rust seems a good C++ replacement most of time, provided you use it
+with consistency (borrow checker and lifetimes can be hellish to deal and
+re-learn if out of shape).
 
-With C, I reckon it all boils down to it's compactness, conceptually simple and leaving very little to immagination of what's happening under the hood. I'm perfectly conscious how easy it is to introduce memory-related bugs, and implementing the same dynamic array for each project can get old pretty fast; but what matters to me, ultimately, is having fun, and C provides me with that.
+With C, I reckon it all boils down to it's compactness, conceptually simple and
+leaving very little to immagination of what's happening under the hood. I'm
+perfectly conscious how easy it is to introduce memory-related bugs, and
+implementing the same dynamic array for each project can get old pretty fast;
+but what matters to me, ultimately, is having fun, and C provides me with that.
 Timeseries have always been a fascinating topic for me
+
+## Design
+
+Conceptually it's not really an efficient or particularly smart architecture,
+I approached the implementation on a best-effort way, the idea being to delay
+as much as possible the need of non-basic data-strucutures such as arrays.
+
+The two main segments are just fixed size arrays where each position stores a
+pointer to the first position of a dynamic array. This to be able to store all
+the datapoints included in the time range that the segment covers
+
+![Segments]({{site.url}}{{site.baseurl}}/assets/images/Roach_segment.png#content-image-1)
+
+Each time a new record is to be inserted, first it is appended as a new entry
+in the Write-Ahead-Log (WAL) and only then it is store in the in-memory segment
+where it belongs. The WAL acts as a disaster recovery policy, it is solely
+responsible for storing incoming records in order to be able to read them and
+re-populate the segment on restarts.
+
+![Disk_1]({{site.url}}{{site.baseurl}}/assets/images/roach_disk_1.png#content-image-1)
+
+In short:
+
+- two segments of 15 minutes each
+    - each position represents a second, so 900 is the length of the segments
+    - each second points to a dynamic array storing positions based on the microsecond portion of the timestamp of the point
+- each time a new point is inserted, it is first stored on a WAL on disk in order to be able to recover in case of crash
+- once the main segment is full, or a timestamp too far in the future is received (i.e. more than 15 minutes past the 1st point store)
+    - the tail segment gets persisted on disk and becomes immutable, WAL is cleared
+    - the head segment gets persisted on disk and becomes immutable, WAL is cleared
+    - the head segment becomes the new tail segment
+    - a new head in-memory segment is generated
+- immutable segments on disk are paired with an index file to read records from the past
 
 ## The current state
 
-At the current stage of development, it's still a very crude core of features but it seems to be working as expected, with definitely many edge cases to solve; the heart of the DB is there, and can be built into a dynamic library to be used on a server. The repository can be found at [https://github.com/codepr/roach](https://github.com/codepr/roach).
+At the current stage of development, it's still a very crude core set of
+features but it seems to be working as expected, with definitely many edge
+cases and assertions to solve; the heart of the DB is there, and can be built
+into a dynamic library to be used on a server. The repository can be found at
+[https://github.com/codepr/roach](https://github.com/codepr/roach).
+
+### Main features
+
+- **Fixed size records:** to keep things simple each record is represented by just a timestamp with nanoseconds precision and a double
+- **In memory segments:** Data is stored in timeseries format, allowing efficient querying and retrieval based on timestamps, with the last slice of data in memory, composed by two segments (currently covering 15 minutes of data each)
+    - The last 15 minutes of data
+    - The previous 15 minutes for records out of order, totalling 30 minutes
+- **Commit Log:** Persistence is achieved using a commit log at the base, ensuring durability of data on disk.
+- **Write-Ahead Log (WAL):** In-memory segments are managed using a write-ahead log, providing durability and recovery in case of crashes or failures.
+
+### What's in the roadmap
+
+- Duplicate points policy
+- CRC32 of records for data integrity
+- Adopt an arena for memory allocations
+- Memory mapped indexes, above a threshold enable binary search
+- Schema definitions
 
 ### Timeseries library APIs
 
@@ -52,10 +132,8 @@ LIB_OBJECTS=$(LIB_SOURCES:.c=.o)
 
 libtimeseries.so: $(LIB_OBJECTS)
 	$(CC) -shared -o $@ $(LIB_OBJECTS)
-
 %.o: %.c
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@
-
 clean:
 	@rm -f $(LIB_OBJECTS) libtimeseries.so
 
@@ -105,7 +183,9 @@ int main() {
 
 ## A server draft
 
-Event based server (rely on [ev](https://github.com/codepr/ev.git) at least initially), TCP as the main transport protocol, text-based custom protocol inspired by RESP but simpler:
+Event based server (rely on [ev](https://github.com/codepr/ev.git) at least
+initially), TCP as the main transport protocol, text-based custom protocol
+inspired by RESP but simpler:
 
 - `$` string type
 - `!` error type
