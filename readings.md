@@ -21,6 +21,7 @@ thoughts. Hardly ever updated.
 - [The organized chaos of programming language design](https://medium.com/coinmonks/the-organized-chaos-of-programming-language-design-1e0a95067afb)
 - [Transactional Memory and Tech Hype Waves](https://blog.jessfraz.com/post/transactional-memory-and-tech-hype-waves/)
 - [Defining a Distinguished Engineer](https://blog.jessfraz.com/post/defining-a-distinguished-engineer/)
+- [Understanding an outage: concurrency control & vacuuming in PostgreSQL](https://duffel.com/blog/understanding-outage-concurrency-vacuum-postgresql)
 
 ### Go best practices
 
@@ -52,6 +53,7 @@ thoughts. Hardly ever updated.
 - [In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf)
 - [The Log: What every software engineer should know about real-time data's unifying abstraction](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying)
 - [What do you mean by "Event-Driven"?](https://martinfowler.com/articles/201701-event-driven.html)
+- [From $erverless to Elixir](https://medium.com/coryodaniel/from-erverless-to-elixir-48752db4d7bc)
 
 ### Programming languages
 
