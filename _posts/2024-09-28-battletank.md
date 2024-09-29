@@ -75,13 +75,13 @@ serialization, TCP helpers and such. To get into details of those parts, the
 repository is [codepr/battletank.git](https://github.com/codepr/battletank.git).
 
 The game can be divided in the main modules:
-- The game state
+- The **game state**
     - Tank
     - Bullet
-- A game server,handle the game state and serves as the unique authoritative source of truth.
-- A game client, connects to the server, provides a very crude terminal based
+- A **game server**, handles  the game state and serves as the unique authoritative source of truth.
+- A **game client**, connects to the server, provides a very crude terminal based
   graphic battlefield and handles input from the player.
-- A protocol to communicate. Initially I went for a text-based protocol, but
+- A **protocol** to communicate. Initially I went for a text-based protocol, but
   I'm not very fond of them, so I decided for a binary one eventually, a very
   simple one.
 
