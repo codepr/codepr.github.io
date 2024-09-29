@@ -94,6 +94,7 @@ The game state is the most simple I could imagine to begin with
 Simple and easy to keep in sync, the server is only required to update the coordinates of
 each tank and bullet and send them to the clients.
 <hr>
+game_state.h
 <hr>
 
 ```c
@@ -153,8 +154,8 @@ number of players such as 10, I went for a dynamic array on auto-pilot
 basically.
 
 <hr>
+game_state.c
 <hr>
-
 ```c
 void game_state_init(Game_State *state) {
     state->players_count = 2;
@@ -199,6 +200,7 @@ be in sync with each other through the network, but `check_collision` still
 provides a good starting point to expand on later.
 
 <hr>
+game_state.c
 <hr>
 
 ```c
@@ -300,7 +302,6 @@ void game_state_update(Game_State *state) {
 
 #### The client side
 
-
 The client is the main entry point for each player, once started it connects to
 the battletank server and provides a very crude terminal based graphic battlefield
 and handles input from the player:
@@ -338,6 +339,10 @@ know much about the library itself but by the look of the APIs and their behavio
 from my understanding of the docs it provides some nice wrappers around manipulation
 of escape sequences for VT100 terminals and compatibles, similarly operating in raw
 mode allowing for a fine-grained control over the keyboard input and such.
+
+<hr>
+battletank_client.c
+<hr>
 
 ```c
 static void init_screen(void) {
@@ -407,6 +412,10 @@ margin to enrich this semantic).
 
 Next in line comes the networking helpers, required to manage the communication
 with the server side, connection, send and receive:
+
+<hr>
+battletank_client.c
+<hr>
 
 ```c
 static int socket_connect(const char *host, int port) {
@@ -492,6 +501,10 @@ This part happens in the `game_loop` function, a very slim and stripped
 down client-side engine logic to render and gather inputs from the
 client to the server:
 
+<hr>
+battletank_client.c
+<hr>
+
 ```c
 // Main game loop, capture input from the player and communicate with the game
 // server
@@ -547,10 +560,26 @@ source of truth.
   battlefield, the server will send a unique identifier to the clients (an
   int index for the time being, that represents the tank assigned to the
   player in the game state)
-- the server continually broadcast the game state to keep the clients in sync
-- clients will send actions to the servers such as movements or bullet fire
-- the server will update the general game state and let it be broadcast in
-  the following cycle
+
+As with the client, a bunch of communication helpers to handle the TCP
+connections. The server will be a TCP non-blocking server (man `select` /
+`poll` / `epoll` / `kqueue`), relying on `select` call to handle I/O events.
+Select is not the most efficient mechanism for I/O multiplexing, it's in fact
+quite dated, the first approach to the problem, it's a little quirky and among
+other things it requires to linearly scan over all the monitored descriptors
+each time an event is detected, it's also an user-space call, which adds a
+minor over-head in context switching and it's limited to 1024 file descriptor
+in total but:
+
+- It's obiquitous, basically every *nix system provides the call
+- It's very simple to use and provides everything required for a PoC
+- It's more than enough for the use case, even with tenth of players
+  it would handle the load very well, `poll` and `epoll` are really
+  designe towards other scales, in the order of 10K of connected sockets.
+
+<hr>
+battletank_server.c
+<hr>
 
 ```c
 // We don't expect big payloads
@@ -650,5 +679,145 @@ static int broadcast(int *client_fds, const char *buf, size_t count) {
     }
 
     return written;
+}
+```
+
+Again, the main just initialise the `ncurses` screen (this is the reason why
+the PoC will assume that the players will play from their own full size
+terminal, as currently there is no scaling mechanism in place to ensure
+consistency) and run the main `select` loop waiting for connections. Clients
+are tracked in the simplest way possible by using an array and each new
+connected client will be assigned its index in the main array as the index for
+his tank in the game state.
+
+<hr>
+battletank_server.c
+<hr>
+
+```c
+static void server_loop(int server_fd) {
+    fd_set readfds;
+    int client_fds[FD_SETSIZE];
+    int maxfd = server_fd;
+    int i = 0;
+    char buf[BUFSIZE];
+    struct timeval tv = {0, TIMEOUT};
+
+    // Initialize client_fds array
+    for (i = 0; i < FD_SETSIZE; i++) {
+        client_fds[i] = -1;
+    }
+
+    while (1) {
+        FD_ZERO(&readfds);
+        FD_SET(server_fd, &readfds);
+
+        for (i = 0; i < FD_SETSIZE; i++) {
+            if (client_fds[i] >= 0) {
+                FD_SET(client_fds[i], &readfds);
+                if (client_fds[i] > maxfd) {
+                    maxfd = client_fds[i];
+                }
+            }
+        }
+
+        memset(buf, 0x00, sizeof(buf));
+
+        int num_events = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+
+        if (num_events == -1) {
+            perror("select() error");
+            exit(EXIT_FAILURE);
+        }
+
+        if (FD_ISSET(server_fd, &readfds)) {
+            // New connection request
+            int client_fd = server_accept(server_fd);
+            if (client_fd < 0) {
+                perror("accept() error");
+                continue;
+            }
+
+            for (i = 0; i < FD_SETSIZE; i++) {
+                if (client_fds[i] < 0) {
+                    client_fds[i] = client_fd;
+                    game_state.player_index = i;
+                    break;
+                }
+            }
+
+            if (i == FD_SETSIZE) {
+                fprintf(stderr, "Too many clients\n");
+                close(client_fd);
+                continue;
+            }
+
+            printw("[info] New player connected\n");
+            printw("[info] Syncing game state\n");
+            printw("[info] Player assigned [%ld] tank\n",
+                   game_state.player_index);
+
+            // Spawn a tank in a random position for the new connected
+            // player
+            game_state_spawn_tank(&game_state, game_state.player_index);
+
+            // Send the game state
+            ssize_t bytes = protocol_serialize_game_state(&game_state, buf);
+            bytes = network_send(client_fd, buf, bytes);
+            if (bytes < 0) {
+                perror("network_send() error");
+                continue;
+            }
+
+            printw("[info] Game state sync completed (%d bytes)\n", bytes);
+        }
+
+        for (i = 0; i < FD_SETSIZE; i++) {
+            int fd = client_fds[i];
+            if (fd >= 0 && FD_ISSET(fd, &readfds)) {
+                ssize_t count = network_recv(fd, buf);
+                if (count <= 0) {
+                    close(fd);
+                    game_state_dismiss_tank(&game_state, i);
+                    client_fds[i] = -1;
+                    printw("[info] Player [%d] disconnected\n", i);
+                } else {
+                    unsigned action = 0;
+                    protocol_deserialize_action(buf, &action);
+                    printw(
+                        "[info] Received an action %s from player [%d] (%ld "
+                        "bytes)\n",
+                        str_action(action), i, count);
+                    game_state_update_tank(&game_state, i, action);
+                    printw("[info] Updating game state completed\n");
+                }
+            }
+        }
+        // Main update loop here
+        game_state_update(&game_state);
+        size_t bytes = protocol_serialize_game_state(&game_state, buf);
+        broadcast(client_fds, buf, bytes);
+        // We're using ncurses for convienince to initialise ROWS and LINES
+        // without going raw mode in the terminal, this requires a refresh to
+        // print the logs
+        refresh();
+    }
+}
+
+int main(void) {
+    srand(time(NULL));
+    // Use ncurses as its handy to calculate the screen size
+    initscr();
+    scrollok(stdscr, TRUE);
+
+    printw("[info] Starting server %d %d\n", COLS, LINES);
+    game_state_init(&game_state);
+
+    int server_fd = server_listen("127.0.0.1", 6699, BACKLOG);
+    if (server_fd < 0) exit(EXIT_FAILURE);
+
+    server_loop(server_fd);
+
+    return 0;
 }
 ```
