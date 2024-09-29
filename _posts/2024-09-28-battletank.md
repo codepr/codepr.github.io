@@ -5,25 +5,31 @@ description: "Dumb terminal-based implementation of the old classic Battletank"
 categories: c game-development low-level terminal ncurses
 ---
 
-Small project idea to have somme fun with C, a micro multiplayer classi game
+Small project idea to have somme fun with C, a micro multiplayer classic game
 with as less dependencies as possible. I've always been curious about the
 challenges of game development so I started from one of the simplest ideas. The
-latest can be found in the repository
+latest update of the code can be found in the repository
 [codepr/battletank.git](https://github.com/codepr/battletank.git).
 
 ## The game
 
-The idea I was thinking about is a best effort terminal based implementation of
-the classic battle-tank, starting from a single player single tank and extending
-it to work as a multiplayer server with sockets to sync the game state across
-players.
+It's about  a best effort terminal based implementation of the classic
+battle-tank, starting from a single player single tank and extending it to work
+as a multiplayer server with sockets to sync the game state across players.
 To begin with, the only dependency is `ncurses`, later on, if I get confident enough,
 I will consider something fancier such as [`Raylib`](https://www.raylib.com/index.html).
 
 ### Why
-To have some fun, small old school programs are fun to mess with.
+
+To have some fun, small old school programs are fun to mess with. In addition,
+although I worked for a brief stint for an AAA gaming company, I was mainly
+developing on the backend side of the product, pre-game lobbies, chat rooms and
+game server deployments; but didn't really know much about the inner logic of
+the game itself. This was a good opportunity to try and learn something about
+game development starting from the basics.
 
 ### Ideas
+
 In no particular order, and not necessarily mandatory:
 - Implement a very simple and stripped down game logic ✅
     - 1 player, 1 tank, 1 bullet ✅
