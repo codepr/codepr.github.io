@@ -18,7 +18,7 @@ the classic battle-tank, starting from a single player single tank and extending
 it to work as a multiplayer server with sockets to sync the game state across
 players.
 To begin with, the only dependency is `ncurses`, later on, if I get confident enough,
-I will consider something fancier such as `Raylib`.
+I will consider something fancier such as [`Raylib`](https://www.raylib.com/index.html).
 
 ### Why
 To have some fun, small old school programs are fun to mess with.
@@ -91,8 +91,11 @@ The game state is the most simple I could imagine to begin with
 - An array of tanks
 - Each tank has 1 bullet
 
-Simple and easy to keep in sync, the server is only required to update the coordinates of
-each tank and bullet and send them to the clients.
+Short and sweet, to keep in sync, the server is only required to update the
+coordinates of each tank and bullet and send them to the clients. This
+structure is probably where additional improvements mentioned in the intro
+paragraph could live, power ups, walls, bullets and their kinds, mines etc.
+
 <hr>
 **game_state.h**
 <hr>
