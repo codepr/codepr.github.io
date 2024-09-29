@@ -93,6 +93,8 @@ The game state is the most simple I could imagine to begin with
 
 Simple and easy to keep in sync, the server is only required to update the coordinates of
 each tank and bullet and send them to the clients.
+<hr>
+<hr>
 
 ```c
 // Possible directions a tank or bullet can move.
@@ -150,6 +152,9 @@ be to init a global game state. In hindsight, I could've easily set a fixed
 number of players such as 10, I went for a dynamic array on auto-pilot
 basically.
 
+<hr>
+<hr>
+
 ```c
 void game_state_init(Game_State *state) {
     state->players_count = 2;
@@ -192,6 +197,9 @@ collide with those of a given bullet. Admittedly I didn't focus much on that,
 for a first test run I was more interested into seeing actualy tanks moving and
 be in sync with each other through the network, but `check_collision` still
 provides a good starting point to expand on later.
+
+<hr>
+<hr>
 
 ```c
 static void fire_bullet(Tank *tank) {
@@ -268,7 +276,7 @@ static void check_collision(Tank *tank, Bullet *bullet) {
  * between tanks and bullets.
  *
  * - Creates an array of pointers to each player's bullet for easy access during
- * collision checks.
+ *   collision checks.
  * - For each player:
  *   - Updates their bullet by calling `update_bullet`.
  *   - Checks for collisions between the player's tank and every other player's
@@ -290,6 +298,357 @@ void game_state_update(Game_State *state) {
 }
 ```
 
-#### The client side, where the player sends commands
+#### The client side
 
-**TO BE CONTINUED**
+
+The client is the main entry point for each player, once started it connects to
+the battletank server and provides a very crude terminal based graphic battlefield
+and handles input from the player:
+
+ - upon conenction,it  syncs with the server on the game state, receiving
+   an index that uniquely identifies the player tank in the game state
+ - the server continually broadcasts the game state to keep the clients in
+   sync
+ - clients will send actions to the servers such as movements or bullet fire
+ - the server will update the general game state and let it be broadcast in
+   the following cycle
+
+##### Out of scope (for now)
+
+The points above provide a very rudimentary interface to just see something work,
+there are many improvements and limitations to be overcomed in the pure technical
+aspect that are not yet handled, some of these in no particular order:
+
+- screen size scaling: each client can have a different screen size, this makes it
+  tricky to ensure a consistent experience between all the participants, in the
+  current state of things, a lot of glitches are likely to happen due to this fact.
+- clients disconnections and reconnections, reusing exising tanks if already
+  instantiated
+- heartbeat logic to ensure clients aliveness
+
+These are all interesting challenges (well, probaly the heartbeat and proper
+client tracking are less exciting, but the screen scaling is indeed
+interesting) and some of these limitations may be address in an hypothetical
+`battletank v0.0.2` depending on ispiration.
+
+Moving on with the code, the first part of the client side requires some helpers to
+handle the UI, as agreed, this is not gonna be a graphical game (yet?) so `ncurses`
+provides very handy and neat functions to draw something basic on terminal. I don't
+know much about the library itself but by the look of the APIs and their behaviour,
+from my understanding of the docs it provides some nice wrappers around manipulation
+of escape sequences for VT100 terminals and compatibles, similarly operating in raw
+mode allowing for a fine-grained control over the keyboard input and such.
+
+```c
+static void init_screen(void) {
+    // Start curses mode
+    initscr();
+    cbreak();
+    // Don't echo keypresses to the screen
+    noecho();
+    // Enable keypad mode
+    keypad(stdscr, TRUE);
+    nodelay(stdscr, TRUE);
+    // Hide the cursor
+    curs_set(FALSE);
+}
+
+static void render_tank(const Tank *const tank) {
+    if (tank->alive) {
+        // Draw the tank at its current position
+        mvaddch(tank->y, tank->x, 'T');
+    }
+}
+
+static void render_bullet(const Bullet *const bullet) {
+    if (bullet->active) {
+        // Draw the bullet at its current position
+        mvaddch(bullet->y, bullet->x, 'o');
+    }
+}
+
+static void render_game(const Game_State *state) {
+    clear();
+    for (size_t i = 0; i < state->players_count; ++i) {
+        render_tank(&state->players[i]);
+        render_bullet(&state->players[i].bullet);
+    }
+    refresh();
+}
+
+static unsigned handle_input(void) {
+    unsigned action = IDLE;
+    int ch = getch();
+    switch (ch) {
+        case KEY_UP:
+            action = UP;
+            break;
+        case KEY_DOWN:
+            action = DOWN;
+            break;
+        case KEY_LEFT:
+            action = LEFT;
+            break;
+        case KEY_RIGHT:
+            action = RIGHT;
+            break;
+        case ' ':
+            action = FIRE;
+            break;
+    }
+
+    return action;
+}
+```
+
+In the last function `handle_input` the `unsigned action` returned will
+be the main command we send to the server side (pretty simple huh? ample
+margin to enrich this semantic).
+
+Next in line comes the networking helpers, required to manage the communication
+with the server side, connection, send and receive:
+
+```c
+static int socket_connect(const char *host, int port) {
+    struct sockaddr_in serveraddr;
+    struct hostent *server;
+    struct timeval tv = {0, 10000};
+
+    // socket: create the socket
+    int sfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sfd < 0) goto err;
+
+    setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
+    setsockopt(sfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
+
+    // gethostbyname: get the server's DNS entry
+    server = gethostbyname(host);
+    if (server == NULL) goto err;
+
+    // build the server's address
+    bzero((char *)&serveraddr, sizeof(serveraddr));
+    serveraddr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&serveraddr.sin_addr.s_addr,
+          server->h_length);
+    serveraddr.sin_port = htons(port);
+
+    // connect: create a connection with the server
+    if (connect(sfd, (const struct sockaddr *)&serveraddr, sizeof(serveraddr)) <
+        0)
+        goto err;
+
+    return sfd;
+
+err:
+
+    perror("socket(2) opening socket failed");
+    return -1;
+}
+
+static int client_connect(const char *host, int port) {
+    return socket_connect(host, port);
+}
+
+static int client_send_data(int sockfd, const char *data, size_t datasize) {
+    ssize_t n = network_send(sockfd, data, datasize);
+    if (n < 0) {
+        perror("write() error");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+    return n;
+}
+
+static int client_recv_data(int sockfd, char *data) {
+    ssize_t n = network_recv(sockfd, data);
+    if (n < 0) {
+        perror("read() error");
+        close(sockfd);
+        exit(EXIT_FAILURE);
+    }
+    return n;
+}
+
+```
+
+All simple boilerplate code mostly, to handle a fairly traditional TCP
+connection, the only bit that's interesting here is represented by the
+lines
+
+```c
+setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
+setsockopt(sfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
+```
+
+These two lines ensure that the `read` system call times out after a
+certain period, seeminly simulating a non-blocking socket behaviour
+(not really, but the part that's interesting for us). This is the
+very first solution and the simplest that came to mind but it allows
+to run a recv loop without blocking indefinitely, as the server will
+constatly push updates, the client wants to be as up-to-date as possible
+to keep rendering an accurate and consitent game state.
+
+This part happens in the `game_loop` function, a very slim and stripped
+down client-side engine logic to render and gather inputs from the
+client to the server:
+
+```c
+// Main game loop, capture input from the player and communicate with the game
+// server
+static void game_loop(void) {
+    int sockfd = client_connect("127.0.0.1", 6699);
+    if (sockfd < 0) exit(EXIT_FAILURE);
+    Game_State state;
+    game_state_init(&state);
+    char buf[BUFSIZE];
+    // Sync the game state for the first time
+    int n = client_recv_data(sockfd, buf);
+    protocol_deserialize_game_state(buf, &state);
+    unsigned action = IDLE;
+
+    while (1) {
+        action = handle_input();
+        if (action != IDLE) {
+            memset(buf, 0x00, sizeof(buf));
+            n = protocol_serialize_action(action, buf);
+            client_send_data(sockfd, buf, n);
+        }
+        n = client_recv_data(sockfd, buf);
+        protocol_deserialize_game_state(buf, &state);
+        render_game(&state);
+    }
+}
+
+int main(void) {
+    init_screen();
+    game_loop();
+
+    endwin();
+    return 0;
+}
+```
+
+The main function is as light as it gets, just initing the `ncurses` screen
+to easily calculate `COLS` and `LINES` the straight to the game loop, with
+the flow being:
+
+- Connection to the server
+- Sync of the game state, including other possibly already connected players
+- Non blocking wait for input, if made, send it to the server to update the
+  game state for everyone connected
+- Receive data from the server, i.e. the game state, non blocking.
+
+#### The server
+
+The server side handles the game state and serves as the unique authoritative
+source of truth.
+
+- clients sync at their first connection and their tank is spawned in the
+  battlefield, the server will send a unique identifier to the clients (an
+  int index for the time being, that represents the tank assigned to the
+  player in the game state)
+- the server continually broadcast the game state to keep the clients in sync
+- clients will send actions to the servers such as movements or bullet fire
+- the server will update the general game state and let it be broadcast in
+  the following cycle
+
+```c
+// We don't expect big payloads
+#define BUFSIZE 1024
+#define BACKLOG 128
+#define TIMEOUT 70000
+
+// Generic global game state
+static Game_State game_state = {0};
+
+/* Set non-blocking socket */
+static int set_nonblocking(int fd) {
+    int flags, result;
+    flags = fcntl(fd, F_GETFL, 0);
+
+    if (flags == -1) goto err;
+
+    result = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (result == -1) goto err;
+
+    return 0;
+
+err:
+
+    fprintf(stderr, "set_nonblocking: %s\n", strerror(errno));
+    return -1;
+}
+
+static int server_listen(const char *host, int port, int backlog) {
+    int listen_fd = -1;
+    const struct addrinfo hints = {.ai_family = AF_UNSPEC,
+                                   .ai_socktype = SOCK_STREAM,
+                                   .ai_flags = AI_PASSIVE};
+    struct addrinfo *result, *rp;
+    char port_str[6];
+
+    snprintf(port_str, 6, "%i", port);
+
+    if (getaddrinfo(host, port_str, &hints, &result) != 0) goto err;
+
+    /* Create a listening socket */
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        listen_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (listen_fd < 0) continue;
+
+        /* set SO_REUSEADDR so the socket will be reusable after process kill */
+        if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1},
+                       sizeof(int)) < 0)
+            goto err;
+
+        /* Bind it to the addr:port opened on the network interface */
+        if (bind(listen_fd, rp->ai_addr, rp->ai_addrlen) == 0)
+            break;  // Succesful bind
+        close(listen_fd);
+    }
+
+    freeaddrinfo(result);
+    if (rp == NULL) goto err;
+
+    /*
+     * Let's make the socket non-blocking (strongly advised to use the
+     * eventloop)
+     */
+    (void)set_nonblocking(listen_fd);
+
+    /* Finally let's make it listen */
+    if (listen(listen_fd, backlog) != 0) goto err;
+
+    return listen_fd;
+err:
+    return -1;
+}
+
+static int server_accept(int server_fd) {
+    int fd;
+    struct sockaddr_in addr;
+    socklen_t addrlen = sizeof(addr);
+
+    /* Let's accept on listening socket */
+    fd = accept(server_fd, (struct sockaddr *)&addr, &addrlen);
+    if (fd <= 0) goto exit;
+
+    (void)set_nonblocking(fd);
+    return fd;
+exit:
+    if (errno != EWOULDBLOCK && errno != EAGAIN) perror("accept");
+    return -1;
+}
+
+static int broadcast(int *client_fds, const char *buf, size_t count) {
+    int written = 0;
+    for (int i = 0; i < FD_SETSIZE; i++) {
+        if (client_fds[i] >= 0) {
+            // TODO check for errors writing
+            written += network_send(client_fds[i], buf, count);
+        }
+    }
+
+    return written;
+}
+```
