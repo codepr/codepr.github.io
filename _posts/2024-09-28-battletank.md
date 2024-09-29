@@ -858,3 +858,13 @@ C/C++ Header                     3             17             10             52
 SUM:                             8            151            182            615
 -------------------------------------------------------------------------------
 ```
+
+#### References
+
+- [ncurses](https://invisible-island.net/ncurses/)
+- [Raylib](https://www.raylib.com/index.html)
+- [SDL2](https://www.libsdl.org/)
+- [setsockopt](https://linux.die.net/man/2/setsockopt)
+- [select](https://man7.org/linux/man-pages/man2/select.2.html)
+- [Select is fundamentally broken](https://idea.popcount.org/2017-01-06-select-is-fundamentally-broken/)
+- [beej.us - serialization techniques](https://beej.us/guide/bgnet/html/split/slightly-advanced-techniques.html#serialization)
