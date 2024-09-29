@@ -159,9 +159,15 @@ void game_state_update_tank(Game_State *state, size_t tank_index,
 
 Although the structures introduced are trivial, some helper functions to manage
 tanks and bullets can come handy; when the server starts, the first thing will
-be to init a global game state. In hindsight, I could've easily set a fixed
-number of players such as 10, I went for a dynamic array on auto-pilot
-basically.
+be to init a global game state. When a new player connects, a tank will be
+spawned in the battlefield, I opted for a random position spawning in a small
+set of coordinates. In hindsight, I could've easily set a fixed number of
+players such as 10, I went for a dynamic array on auto-pilot basically. To be
+noted that as of now I'm not really correctly freeing the allocated tanks
+(these are the only structure that is heap allocated) as it's not really
+necessary, the memory will be released at shutdown of the program anyway and
+the number of expected players is not that big. That said, it's definitely best
+practice to handle the case correctly, I may address that at a later stage.
 
 <hr>
 **game_state.c**
@@ -203,11 +209,12 @@ And here to follow the remaining functions needed to actually update the state o
 mainly manipulation of the X, Y axis for the tank and bullet directions based on actions
 coming from each client.
 
-To check collision initially we just check that the coordinates of a given tank
-collide with those of a given bullet. Admittedly I didn't focus much on that,
-for a first test run I was more interested into seeing actualy tanks moving and
-be in sync with each other through the network, but `check_collision` still
-provides a good starting point to expand on later.
+To check collision initially I just check that the coordinates of a given tank
+collide with those of a given bullet. Admittedly I didn't focus much on
+that (after all there isn't even a score logic yet), for a first test run I
+was more interested into seeing actualy tanks moving and be in sync with
+each other through the network, but `check_collision` still provides a good
+starting point to expand on later.
 
 <hr>
 **game_state.c**
@@ -499,17 +506,17 @@ setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(struct timeval));
 setsockopt(sfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
 ```
 
-These two lines ensure that the `read` system call times out after a
-certain period, seeminly simulating a non-blocking socket behaviour
-(not really, but the part that's interesting for us). This is the
-very first solution and the simplest that came to mind but it allows
-to run a recv loop without blocking indefinitely, as the server will
-constatly push updates, the client wants to be as up-to-date as possible
-to keep rendering an accurate and consitent game state.
+These two lines ensure that the `read` system call times out after a certain
+period, seeminly simulating a non-blocking socket behaviour (not really, but
+the part that's interesting for us). This is the very first solution and the
+simplest that came to mind but it allows to run a recv loop without blocking
+indefinitely, as the server will constatly push updates, the client wants to be
+as up-to-date as possible to keep rendering an accurate and consitent game
+state.
 
-This part happens in the `game_loop` function, a very slim and stripped
-down client-side engine logic to render and gather inputs from the
-client to the server:
+This part happens in the `game_loop` function, a very slim and stripped down
+client-side engine logic to render and gather inputs from the client to the
+server:
 
 <hr>
 **battletank_client.c**
@@ -551,9 +558,9 @@ int main(void) {
 ```
 <hr>
 
-The main function is as light as it gets, just initing the `ncurses` screen
-to easily calculate `COLS` and `LINES` the straight to the game loop, with
-the flow being:
+The main function is as light as it gets, just initing the `ncurses` screen to
+easily calculate `COLS` and `LINES` the straight to the game loop, with the
+flow being:
 
 - Connection to the server
 - Sync of the game state, including other possibly already connected players
