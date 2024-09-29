@@ -33,14 +33,14 @@ yourself and stop to make experiments, change parts etc.
 Step by step, I usually init my C projects in order to have all sources
 in a single folder:
 
-{% highlight bash %}
+```bash
 sol/
  ├── src/
  ├── CHANGELOG
  ├── CMakeLists.txt
  ├── COPYING
  └── README.md
-{% endhighlight %}
+```
 
 Here the [repository](https://github.com/codepr/sol/tree/tutorial) on GitHub.
 I'll try to describe step by step my journey into the development of the software,
@@ -100,7 +100,7 @@ every packet consists of 3 parts:
 The Fixed Header part consists of the first byte for command type and flags,
 and a second to fifth byte to store the remaining length of the packet.
 
-{% highlight markdown %}
+```markdown
 # Fixed Header
 
  | Bit    | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
@@ -112,7 +112,7 @@ and a second to fifth byte to store the remaining length of the packet.
  |  .     |                               |
  | Byte 5 |                               |
 
-{% endhighlight %}
+```
 
 Flags are not all mandatory, just the 4 bits block MQTT Control Type, the
 others are:
@@ -132,7 +132,7 @@ Header:
 <hr>
 **src/mqtt.h**
 <hr>
-{% highlight c %}
+```c
 #ifndef MQTT_H
 #define MQTT_H
 
@@ -185,7 +185,7 @@ union mqtt_header {
     } bits;
 };
 
-{% endhighlight %}
+```
 <hr>
 The first 2 `#define` refers to fixed sizes of the MQTT Fixed Header and of
 every type of MQTT ACK packets, set for convenience, we'll use those later.
@@ -205,7 +205,7 @@ For each CONNECT, a CONNACK packet must be sent in response.
 <hr>
 **src/mqtt.h**
 <hr>
-{% highlight c %}
+```c
 
 struct mqtt_connect {
     union mqtt_header header;
@@ -243,7 +243,7 @@ struct mqtt_connack {
     unsigned char rc;
 };
 
-{% endhighlight %}
+```
 <hr>
 From now on, the definition of other packets are trivial by reproducing the
 pattern, accordingly to the documentation of MQTT v3.1.1.
@@ -257,7 +257,7 @@ separation.
 **src/mqtt.h**
 <hr>
 
-{% highlight c %}
+```c
 
 struct mqtt_subscribe {
     union mqtt_header header;
@@ -301,7 +301,7 @@ struct mqtt_ack {
     unsigned short pkt_id;
 };
 
-{% endhighlight %}
+```
 <hr>
 
 The remaining ACK packets, namely:
@@ -322,7 +322,7 @@ the same.
 **src/mqtt.h**
 <hr>
 
-{% highlight c %}
+```c
 
 typedef struct mqtt_ack mqtt_puback;
 typedef struct mqtt_ack mqtt_pubrec;
@@ -333,7 +333,7 @@ typedef union mqtt_header mqtt_pingreq;
 typedef union mqtt_header mqtt_pingresp;
 typedef union mqtt_header mqtt_disconnect;
 
-{% endhighlight %}
+```
 <hr>
 
 We can finally define a generic MQTT packet as a `union` of the previously
@@ -343,7 +343,7 @@ defined packets.
 **src/mqtt.h**
 <hr>
 
-{% highlight c %}
+```c
 
 union mqtt_packet {
     struct mqtt_ack ack;
@@ -356,7 +356,7 @@ union mqtt_packet {
     struct mqtt_unsubscribe unsubscribe;
 };
 
-{% endhighlight %}
+```
 <hr>
 
 We proceed now with the definition of some public functions, here in the header
@@ -377,12 +377,12 @@ Remaining Length in the Fixed Header part.
 **src/mqtt.h**
 <hr>
 
-{% highlight c %}
+```c
 int mqtt_encode_length(unsigned char *, size_t);
 unsigned long long mqtt_decode_length(const unsigned char **);
 int unpack_mqtt_packet(const unsigned char *, union mqtt_packet *);
 unsigned char *pack_mqtt_packet(const union mqtt_packet *, unsigned);
-{% endhighlight %}
+```
 <hr>
 
 We also add some utility functions to build packets and to release
@@ -392,7 +392,7 @@ heap-alloc'ed ones, nothing special here.
 **src/mqtt.h**
 <hr>
 
-{% highlight c %}
+```c
 
 union mqtt_header *mqtt_packet_header(unsigned char);
 struct mqtt_ack *mqtt_packet_ack(unsigned char , unsigned short);
@@ -405,7 +405,7 @@ void mqtt_packet_release(union mqtt_packet *, unsigned);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 Fine. We have a decent header module that define all that we need for handling
@@ -418,7 +418,7 @@ packet, these will be called by the previously defined "public" functions
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #include <stdlib.h>
 #include <string.h>
@@ -435,7 +435,7 @@ static unsigned char *pack_mqtt_connack(const union mqtt_packet *);
 static unsigned char *pack_mqtt_suback(const union mqtt_packet *);
 static unsigned char *pack_mqtt_publish(const union mqtt_packet *);
 
-{% endhighlight %}
+```
 <hr>
 
 ### Packing and unpacking
@@ -454,7 +454,7 @@ convention) of the packets.
 **src/pack.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef PACK_H
 #define PACK_H
@@ -485,7 +485,7 @@ void pack_bytes(uint8_t **, uint8_t *);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 And the corresponding implementation
@@ -494,7 +494,7 @@ And the corresponding implementation
 **src/pack.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #include <string.h>
 #include <stdlib.h>
@@ -560,7 +560,7 @@ void pack_bytes(uint8_t **buf, uint8_t *str) {
     (*buf) += len;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 This allow us to handle incoming stream of bytes and forge them to respond to
@@ -574,11 +574,11 @@ After the creation of `pack` module we should include it into the `mqtt` source:
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #include "pack.h"
 
-{% endhighlight %}
+```
 <hr>
 
 The first step will be the implementation of the Fixed Header Remaining Length
@@ -604,7 +604,7 @@ No need for further explanation, the MQTT documentation is crystal clear.
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * MQTT v3.1.1 standard, Remaining length field on the fixed header can be at
@@ -653,7 +653,7 @@ unsigned long long mqtt_decode_length(const unsigned char **buf) {
     return value;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Now we can read the first header byte and the total length of the packet. Let's
@@ -727,7 +727,7 @@ header.
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * MQTT unpacking functions
@@ -775,12 +775,12 @@ static size_t unpack_mqtt_connect(const unsigned char *buf,
     return len;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 The PUBLISH packet now:
 
-{% highlight markdown %}
+```markdown
 
  |   Bit    |  7  |  6  |  5  |  4  |  3  |  2  |  1  |   0    |  <-- Fixed Header
  |----------|-----------------------|--------------------------|
@@ -804,7 +804,7 @@ The PUBLISH packet now:
  | Byte N+3 |                   Payload                        |
  | Byte N+M |                                                  |
 
-{% endhighlight %}
+```
 
 
 Packet identifier MSB and LSB are present in the packet if and only if the QoS
@@ -816,7 +816,7 @@ other fields already unpacked.
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static size_t unpack_mqtt_publish(const unsigned char *buf,
                                   union mqtt_header *hdr,
@@ -847,7 +847,7 @@ static size_t unpack_mqtt_publish(const unsigned char *buf,
     return len;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Subscribe and unsubscribe packets are fairly similar, they reflect the
@@ -860,7 +860,7 @@ for each topic.
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static size_t unpack_mqtt_subscribe(const unsigned char *buf,
                                     union mqtt_header *hdr,
@@ -937,7 +937,7 @@ static size_t unpack_mqtt_unsubscribe(const unsigned char *buf,
     return len;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 And finally the ACK. In MQTT doesn't exists generic acks, but the structure
@@ -956,7 +956,7 @@ These are:
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static size_t unpack_mqtt_ack(const unsigned char *buf,
                               union mqtt_header *hdr,
@@ -972,7 +972,7 @@ static size_t unpack_mqtt_ack(const unsigned char *buf,
     return len;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 We have now all needed helpers functions to implement our only exposed function
@@ -986,7 +986,7 @@ need a single byte, with remaining length 0.
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 typedef size_t mqtt_unpack_handler(const unsigned char *,
                                    union mqtt_header *,
@@ -1026,14 +1026,14 @@ int unpack_mqtt_packet(const unsigned char *buf, union mqtt_packet *pkt) {
     return rc;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 The first part ends here, at this point we have two modules, one of utility for
 general serialization operations and one to handle the protocol itself accordingly
 to the standard defined by OASIS.
 
-{% highlight bash %}
+```bash
 sol/
  ├── src/
  │    ├── mqtt.h
@@ -1044,7 +1044,7 @@ sol/
  ├── CMakeLists.txt
  ├── COPYING
  └── README.md
-{% endhighlight %}
+```
 
 Just `git commit` and `git push`. Cya.
 

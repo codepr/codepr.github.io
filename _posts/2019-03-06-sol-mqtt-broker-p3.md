@@ -26,7 +26,7 @@ improvements.
 **src/server.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef SERVER_H
 #define SERVER_H
@@ -59,7 +59,7 @@ int start_server(const char *, const char *);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 The implementation part will be a little bigger than expected, all our handler
@@ -80,7 +80,7 @@ to make thing easier for the near-future developments.
 <hr>
 Omitting includes to spare some space.
 
-{% highlight c %}
+```c
 
 #define _POSIX_C_SOURCE 200809L
 // -- Omitted includes
@@ -218,7 +218,7 @@ static void on_accept(struct evloop *loop, void *arg) {
     sol_info("New connection from %s on port %s", conn.ip, conf->port);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 As you can see, I defined two static functions (in C, while not strictly a
@@ -237,7 +237,7 @@ not strictly necessary to follow this pattern.
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * Parse packet header, it is required at least the Fixed Header of each
@@ -398,7 +398,7 @@ static void on_write(struct evloop *loop, void *arg) {
     evloop_rearm_callback_read(loop, cb);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Another 3 static functions added, as shown, there's a `recv_packet` function
@@ -424,7 +424,7 @@ We have to edit the `src/pack.h` and `src/pack.c` to add these utilities.
 **src/pack.h**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * bytestring structure, provides a convenient way of handling byte string data.
@@ -446,7 +446,7 @@ void bytestring_init(struct bytestring *, size_t);
 void bytestring_release(struct bytestring *);
 void bytestring_reset(struct bytestring *);
 
-{% endhighlight %}
+```
 <hr>
 
 And their trivial implementation
@@ -455,7 +455,7 @@ And their trivial implementation
 **src/pack.c**
 <hr>
 
-{% highlight c %}
+```c
 
 struct bytestring *bytestring_create(size_t len) {
     struct bytestring *bstring = malloc(sizeof(*bstring));
@@ -485,7 +485,7 @@ void bytestring_reset(struct bytestring *bstring) {
     memset(bstring->data, 0, bstring->size);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 ### Generic utilities
@@ -502,7 +502,7 @@ module yet, so I generally add those logging functions to the `util` module.
 **src/util.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef UTIL_H
 #define UTIL_H
@@ -538,7 +538,7 @@ void sol_log(int, const char *, ...);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 And here we go, a log function with some macros to conveniently call the
@@ -550,7 +550,7 @@ strings.
 <hr>
 Includes are omitted for brevity.
 
-{% highlight c %}
+```c
 
 // -- Omitted includes
 
@@ -661,7 +661,7 @@ int generate_uuid(char *uuid_placeholder) {
     return 0;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 These simple functions allow us to have a pretty decent logging system, by
@@ -676,7 +676,7 @@ global structures and the first closure for accepting incoming connections.
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * Statistics topics, published every N seconds defined by configuration
@@ -780,7 +780,7 @@ int start_server(const char *addr, const char *port) {
     sol_info("Sol v%s exiting", VERSION);
     return 0;
 }
-{% endhighlight %}
+```
 <hr>
 
 Ok, we have now a (almost) fully functioning server that uses our toy-ish
@@ -792,7 +792,7 @@ source .c, we'll be back on that soon.
 **src/server.h**
 <hr>
 
-{% highlight c %}
+```c
 
 /* Global information statistics structure */
 struct sol_info {
@@ -812,12 +812,12 @@ struct sol_info {
     long long messages_recv;
 };
 
-{% endhighlight %}
+```
 <hr>
 
 This is directly linked to the periodic task added in the start_server function.
 
-{% highlight c %}
+```c
 
 /* Add periodic task for publishing stats on SYS topics */
 // TODO Implement
@@ -834,7 +834,7 @@ generate_uuid(sys_closure.closure_id);
 evloop_add_periodic_task(event_loop, conf->stats_pub_interval,
                          0, &sys_closure);
 
-{% endhighlight %}
+```
 
 The `publish_stats` callback is called periodically every N seconds where N is
 defined on a configuration global pointer that we're going to implement soon.
@@ -845,7 +845,7 @@ But let's add the callback first:
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static void publish_message(unsigned short pkt_id,
                             unsigned short topiclen,
@@ -944,7 +944,7 @@ static void publish_stats(struct evloop *loop, void *args) {
                     strlen(mrecv), (unsigned char *) &mrecv);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Ok now we have our first periodic callback, it publishes general information
@@ -956,7 +956,7 @@ information could be added incrementally in the future.
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * General information of the broker, all fields will be published
@@ -967,7 +967,7 @@ static struct sol_info info;
 /* Broker global instance, contains the topic trie and the clients hashtable */
 static struct sol sol;
 
-{% endhighlight %}
+```
 <hr>
 
 There are still some parts that we have to write in order to have this piece of

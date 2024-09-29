@@ -46,7 +46,7 @@ and `20sec-delivery` respectively.
 Let's move one with the implementation.
 
 <hr>
-{% highlight python %}
+```python
 import asyncio
 import collections
 
@@ -122,7 +122,7 @@ class AsyncDeliver:
                 self.deliver("20 seconds delivery", "20sec-delivery")
             except asyncio.CancelledError:
                 break
-{% endhighlight %}
+```
 <hr>
 
 Let's define a simple subscriber interface, it will only need an `update`
@@ -135,7 +135,7 @@ method and await on all subscribers on the `AsyncDeliver` class by calling
 `asyncio.gather` coroutine.
 
 <hr>
-{% highlight python %}
+```python
 import abc
 
 class Subscriber(abc.ABC):
@@ -160,14 +160,14 @@ class NullSubscriber(Subscriber):
         """
         print(f"[{self.name}] Received data: {data}")
 
-{% endhighlight %}
+```
 <hr>
 
 And finally let's smoke-test it by running a simple scenario, 3 consumers
 `Toki`, `Shu` and `Raoh` (names have clearly no interlacing on one another)
 
 <hr>
-{% highlight python %}
+```python
 if __name__ == '__main__':
     deliverboy = AsyncDeliver()
     subscriber_one = NullSubscriber('Toki')
@@ -180,7 +180,7 @@ if __name__ == '__main__':
         asyncio.run(deliverboy.run())
     except KeyboardInterrupt:
         pass
-{% endhighlight %}
+```
 <hr>
 
 #### Callback based approach
@@ -195,7 +195,7 @@ a callback approach and the latter, called streams, using a wrapper around
 those low-level callbacks which makes them simple to use as coroutines.
 
 <hr>
-{% highlight python %}
+```python
 import asyncio
 import collections
 
@@ -242,14 +242,14 @@ class CallbackDeliver:
         self.deliver("20 seconds delivery", "20sec-delivery")
         asyncio.get_running_loop().call_later(20, self.deliver_every_20s)
 
-{% endhighlight %}
+```
 <hr>
 
 To simplify a bit more it's pretty straight to move some code inside a
 decorator to make a method a looping callback.
 
 <hr>
-{% highlight python %}
+```python
 import asyncio
 import functools
 
@@ -263,7 +263,7 @@ def run_every(seconds):
         return func_wrapper
     return inner_func
 
-{% endhighlight %}
+```
 <hr>
 
 This allow us to write our delivery methods with no need to retrieve the
@@ -276,16 +276,16 @@ we need to re-apply the decorator at each scheduling, if we passed just the
 re-scheduling it again.
 
 <hr>
-{% highlight python %}
+```python
 @run_every(5)
 def deliver_every_5s(self):
     self.deliver("5 seconds delivery", "5sec-delivery")
-{% endhighlight %}
+```
 
 Again we can run a simple main, that should result the same as the previous
 coroutine-based implementation
 
-{% highlight python %}
+```python
 if __name__ == '__main__':
     deliverboy = CallbackDeliver()
     subscriber_one = NullSubscriber('Toki')
@@ -298,7 +298,7 @@ if __name__ == '__main__':
         asyncio.run(deliverboy.run())
     except KeyboardInterrupt:
         deliverboy.shutdown()
-{% endhighlight %}
+```
 <hr>
 
 And that's it, these two snippets should be a good comparison of the two

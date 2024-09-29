@@ -61,29 +61,29 @@ the simplest example: [running livebook on embedded systems](https://github.com/
 Run an MQTT broker on the host machine, let's use `mosquitto` (if an `Address
 not available error` happens, use the following conf)
 
-{% highlight conf %}
+```conf
 persistence false
 log_dest file /mosquitto/log/mosquitto.log
 log_dest stdout
 listener 1883
 allow_anonymous true
-{% endhighlight %}
+```
 
 Finally run a `mosquitto` container mounting the local config
 
-{% highlight bash %}
+```bash
 docker run -it -p 1883:1883 -v $PWD/mosquitto.conf:/mosquitto/config/mosquitto.conf eclipse-mosquitto
-{% endhighlight %}
+```
 
 Create a new livebook and on the setup paste this dependency
 
-{% highlight elixir %}
+```elixir
 Mix.install([{:emqtt, github: "emqx/emqtt", tag: "1.4.4", system_env: [{"BUILD_WITHOUT_QUIC", "1"}]}])
-{% endhighlight %}
+```
 
 Publish random temperature values in a subsequent `code` block
 
-{% highlight elixir %}
+```elixir
 client_id = "weather_sensor"
 report_topic = "reports/#{client_id}/temperature"
 host = '192.168.10.12' # This should point to the local machine address, where our MQTT broker is listening
@@ -104,7 +104,7 @@ message = %{"timestamp" => System.system_time(:millisecond), "temperature" => te
 payload = Jason.encode!(message)
 :emqtt.publish(pid, report_topic, payload)
 :emqtt.stop(pid)
-{% endhighlight %}
+```
 
 Oh no, must rebuild the livebook :( one current limitation of livebook in
 `nerves` is that `Mix.install` is not supported yet. Livebook can be customized
@@ -112,17 +112,17 @@ easily on the host machine.
 
 Flash `nerves_livebook` into device (`rpi4`)
 
-{% highlight bash %}
+```bash
 git clone https://github.com/livebook-dev/nerves_livebook.git
 cd nerves_livebook
-{% endhighlight %}
+```
 
 Add dependency to the `mix.exs`
 
 <hr>
 **mix.exs**
 <hr>
-{% highlight elixir %}
+```elixir
 defp deps do
     [
       ...,
@@ -130,11 +130,11 @@ defp deps do
       ...
     ]
 end
-{% endhighlight %}
+```
 
 Build the firmware and push it to the device
 
-{% highlight bash %}
+```bash
 
 # Set the MIX_TARGET to the desired platform (rpi0, bbb, rpi3, etc.)
 export MIX_TARGET=rpi4
@@ -147,7 +147,7 @@ mix burn
 # Option 2: Upload to an existing Nerves Livebook device
 mix firmware.gen.script
 ./upload.sh livebook@nerves.local
-{% endhighlight %}
+```
 
 Now the previous snippet should work correctly and we should see the message
 published onto our MQTT broker.
@@ -157,7 +157,7 @@ published onto our MQTT broker.
 Let's expand the previous snippet: a `GenServer` perpetually generating
 temperature values and also accepting command from the broker
 
-{% highlight elixir %}
+```elixir
 
 defmodule WeatherSensor do
   @moduledoc false
@@ -238,20 +238,20 @@ defmodule WeatherSensor do
     :emqtt.publish(pid, topic, payload)
   end
 end
-{% endhighlight %}
+```
 
 On a subsequent block, we can run the `GenServer`
 
-{% highlight elixir %}
+```elixir
 {:ok, pid} = WeatherSensor.start_link([])
-{% endhighlight %}
+```
 
 On the host we should see data coming every ~2s, we can confirm it by peeking into the
 `mosquitto` logs or by subscribing to the topic on `localhost`
 
-{% highlight bash %}
+```bash
 mosquitto_sub -t reports/weather_sensor/temperature -h 127.0.0.1
-{% endhighlight %}
+```
 
 ### Phoenix liveview
 
@@ -260,16 +260,16 @@ data coming through `LiveView`. Let's not forget `--no-ecto` we don't need DBs
 here, `--no-mailer`, `--no-gettext`, `--no-dashboard`, and `--live`. This
 should cut out a fair amount of boilerplate.
 
-{% highlight bash %}
+```bash
 mix phx.new temp_dashboard --no-ecto --no-mailer --no-gettext --no-dashboard --live
-{% endhighlight %}
+```
 
 First thing, let's add the required dependencies to the `mix.exs`
 
 <hr>
 **temp_dashboard/mix.exs**
 <hr>
-{% highlight elixir %}
+```elixir
   defp deps do
     [
       ...,
@@ -278,20 +278,20 @@ First thing, let's add the required dependencies to the `mix.exs`
       ...
     ]
   end
-{% endhighlight %}
+```
 
 Update the dependencies with the newly added bit
 
-{% highlight bash %}
+```bash
 mix deps.get
-{% endhighlight %}
+```
 
 Let's add few lines to the main configuration and the development one:
 
 <hr>
 **temp_dashboard/config/config.exs**
 <hr>
-{% highlight elixir %}
+```elixir
 config :temp_dashboard, :emqtt,
   host: '192.168.10.12',  # Again, the MQTT broker address here
   port: 1883
@@ -300,23 +300,23 @@ config :temp_dashboard, :sensor_id, "weather_sensor"
 
 # Period for chart
 config :temp_dashboard, :timespan, 60
-{% endhighlight %}
+```
 
 Same on `temp_dashboard/config/dev.exs`.
 
 Let's now generate a `LiveView` controller
 
-{% highlight elixir %}
+```elixir
 mix phx.gen.live Measurements Temperature temperatures  --no-schema --no-context
-{% endhighlight %}
+```
 
 We can remove some of them for our single-page app
 
-{% highlight bash %}
+```bash
 rm lib/temp_dashboard_web/live/temperature_live/form_component.*
 rm lib/temp_dashboard_web/live/temperature_live/show.*
 rm lib/temp_dashboard_web/live/live_helpers.ex
-{% endhighlight %}
+```
 
 Finally, we want to add some business logic to our app, fire up the editor on
 `temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.ex` and
@@ -325,7 +325,7 @@ replace the content with the following snippet.
 <hr>
 **temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.ex**
 <hr>
-{% highlight elixir %}
+```elixir
 defmodule TempDashboardWeb.TemperatureLive.Index do
   use TempDashboardWeb, :live_view
 
@@ -449,14 +449,14 @@ defmodule TempDashboardWeb.TemperatureLive.Index do
 
   defp x_formatter(datetime), do: Calendar.strftime(datetime, "%H:%M:%S")
 end
-{% endhighlight %}
+```
 
 We also need a template view for our page, let's replace the `index.html.heex`
 
 <hr>
 **temp_dashboard/lib/temp_dashboard_web/live/temperature_live/index.html.heex**
 <hr>
-{% highlight html %}
+```html
 <div>
   <%= if @plot do %>
     <%= @plot %>
@@ -470,7 +470,7 @@ We also need a template view for our page, let's replace the `index.html.heex`
     <input type="submit" value="Set interval"/>
   </form>
 </div>
-{% endhighlight %}
+```
 
 Last step, adding a handler to route our requests to index, removing the
 existing `/` `scope`
@@ -478,20 +478,20 @@ existing `/` `scope`
 <hr>
 **lib/temp_dasboard_web/router.ex**
 <hr>
-{% highlight elixir %}
+```elixir
   scope "/", TempDashboardWeb do
     pipe_through :browser
 
     live "/", TemperatureLive.Index
   end
-{% endhighlight %}
+```
 
 Get the dependencies and run the application, we should see it connecting to
 the broker
 
-{% highlight bash %}
+```bash
 mix phx.server
-{% endhighlight %}
+```
 
 Let's open the brower to `localhost:4000`.
 

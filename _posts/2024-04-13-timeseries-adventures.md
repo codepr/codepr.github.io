@@ -87,7 +87,7 @@ interest for the purpose of simplicity)
 
 <hr>
 <hr>
-{% highlight c %}
+```c
 /*
  * Set a record in a timeseries.
  *
@@ -173,7 +173,7 @@ int ts_insert(Timeseries *ts, uint64_t timestamp, double_t value) {
     // Insert it into the head chunk
     return ts_chunk_set_record(&ts->head, sec, nsec, value);
 }
-{% endhighlight %}
+```
 
 ## The current state
 
@@ -217,7 +217,7 @@ A simple `Makefile` to build the library as a `.so` file that can be linked to a
 <hr>
 <hr>
 
-{% highlight makefile %}
+```makefile
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror -Wunused -std=c11 -pedantic -ggdb -D_DEFAULT_SOURCE=200809L -Iinclude -Isrc
 LDFLAGS=-L. -ltimeseries
@@ -232,7 +232,7 @@ libtimeseries.so: $(LIB_OBJECTS)
 clean:
 	@rm -f $(LIB_OBJECTS) libtimeseries.so
 
-{% endhighlight %}
+```
 
 Building the library is a simple thing now, just a single command `make`, to link it to a main, just a one liner
 ```bash
@@ -243,7 +243,7 @@ gcc -o my_project main.c -I/path/to/timeseries/include -L/path/to/timeseries -lt
 <hr>
 <hr>
 
-{% highlight c %}
+```c
 
 #include "timeseries.h"
 
@@ -273,7 +273,7 @@ int main() {
 
     return 0;
 }
-{% endhighlight %}
+```
 
 
 ## A server draft

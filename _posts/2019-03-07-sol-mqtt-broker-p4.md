@@ -35,7 +35,7 @@ associated to the keys.
 **src/hashtable.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef HASHTABLE_H
 #define HASHTABLE_H
@@ -109,7 +109,7 @@ int hashtable_map2(HashTable *,
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 We define some sort of encapsulation by defining the structure in the source
@@ -120,7 +120,7 @@ functions (like methods in a class).
 **src/hashtable.c**
 <hr>
 
-{% highlight c %}
+```c
 
 // -- Omitted includes
 
@@ -516,7 +516,7 @@ static unsigned long crc32(const uint8_t *s, unsigned int len) {
     return crc32val;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Our hash function just compute the CRC32 of a given string, using the Knuth
@@ -534,7 +534,7 @@ to head and tail, this way we ensure O(1) for insertion on either sides.
 **src/list.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef LIST_H
 #define LIST_H
@@ -603,14 +603,14 @@ struct list_node *bisect_list(struct list_node *);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 <hr>
 **src/list.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #include "list.h"
 #include <stdlib.h>
@@ -821,7 +821,7 @@ struct list_node *bisect_list(struct list_node *head) {
     return slow;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 We have successfully implemented two classic data structures that offer useful

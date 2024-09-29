@@ -20,7 +20,7 @@ Let's fire vim src/core.h:
 **src/core.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef CORE_H
 #define CORE_H
@@ -76,7 +76,7 @@ struct topic *sol_topic_get(struct sol *, const char *);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 This module contains the major abstractions to handle the clients and his
@@ -96,7 +96,7 @@ Here the implementation:
 **src/core.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #include <string.h>
 #include <stdlib.h>
@@ -154,7 +154,7 @@ struct topic *sol_topic_get(struct sol *sol, const char *name) {
     return ret_topic;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 ### Finally, the handlers
@@ -177,7 +177,7 @@ suggests will handle CONNECT packet coming just after a TCP connection happens.
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
 
@@ -248,7 +248,7 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
     return REARM_W;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Essentially it behaves exactly as defined by the protocol standard, except for
@@ -263,7 +263,7 @@ Next command, DISCONNECT:
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static int disconnect_handler(struct closure *cb, union mqtt_packet *pkt) {
     // TODO just return error_code and handle it on `on_read`
@@ -280,7 +280,7 @@ static int disconnect_handler(struct closure *cb, union mqtt_packet *pkt) {
     return -REARM_W;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Straight forward, just log the disconnection, update the info, close the fd,
@@ -306,7 +306,7 @@ specified topic and answer with an UNSUBACK:
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /* Recursive auxiliary function to subscribe to all children of a given topic */
 static void recursive_subscription(struct trie_node *node, void *arg) {
@@ -398,7 +398,7 @@ static int unsubscribe_handler(struct closure *cb, union mqtt_packet *pkt) {
     return REARM_W;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 The PUBLISH handler is the longer of our handlers, but it's fairly easy to
@@ -424,7 +424,7 @@ follow
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
     struct sol_client *c = cb->obj;
@@ -535,7 +535,7 @@ static int publish_handler(struct closure *cb, union mqtt_packet *pkt) {
     return REARM_R;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 All the remaining ACK handlers now, they're basically all the same, for now we
@@ -550,7 +550,7 @@ expects a PINGRESP as answer.
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 
 static int puback_handler(struct closure *cb, union mqtt_packet *pkt) {
     sol_debug("Received PUBACK from %s",
@@ -606,7 +606,7 @@ static int pingreq_handler(struct closure *cb, union mqtt_packet *pkt) {
     return REARM_W;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Our lightweight broker is taking shape, code should now be enough to try and
@@ -622,7 +622,7 @@ used by most services on Linux, something like this:
 **conf/sol.conf**
 <hr>
 
-{% highlight bash %}
+```bash
 
 # Sol configuration file, uncomment and edit desired configuration
 
@@ -656,7 +656,7 @@ tcp_backlog 128
 # Interval of time between one stats publish on $SOL topics and the subsequent
 stats_publish_interval 10s
 
-{% endhighlight %}
+```
 <hr>
 
 So, let's define a new header:
@@ -665,7 +665,7 @@ So, let's define a new header:
 **src/config.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef CONFIG_H
 #define CONFIG_H
@@ -725,7 +725,7 @@ char *memory_to_string(size_t);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 The configuration explains itself, for now we want control over host and port
@@ -740,7 +740,7 @@ structure:
 **src/config.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #include <ctype.h>
 #include <string.h>
@@ -1014,7 +1014,7 @@ void config_print(void) {
     }
 }
 
-{% endhighlight %}
+```
 <hr>
 
 At this point we have all the pieces needed to have something running.
@@ -1024,7 +1024,7 @@ Let's add the last brick, a main:
 **src/sol.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #define _POSIX_C_SOURCE 2
 #include <stdio.h>
@@ -1078,12 +1078,12 @@ int main (int argc, char **argv) {
     return 0;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Short and clean, the project should now have all that is needed to work:
 
-{% highlight bash %}
+```bash
 sol/
  ├── src/
  │    ├── mqtt.h
@@ -1113,7 +1113,7 @@ sol/
  ├── CMakeLists.txt
  ├── COPYING
  └── README.md
-{% endhighlight %}
+```
 
 That's a moderate amount of code to manage, for compilation I'd like to write
 custom `Makefile` usually, but this time, as shown on the folder tree, I'll
@@ -1122,7 +1122,7 @@ probably not the advisable as `cmake` is such a huge piece of software to genera
 artifacts for such a small and dependency-free software, however I was curious to
 see how it worked and took the moment:
 
-{% highlight bash %}
+```bash
 
 cmake_minimum_required(VERSION 2.8)
 
@@ -1148,7 +1148,7 @@ set(LICENSE "BSD2 license")
 # Executable
 add_executable(sol ${SOURCES})
 
-{% endhighlight %}
+```
 
 The only part worth a note is the DEBUG flag that I added, it makes cmake
 generate a different `Makefile` that compile the sources with some additional
@@ -1156,30 +1156,30 @@ flags to catch and signal memory leaks and undefined behaviours.
 
 So the next move is to generate the `Makefile`
 
-{% highlight bash %}
+```bash
 
 $ cmake -DDEBUG=1 .
 
-{% endhighlight %}
+```
 
 and compile the sources:
 
-{% highlight bash %}
+```bash
 
 $ make
 
-{% endhighlight %}
+```
 
 This will produce a *sol* executable that can be used to start the broker,
 supporting a bunch of parameters and flags we handled in main function.<br>
 We run the system with the **-v** (verbose) flag, to have all debug logging
 printed out on screen to better follow the execution.
 
-{% highlight bash %}
+```bash
 
 $ sol -v
 
-{% endhighlight %}
+```
 
 And that's it for now, there are probably a lot of bugs, memory leaks that must
 be fixed and redundant code, as well as messy includes, but the skeleton is all

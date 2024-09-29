@@ -45,7 +45,7 @@ possibility to query the tree by prefix, executing range scans in an easy way.
 **src/trie.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef TRIE_H
 #define TRIE_H
@@ -129,7 +129,7 @@ void trie_prefix_map_tuple(Trie *, const char *,
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 Implementation of this data structure is a bit tricky and there are lot of
@@ -137,7 +137,7 @@ different approaches, the most simple one would involve the use of a fixed
 length array on each node of the trie, with the complete alphabet size as
 length.
 
-{% highlight c %}
+```c
 
 #define ALPHABET_SIZE 94
 
@@ -150,7 +150,7 @@ struct trie_node {
     void *data;
 };
 
-{% endhighlight %}
+```
 
 The biggest advantage of the trie, beside the possibility of applying range
 queries on the keyspace (this one will come handy for wildcard subscriptions
@@ -202,7 +202,7 @@ Let's implement our trie with the third solution:
 **src/trie.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #include <assert.h>
 #include <stdlib.h>
@@ -575,13 +575,13 @@ void trie_release(Trie *trie) {
     free(trie);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Well, we have enough in our plate for now, our project should now have 3 more
 modules:
 
-{% highlight bash %}
+```bash
 sol/
  ├── src/
  │    ├── mqtt.h
@@ -602,7 +602,7 @@ sol/
  ├── CMakeLists.txt
  ├── COPYING
  └── README.md
-{% endhighlight %}
+```
 
 The [Part 6](../sol-mqtt-broker-p6) awaits
 with the server side handlers.

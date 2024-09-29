@@ -39,7 +39,7 @@ that works, as previously stated time to optimize and refactor will come.
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * MQTT packets building functions
@@ -128,7 +128,7 @@ void mqtt_packet_release(union mqtt_packet *pkt, unsigned type) {
     }
 }
 
-{% endhighlight %}
+```
 <hr>
 
 We move on to packing functions now, essentially they reflect unpacking ones,
@@ -154,7 +154,7 @@ possible to use a single array as they share the same positions.
 **src/mqtt.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /*
  * MQTT packets packing functions
@@ -269,7 +269,7 @@ unsigned char *pack_mqtt_packet(const union mqtt_packet *pkt, unsigned type) {
     return pack_handlers[type](pkt);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 
@@ -287,7 +287,7 @@ We're gonna need some functions to manage our socket descriptors.
 **src/network.h**
 <hr>
 
-{% highlight c %}
+```c
 
 #ifndef NETWORK_H
 #define NETWORK_H
@@ -322,7 +322,7 @@ int make_listen(const char *, const char *, int);
 /* Accept a connection and add it to the right epollfd */
 int accept_connection(int);
 
-{% endhighlight %}
+```
 <hr>
 
 Just some well-known helper functions to create and bind socket to listen for
@@ -345,7 +345,7 @@ regarding TCP communication:
 **src/network.h**
 <hr>
 
-{% highlight c %}
+```c
 
 /* I/O management functions */
 
@@ -363,7 +363,7 @@ ssize_t recv_bytes(int, unsigned char *, size_t);
 
 #endif
 
-{% endhighlight %}
+```
 <hr>
 
 And the implementation on network.c. Omitting includes to spare some space.
@@ -372,7 +372,7 @@ And the implementation on network.c. Omitting includes to spare some space.
 **src/network.c**
 <hr>
 
-{% highlight c %}
+```c
 
 #define _DEFAULT_SOURCE
 
@@ -546,7 +546,7 @@ err:
     return -1;
 }
 
-{% endhighlight %}
+```
 <hr>
 
 ### Basic closure system
@@ -563,7 +563,7 @@ reading or writing, a function is called to make use of them, which is surely a
 neat implementation, but a bit constrained. The solution I decided to use,
 leverage the union `epoll_data`:
 
-{% highlight c %}
+```c
 
 typedef union epoll_data {
    void        *ptr;
@@ -572,7 +572,7 @@ typedef union epoll_data {
    uint64_t     u64;
 } epoll_data_t;
 
-{% endhighlight %}
+```
 
 As shown, there is a `void *`, an int commonly used to store the descriptor we
 were talking about and two integer of different size. I preferred to use a
@@ -612,7 +612,7 @@ managing functions.
 **src/network.h**
 <hr>
 
-{% highlight c %}
+```c
 
 /* Event loop wrapper structure, define an EPOLL loop and his status. The
  * EPOLL instance use EPOLLONESHOT for each event and must be re-armed
@@ -712,7 +712,7 @@ int epoll_mod(int, int, int, void *);
  */
 int epoll_del(int, int);
 
-{% endhighlight %}
+```
 <hr>
 
 After some declarations on the header for network utility we can move on to the
@@ -729,7 +729,7 @@ executed.
 **src/network.c**
 <hr>
 
-{% highlight c %}
+```c
 
 /******************************
  *         EPOLL APIS         *
@@ -763,7 +763,7 @@ void evloop_free(struct evloop *loop) {
     free(loop);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Now, epoll API is extensively documentated on its manpage, but we’ll need 3
@@ -780,7 +780,7 @@ clearly on the man page.
 **src/network.c**
 <hr>
 
-{% highlight c %}
+```c
 
 int epoll_add(int efd, int fd, int evs, void *data) {
     struct epoll_event ev;
@@ -806,7 +806,7 @@ int epoll_del(int efd, int fd) {
     return epoll_ctl(efd, EPOLL_CTL_DEL, fd, NULL);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Two things to be noted:
@@ -836,7 +836,7 @@ read and write events, as well as periodic timed callbacks.
 **src/network.c**
 <hr>
 
-{% highlight c %}
+```c
 
 void evloop_add_callback(struct evloop *loop, struct closure *cb) {
     if (epoll_add(loop->epollfd, cb->fd, EPOLLIN, cb) < 0)
@@ -943,7 +943,7 @@ int evloop_del_callback(struct evloop *el, struct closure *cb) {
     return epoll_del(el->epollfd, cb->fd);
 }
 
-{% endhighlight %}
+```
 <hr>
 
 Of all defined functions, `evloop_wait` is the most interesting, start an
@@ -954,7 +954,7 @@ time-basis or normal callback for read/write events.
 The codebase is growing, we have added another module, currently it should look
 like this:
 
-{% highlight bash %}
+```bash
 sol/
  ├── src/
  │    ├── mqtt.h
@@ -967,6 +967,6 @@ sol/
  ├── CMakeLists.txt
  ├── COPYING
  └── README.md
-{% endhighlight %}
+```
 
 The [part 3](../sol-mqtt-broker-p3) awaits for implementation of the server module.

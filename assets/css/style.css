@@ -47,7 +47,11 @@ a:link, a:visited	{
 
 .highlight {
 	background-color: #f10101;
+}
 
+.highlight pre {
+	padding: 24px;
+	background-color: #f8f8f8;
 }
 
 code {

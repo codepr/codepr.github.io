@@ -59,7 +59,7 @@ like client session and topics to an "internal" header.
 **src/sol_internal.h**
 <hr>
 
-{% highlight c %}
+```c
 /*
  * The client actions can be summarized as a roughly simple state machine,
  * comprised by 4 states:
@@ -151,7 +151,7 @@ struct client_session {
     struct ref refcount; /* Reference counting struct, to share the struct easily */
 };
 
-{% endhighlight %}
+```
 <hr>
 
 So the client structure is a bit more beefy now and it stores the status of
@@ -162,7 +162,7 @@ the kernel space.
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 static ssize_t recv_packet(struct client *c) {
     ssize_t nread = 0;
     unsigned opcode = 0, pos = 0;
@@ -306,7 +306,7 @@ static inline int write_data(struct client *c) {
     c->towrite = c->wrote = 0;
     return 0;
 }
-{% endhighlight %}
+```
 <hr>
 
 Worth a note, `recv_packet` and `write_data` functions calls in turn two lower
@@ -338,7 +338,7 @@ It's definition is:
 **src/network.h**
 <hr>
 
-{% highlight c %}
+```c
 /*
  * Connection abstraction struct, provide a transparent interface for
  * connection handling, taking care of communication layer, being it encrypted
@@ -366,7 +366,7 @@ struct connection {
     ssize_t (*recv) (struct connection *, unsigned char *, size_t);
     void (*close) (struct connection *);
 };
-{% endhighlight %}
+```
 <hr>
 
 It also stores an `SSL *` and an `SSL_CTX *`, those are left `NULL` in case of
@@ -382,7 +382,7 @@ integer and bytes unpacking:
 **src/pack.c**
 <hr>
 
-{% highlight c %}
+```c
 /* Helper functions */
 long long unpack_integer(unsigned char **buf, char size) {
     long long val = 0LL;
@@ -430,7 +430,7 @@ unsigned char *unpack_bytes(unsigned char **buf, size_t len) {
     *buf += len;
     return dest;
 }
-{% endhighlight %}
+```
 <hr>
 
 ### Adding a tiny eventloop: ev
@@ -451,7 +451,7 @@ the host machine provide, be it `EPOLL`, `SELECT` or `KQUEUE`.
 <hr>
 **src/ev.h**
 <hr>
-{% highlight c %}
+```c
 #include <sys/time.h>
 #define EV_OK  0
 #define EV_ERR 1
@@ -550,7 +550,7 @@ int ev_register_cron(struct ev_ctx *,
  */
 int ev_fire_event(struct ev_ctx *, int, int,
                   void (*callback)(struct ev_ctx *, void *), void *);
-{% endhighlight %}
+```
 <hr>
 
 At the init of the server, the `ev_ctx` will be instructed to run some
@@ -564,7 +564,7 @@ and correctly parsed it will be processed by calling the right handler from
 the handler module, based on the command it carries and a response will be
 fired back.
 
-{% highlight bash %}
+```bash
 
                              MAIN THREAD
                               [EV_CTX]
@@ -585,7 +585,7 @@ fired back.
         ACCEPT                   |                       |
            | ------------------> | <-------------------- |
            |                     |                       |
-{% endhighlight %}
+```
 
 This is the lifecycle of a connecting client, we got an accept-only callback
 that demand IO handling to read and write callbacks till the disconnection of
@@ -598,7 +598,7 @@ extremely simple, a thing always appreciated
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 /*
  * Handle incoming connections, create a fresh new struct client structure
  * and link it to the fd, ready to be set in EV_READ event, then schedule a
@@ -783,7 +783,7 @@ static void write_callback(struct ev_ctx *ctx, void *arg) {
             break;
     }
 }
-{% endhighlight %}
+```
 <hr>
 
 Of course the starting server will have to make a blocking call starting the
@@ -795,7 +795,7 @@ want to stop the running loop.
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 /*
  * Eventloop stop callback, will be triggered by an EV_CLOSEFD event and stop
  * the running loop, unblocking the call.
@@ -830,7 +830,7 @@ static void eventloop_start(void *args) {
 void enqueue_event_write(const struct client *c) {
     ev_fire_event(c->ctx, c->conn.fd, EV_WRITE, write_callback, (void *) c);
 }
-{% endhighlight %}
+```
 <hr>
 
 So the final `start_server` function, which is one of the two exposed APIs of
@@ -841,7 +841,7 @@ socket in listening mode:
 **src/server.c**
 <hr>
 
-{% highlight c %}
+```c
 /*
  * Main entry point for the server, to be called with an address and a port
  * to start listening
@@ -883,7 +883,7 @@ int start_server(const char *addr, const char *port) {
     log_info("Sol v%s exiting", VERSION);
     return 0;
 }
-{% endhighlight %}
+```
 <hr>
 
 Commands are handled through a dispatch table, a common pattern used in C where

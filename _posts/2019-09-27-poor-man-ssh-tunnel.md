@@ -17,9 +17,9 @@ be a `micro` one on free tier.
 So from the target machine, the one you want to be accessible remotely, you can
 run the following command:
 
-{% highlight bash %}
+```bash
 $ ssh -fNR 18765:localhost:22 user@remote-box
-{% endhighlight %}
+```
 
 All this command does is to perform a `remote port-forwarding` on the target
 remote machine, by connecting to it through SSH port 22 and forwarding all
@@ -28,9 +28,9 @@ process to go background.
 Now from home, or wherever you need to access to the your remote target you just
 run
 
-{% highlight bash %}
+```bash
 $ ssh -fNL 18765:localhost:18765 user@remote-box
-{% endhighlight %}
+```
 
 This is practically the same command except that it performs a `local port-forwarding`
 in place of the `remote` one, in other words it connect to the `remote-box` host
@@ -47,9 +47,9 @@ This way you setup a bridge between the two machines:
 Now to utilize the newly created tunnel you just need to connect to your local
 18765 port:
 
-{% highlight bash %}
+```bash
 $ ssh user@localhost -p 18765
-{% endhighlight %}
+```
 
 It's easy to customize all by tweaking the `~/.ssh/config` or abusing `crontab`
 to schedule the opening of the tunnel just for a fixed amount of time or at a
