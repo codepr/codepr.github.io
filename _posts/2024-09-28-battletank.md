@@ -1,8 +1,8 @@
 ---
 layout: post
-title: "Battletank"
-description: ""
-categories: c game-development low-level
+title: "Battletank!"
+description: "Dumb terminal-based implementation of the old classic Battletank"
+categories: c game-development low-level terminal ncurses
 ---
 
 Small project idea to have somme fun with C, a micro multiplayer classi game
@@ -94,7 +94,7 @@ The game state is the most simple I could imagine to begin with
 Simple and easy to keep in sync, the server is only required to update the coordinates of
 each tank and bullet and send them to the clients.
 <hr>
-game_state.h
+**game_state.h**
 <hr>
 
 ```c
@@ -144,6 +144,7 @@ void game_state_dismiss_tank(Game_State *state, size_t index);
 void game_state_update_tank(Game_State *state, size_t tank_index,
                             unsigned action);
 ```
+<hr>
 
 #### Tanks and bullets
 
@@ -154,7 +155,7 @@ number of players such as 10, I went for a dynamic array on auto-pilot
 basically.
 
 <hr>
-game_state.c
+**game_state.c**
 <hr>
 ```c
 void game_state_init(Game_State *state) {
@@ -174,7 +175,6 @@ void game_state_spawn_tank(Game_State *state, size_t index) {
         state->players_count *= 2;
         state->players = realloc(state->players, state->players_count);
     }
-
     if (!state->players[index].alive) {
         state->players[index].alive = true;
         state->players[index].x = RANDOM(15, 25);
@@ -188,6 +188,7 @@ void game_state_dismiss_tank(Game_State *state, size_t index) {
 }
 
 ```
+<hr>
 
 And here to follow the remaining functions needed to actually update the state of the game,
 mainly manipulation of the X, Y axis for the tank and bullet directions based on actions
@@ -200,7 +201,7 @@ be in sync with each other through the network, but `check_collision` still
 provides a good starting point to expand on later.
 
 <hr>
-game_state.c
+**game_state.c**
 <hr>
 
 ```c
@@ -242,7 +243,6 @@ void game_state_update_tank(Game_State *state, size_t tank_index,
 
 static void update_bullet(Bullet *bullet) {
     if (!bullet->active) return;
-
     switch (bullet->direction) {
         case UP:
             bullet->y--;
@@ -259,7 +259,6 @@ static void update_bullet(Bullet *bullet) {
         default:
             break;
     }
-
     if (bullet->x < 0 || bullet->x >= COLS || bullet->y < 0 ||
         bullet->y >= LINES) {
         bullet->active = false;
@@ -282,7 +281,7 @@ static void check_collision(Tank *tank, Bullet *bullet) {
  * - For each player:
  *   - Updates their bullet by calling `update_bullet`.
  *   - Checks for collisions between the player's tank and every other player's
- * bullet using `check_collision`.
+ *     bullet using `check_collision`.
  * - Skips collision checks between a player and their own bullet.
  */
 void game_state_update(Game_State *state) {
@@ -299,6 +298,7 @@ void game_state_update(Game_State *state) {
     }
 }
 ```
+<hr>
 
 #### The client side
 
@@ -341,7 +341,7 @@ of escape sequences for VT100 terminals and compatibles, similarly operating in 
 mode allowing for a fine-grained control over the keyboard input and such.
 
 <hr>
-battletank_client.c
+**battletank_client.c**
 <hr>
 
 ```c
@@ -401,10 +401,10 @@ static unsigned handle_input(void) {
             action = FIRE;
             break;
     }
-
     return action;
 }
 ```
+<hr>
 
 In the last function `handle_input` the `unsigned action` returned will
 be the main command we send to the server side (pretty simple huh? ample
@@ -414,7 +414,7 @@ Next in line comes the networking helpers, required to manage the communication
 with the server side, connection, send and receive:
 
 <hr>
-battletank_client.c
+**battletank_client.c**
 <hr>
 
 ```c
@@ -479,6 +479,7 @@ static int client_recv_data(int sockfd, char *data) {
 }
 
 ```
+<hr>
 
 All simple boilerplate code mostly, to handle a fairly traditional TCP
 connection, the only bit that's interesting here is represented by the
@@ -502,7 +503,7 @@ down client-side engine logic to render and gather inputs from the
 client to the server:
 
 <hr>
-battletank_client.c
+**battletank_client.c**
 <hr>
 
 ```c
@@ -535,11 +536,11 @@ static void game_loop(void) {
 int main(void) {
     init_screen();
     game_loop();
-
     endwin();
     return 0;
 }
 ```
+<hr>
 
 The main function is as light as it gets, just initing the `ncurses` screen
 to easily calculate `COLS` and `LINES` the straight to the game loop, with
@@ -578,7 +579,7 @@ in total but:
   designe towards other scales, in the order of 10K of connected sockets.
 
 <hr>
-battletank_server.c
+**battletank_server.c**
 <hr>
 
 ```c
@@ -681,6 +682,7 @@ static int broadcast(int *client_fds, const char *buf, size_t count) {
     return written;
 }
 ```
+<hr>
 
 Again, the main just initialise the `ncurses` screen (this is the reason why
 the PoC will assume that the players will play from their own full size
@@ -691,7 +693,7 @@ connected client will be assigned its index in the main array as the index for
 his tank in the game state.
 
 <hr>
-battletank_server.c
+**battletank_server.c**
 <hr>
 
 ```c
@@ -720,9 +722,7 @@ static void server_loop(int server_fd) {
                 }
             }
         }
-
         memset(buf, 0x00, sizeof(buf));
-
         int num_events = select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
         if (num_events == -1) {
@@ -768,7 +768,6 @@ static void server_loop(int server_fd) {
                 perror("network_send() error");
                 continue;
             }
-
             printw("[info] Game state sync completed (%d bytes)\n", bytes);
         }
 
@@ -820,4 +819,26 @@ int main(void) {
 
     return 0;
 }
+```
+<hr>
+
+That's all folks, an extremely small and simple battletank should allow
+multiple players to join and shoot single bullets. No collisions nor scores or
+life points yet, but it's a starting point, in roughly 600 LOC:
+
+```bash
+battletank (main) $ ls *.[c,h] | xargx cloc
+       8 text files.
+       8 unique files.
+       0 files ignored.
+
+github.com/AlDanial/cloc v 2.02  T=0.02 s (521.2 files/s, 61767.2 lines/s)
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+C                                5            134            172            563
+C/C++ Header                     3             17             10             52
+-------------------------------------------------------------------------------
+SUM:                             8            151            182            615
+-------------------------------------------------------------------------------
 ```
