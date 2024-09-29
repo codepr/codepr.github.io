@@ -52,6 +52,7 @@ a:link, a:visited	{
 .highlight pre {
 	padding: 24px;
 	background-color: #f8f8f8;
+	overflow-x: scroll;
 }
 
 code {
@@ -220,12 +221,12 @@ hr {
 	}
 
 	#nav {
-		font-size: 1.1em;
+		font-size: 1.0em;
 		padding-bottom: 0.5em;
 	}
 
 	h2 {
-		font-size: 1.6em;
+		font-size: 1.5em;
 	}
 
 	h3 {
