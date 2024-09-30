@@ -5,7 +5,7 @@ description: "Dumb terminal-based implementation of the old classic Battletank"
 categories: c game-development low-level terminal ncurses
 ---
 
-Small project idea to have somme fun with C, a micro multiplayer classic game
+Small project idea to have some fun with C, a micro multiplayer classic game
 with as less dependencies as possible. I've always been curious about the
 challenges of game development so I started from one of the simplest ideas. The
 latest update of the code can be found in the repository
@@ -23,7 +23,7 @@ I will consider something fancier such as [`Raylib`](https://www.raylib.com/inde
 
 To have some fun, small old school programs are fun to mess with. In addition,
 although I worked for a brief stint for an AAA gaming company, I was mainly
-developing on the backend side of the product, pre-game lobbies, chat rooms and
+developing on the back-end side of the product, pre-game lobbies, chat rooms and
 game server deployments; but didn't really know much about the inner logic of
 the game itself. This was a good opportunity to try and learn something about
 game development starting from the basics.
@@ -41,13 +41,13 @@ In no particular order, and not necessarily mandatory:
     - Implement a network protocol (text based or binary) ✅
     - The clients will send their input, server handle the game state and broadcasts it to the connected clients ✅
     - Heartbeat server side, drop inactive clients
-    - Small chat? maybe integrate [chatlite](https://github.com/codepr/chatlite.git)
+    - Small chat? Maybe integrate [chatlite](https://github.com/codepr/chatlite.git)
     - Ensure screen size scaling is maintained in sync with players
 - Walls
 - Life points
 - Bullets count
 - Recharge bullets on a time basis
-- Power ups (faster bullets? larger hit box? Mines?)
+- Power ups (faster bullets? Larger hit box? Mines?)
 - Explore SDL2 or Raylib for some graphic or sprites
 
 ## Main challenges
@@ -57,7 +57,7 @@ as direction for both the tank and the bullets. The main challenges are
 represented by keeping players in sync and ensure that the battlefield size is
 correctly scaled for each one of them (not touched this yet).
 
-For the communication part I chose the simplest and obiquitous solution, a
+For the communication part I chose the simplest and ubiquitous solution, a
 non-blocking server on `select` (yikes, maybe at least `poll`) and a timeout on
 read client, this way the main loops are not blocked indefinitely and the game
 state can flow. There are certainly infinitely better ways to do it, but
@@ -126,7 +126,7 @@ typedef struct {
 } Bullet;
 
 // Represents a tank with its position, direction, and status.
-// Contains a single bullet for simplicity, can be extendend in
+// Contains a single bullet for simplicity, can be extended in
 // the future to handle multiple bullets, life points, power-ups etc.
 typedef struct {
     int x;
@@ -212,7 +212,7 @@ coming from each client.
 To check collision initially I just check that the coordinates of a given tank
 collide with those of a given bullet. Admittedly I didn't focus much on
 that (after all there isn't even a score logic yet), for a first test run I
-was more interested into seeing actualy tanks moving and be in sync with
+was more interested into seeing actually tanks moving and be in sync with
 each other through the network, but `check_collision` still provides a good
 starting point to expand on later.
 
@@ -322,7 +322,7 @@ The client is the main entry point for each player, once started it connects to
 the battletank server and provides a very crude terminal based graphic battlefield
 and handles input from the player:
 
- - upon conenction,it  syncs with the server on the game state, receiving
+ - upon connection,it  syncs with the server on the game state, receiving
    an index that uniquely identifies the player tank in the game state
  - the server continually broadcasts the game state to keep the clients in
    sync
@@ -333,20 +333,20 @@ and handles input from the player:
 ##### Out of scope (for now)
 
 The points above provide a very rudimentary interface to just see something work,
-there are many improvements and limitations to be overcomed in the pure technical
+there are many improvements and limitations to be overcome in the pure technical
 aspect that are not yet handled, some of these in no particular order:
 
 - screen size scaling: each client can have a different screen size, this makes it
   tricky to ensure a consistent experience between all the participants, in the
   current state of things, a lot of glitches are likely to happen due to this fact.
-- clients disconnections and reconnections, reusing exising tanks if already
+- clients disconnections and re-connections, reusing existing tanks if already
   instantiated
 - heartbeat logic to ensure clients aliveness
 
-These are all interesting challenges (well, probaly the heartbeat and proper
+These are all interesting challenges (well, probably the heartbeat and proper
 client tracking are less exciting, but the screen scaling is indeed
 interesting) and some of these limitations may be address in an hypothetical
-`battletank v0.0.2` depending on ispiration.
+`battletank v0.0.2` depending on inspiration.
 
 Moving on with the code, the first part of the client side requires some helpers to
 handle the UI, as agreed, this is not gonna be a graphical game (yet?) so `ncurses`
@@ -423,7 +423,7 @@ static unsigned handle_input(void) {
 <hr>
 
 In the last function `handle_input` the `unsigned action` returned will
-be the main command we send to the server side (pretty simple huh? ample
+be the main command we send to the server side (pretty simple huh? Ample
 margin to enrich this semantic).
 
 Next in line comes the networking helpers, required to manage the communication
@@ -507,11 +507,11 @@ setsockopt(sfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(struct timeval));
 ```
 
 These two lines ensure that the `read` system call times out after a certain
-period, seeminly simulating a non-blocking socket behaviour (not really, but
+period, seemingly simulating a non-blocking socket behaviour (not really, but
 the part that's interesting for us). This is the very first solution and the
 simplest that came to mind but it allows to run a recv loop without blocking
-indefinitely, as the server will constatly push updates, the client wants to be
-as up-to-date as possible to keep rendering an accurate and consitent game
+indefinitely, as the server will constantly push updates, the client wants to be
+as up-to-date as possible to keep rendering an accurate and consistent game
 state.
 
 This part happens in the `game_loop` function, a very slim and stripped down
@@ -558,7 +558,7 @@ int main(void) {
 ```
 <hr>
 
-The main function is as light as it gets, just initing the `ncurses` screen to
+The main function is as light as it gets, just initializes the `ncurses` screen to
 easily calculate `COLS` and `LINES` the straight to the game loop, with the
 flow being:
 
@@ -588,11 +588,11 @@ each time an event is detected, it's also an user-space call, which adds a
 minor over-head in context switching and it's limited to 1024 file descriptor
 in total but:
 
-- It's obiquitous, basically every *nix system provides the call
+- It's ubiquitous, basically every *nix system provides the call
 - It's very simple to use and provides everything required for a PoC
 - It's more than enough for the use case, even with tenth of players
   it would handle the load very well, `poll` and `epoll` are really
-  designe towards other scales, in the order of 10K of connected sockets.
+  designed towards other scales, in the order of 10K of connected sockets.
 
 <hr>
 **battletank_server.c**
@@ -700,7 +700,7 @@ static int broadcast(int *client_fds, const char *buf, size_t count) {
 ```
 <hr>
 
-Again, the main just initialise the `ncurses` screen (this is the reason why
+Again, the main just initializes the `ncurses` screen (this is the reason why
 the PoC will assume that the players will play from their own full size
 terminal, as currently there is no scaling mechanism in place to ensure
 consistency) and run the main `select` loop waiting for connections. Clients
@@ -812,7 +812,7 @@ static void server_loop(int server_fd) {
         game_state_update(&game_state);
         size_t bytes = protocol_serialize_game_state(&game_state, buf);
         broadcast(client_fds, buf, bytes);
-        // We're using ncurses for convienince to initialise ROWS and LINES
+        // We're using ncurses for convenience to initialize ROWS and LINES
         // without going raw mode in the terminal, this requires a refresh to
         // print the logs
         refresh();

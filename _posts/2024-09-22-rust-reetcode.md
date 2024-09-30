@@ -5,7 +5,7 @@ description: ""
 categories: rust backend database
 ---
 
-Small project idea to have somme fun with Rust and try to build something as
+Small project idea to have some fun with Rust and try to build something as
 close as possible to being production-ready. This project also aims to dabble a
 bit with Rust on the web backend side.
 
@@ -24,7 +24,7 @@ C, C++, Python and Go can be a good starting point).
 
 ### Tech stack
 
-Rust is the chosen language fo this project, I'm not really familiar yet with
+Rust is the chosen language for this project, I'm not really familiar yet with
 the current trends and best practices, last time I checked `actix` and `sqlx`
 were the backbone of any backend application. After some recognition work, this
 is what I came up with:
@@ -40,7 +40,7 @@ the hassle of deploying stuff to an Heroku dyno or any other cloud provider.
 
 ### Data model
 
-The main entity in the application is represented by the problems. they will
+The main entity in the application is represented by the problems. They will
 include a title, a description and some metadata such as the category, the
 difficulty and a skeleton based on the language, something like
 
