@@ -474,7 +474,7 @@ static int client_connect(const char *host, int port) {
     return socket_connect(host, port);
 }
 
-static int client_send_data(int sockfd, const char *data, size_t datasize) {
+static int client_send_data(int sockfd, const unsigned char *data, size_t datasize) {
     ssize_t n = network_send(sockfd, data, datasize);
     if (n < 0) {
         perror("write() error");
@@ -484,7 +484,7 @@ static int client_send_data(int sockfd, const char *data, size_t datasize) {
     return n;
 }
 
-static int client_recv_data(int sockfd, char *data) {
+static int client_recv_data(int sockfd, unsigned char *data) {
     ssize_t n = network_recv(sockfd, data);
     if (n < 0) {
         perror("read() error");
@@ -530,7 +530,7 @@ static void game_loop(void) {
     if (sockfd < 0) exit(EXIT_FAILURE);
     Game_State state;
     game_state_init(&state);
-    char buf[BUFSIZE];
+    unsigned char buf[BUFSIZE];
     // Sync the game state for the first time
     int n = client_recv_data(sockfd, buf);
     protocol_deserialize_game_state(buf, &state);
@@ -686,7 +686,7 @@ exit:
     return -1;
 }
 
-static int broadcast(int *client_fds, const char *buf, size_t count) {
+static int broadcast(int *client_fds, const unsigned char *buf, size_t count) {
     int written = 0;
     for (int i = 0; i < FD_SETSIZE; i++) {
         if (client_fds[i] >= 0) {
@@ -718,7 +718,7 @@ static void server_loop(int server_fd) {
     int client_fds[FD_SETSIZE];
     int maxfd = server_fd;
     int i = 0;
-    char buf[BUFSIZE];
+    unsigned char buf[BUFSIZE];
     struct timeval tv = {0, TIMEOUT};
 
     // Initialize client_fds array
