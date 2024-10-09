@@ -602,7 +602,7 @@ in total but:
 // We don't expect big payloads
 #define BUFSIZE 1024
 #define BACKLOG 128
-#define TIMEOUT 70000
+#define TIMEOUT 30000 // 30 ms
 
 // Generic global game state
 static Game_State game_state = {0};
@@ -720,6 +720,8 @@ static void server_loop(int server_fd) {
     int i = 0;
     unsigned char buf[BUFSIZE];
     struct timeval tv = {0, TIMEOUT};
+    unsigned long long current_time_ns = 0, remaining_us = 0,
+                       last_update_time_ns = 0;
 
     // Initialize client_fds array
     for (i = 0; i < FD_SETSIZE; i++) {
@@ -808,10 +810,25 @@ static void server_loop(int server_fd) {
                 }
             }
         }
-        // Main update loop here
-        game_state_update(&game_state);
-        size_t bytes = protocol_serialize_game_state(&game_state, buf);
-        broadcast(client_fds, buf, bytes);
+
+        // Send update to the connected clients, currently with a TIMEOUT of
+        // 16ms is roughly equal to 60 FPS. Checks for the last update sent and
+        // adjust the select timeout so to make it as precise and smooth as
+        // possible and respect the deadline
+        current_time_ns = get_microseconds_timestamp();
+        remaining_us = current_time_ns - last_update_time_ns;
+        if (remaining_us >= TIMEOUT) {
+            // Main update loop here
+            game_state_update(&game_state);
+            size_t bytes = protocol_serialize_game_state(&game_state, buf);
+            broadcast(client_fds, buf, bytes);
+            last_update_time_ns = get_microseconds_timestamp();
+            tv.tv_sec = 0;
+            tv.tv_usec = TIMEOUT;
+        } else {
+            tv.tv_sec = 0;
+            tv.tv_usec = TIMEOUT - remaining_us;
+        }
         // We're using ncurses for convenience to initialize ROWS and LINES
         // without going raw mode in the terminal, this requires a refresh to
         // print the logs
@@ -836,7 +853,33 @@ int main(void) {
     return 0;
 }
 ```
+
+An interesting bit is the syncing of the framerate client-side with the udpates
+coming from the server, the initial implementation relies on `select` timing
+out every at 30ms, that means that the game will update consistently when there
+is not input from any client (e.g. every one is not moving), but realistically,
+all the players will be moving frequently, resulting in the `select` call to
+detect I/O events on the observed sockets before the **TIMEOUT** deadline.
+
+This may generate weird and funny bugs, such as bullets flying much faster than
+expected when tanks are moving. A naive but simple approach to solve the
+problem is to track the timestamp in nanoseconds of each update and update the
+`select` timeout accordingly.
+
+- check for remaining us (microseconds) left to reach the **TIMEOUT** deadline
+  in the current cycle, if we're already beyond, send a gamestate update,
+  record the last update us and reset the `select` timeout
+- if the remaining us have not yet reached the deadline, update the `select`
+  timeout to **TIMEOUT** - remaining
+
+This way, the update frequency is ensured to be mostly consitent at roughly the
+same time each cycle.
+
 <hr>
+
+<br>
+![Battletank terminal]({{site.url}}{{site.baseurl}}/assets/images/battletank-term.gif#content-image)
+<br>
 
 That's all folks, an extremely small and simple battletank should allow
 multiple players to join and shoot single bullets. No collisions nor scores or
