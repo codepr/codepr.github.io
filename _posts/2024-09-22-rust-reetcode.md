@@ -7,7 +7,7 @@ categories: rust backend database
 
 Small project idea to have some fun with Rust and try to build something as
 close as possible to being production-ready. This project also aims to dabble a
-bit with Rust on the web backend side.
+bit with the language on the web backend side.
 
 ### Constraints
 
@@ -29,14 +29,17 @@ the current trends and best practices, last time I checked `actix` and `sqlx`
 were the backbone of any backend application. After some recognition work, this
 is what I came up with:
 
-- Actix
-- Postgres
+- Actix - REST APIs
+- Postgres - Diesel or sqlx
 - Prometheus
 - Grafana
 
-We're probably gonna use Docker and `docker-compose` to run the entire environment
-locally in dev, it's a convenient way to emulate a staging/prod environment without
-the hassle of deploying stuff to an Heroku dyno or any other cloud provider.
+Axum and Pavex also look interesting, however it's not the point of the project
+to explore different  frameworks to achieve the same result, it's the overall
+practicality of Rust for the web that I'd like to refresh. We're probably gonna
+use Docker and `docker-compose` to run the entire environment locally in dev,
+it's a convenient way to emulate a staging/prod environment without the hassle
+of deploying stuff to an Heroku dyno or any other cloud provider.
 
 ### Data model
 
@@ -82,7 +85,7 @@ To cut short, a loosely detailed definition of the schemas we're going to need:
     - **has_many**(Solution)
 - Solution
     - description: string
-    - sinppet: string
+    - snippet: string
 
 Keeping things simple as a first draft, we can assume that the images
 repositories with various metadata (e.g. languages versions, OS etc) can be
@@ -99,11 +102,23 @@ allow users roles, auth, and upload of new problems, contests maybe and notifica
 to subscribed users.
 
 #### User management
+
+Creation of a new user and retrieve of the user, probably with some sort of
+stats and solved problems etc.
+
 - **POST**  `/v1/users`
 - **GET**   `/v1/users/:user_id`
 
 #### Problems management
+
+Creation of a new problem, listing of all the problems, probably opt-in filters
+by category, difficulty and pagination etc; retrieve of a specific problem by
+ID. Definitely submission of a solution to any given problem and listing.
+
 - **GET**   `/v1/problems/:problem_id`
 - **GET**   `/v1/problems`
 - **POST**  `/v1/problems/:problem_id`
 
+### Authentication & RBAC
+
+**TBD**
