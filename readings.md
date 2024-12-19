@@ -22,6 +22,13 @@ thoughts. Hardly ever updated.
 - [Transactional Memory and Tech Hype Waves](https://blog.jessfraz.com/post/transactional-memory-and-tech-hype-waves/)
 - [Defining a Distinguished Engineer](https://blog.jessfraz.com/post/defining-a-distinguished-engineer/)
 - [Understanding an outage: concurrency control & vacuuming in PostgreSQL](https://duffel.com/blog/understanding-outage-concurrency-vacuum-postgresql)
+- [The Grug Brained Developer](https://grugbrain.dev/)
+- [Eli Bendersky's website](https://eli.thegreenplace.net/)
+- [Egoless Engineering](https://egoless.engineering/)
+- [Story Points Revisited](https://ronjeffries.com/articles/019-01ff/story-points/Index.html)
+- [Why Write ADRs](https://github.blog/engineering/why-write-adrs/)
+- [Supply chain attacks and the many different ways I've backdoored your dependencies](https://kerkour.com/backdoored-dependencies-and-supply-chain-attacks)
+- [Making Hard Things Easy](https://jvns.ca/blog/2023/10/06/new-talk--making-hard-things-easy/)
 
 ### Go best practices
 
@@ -42,6 +49,9 @@ thoughts. Hardly ever updated.
 - [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/html/)
 - [Concurrent programming, with examples](https://begriffs.com/posts/2020-03-23-concurrent-programming.html)
 - [Concurrent Servers series](https://eli.thegreenplace.net/2017/concurrent-servers-part-1-introduction/)
+- [Untangling Lifetimes: The Arena Allocator](https://www.rfleury.com/p/untangling-lifetimes-the-arena-allocator)
+- [MaxGCoding.com - A software Engineering Space](https://www.maxgcoding.com/)
+- [Why async Rust](https://without.boats/blog/why-async-rust/)
 
 ### Distributed systems
 
@@ -54,6 +64,7 @@ thoughts. Hardly ever updated.
 - [The Log: What every software engineer should know about real-time data's unifying abstraction](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying)
 - [What do you mean by "Event-Driven"?](https://martinfowler.com/articles/201701-event-driven.html)
 - [From $erverless to Elixir](https://medium.com/coryodaniel/from-erverless-to-elixir-48752db4d7bc)
+- [A Distributed Systems Reading List](https://ferd.ca/a-distributed-systems-reading-list.html)
 
 ### Programming languages
 
