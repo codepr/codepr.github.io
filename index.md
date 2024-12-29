@@ -6,9 +6,9 @@ layout: default
 title: Why hello there
 ---
 
-Andrea here
+Andrea here [GitHub](https://github.com/codepr) / [LinkedIn](https://www.linkedin.com/in/andrea-giacomo-baldan-000776aa) / [E-Mail](mailto:a.g.baldan@gmail.com)
 
-## Blog
+## Archive
 
 <div id="blog-group">
   {% for post in site.posts %}
@@ -34,9 +34,3 @@ Andrea here
 - [Tasq](https://github.com/codepr/tasq.git){:target="_blank"}: python task queue
 - [Aiotunnel](https://github.com/codepr/aiotunnel.git){:target="_blank"}: HTTP(S) tunneling for local and remote port-forwarding
 - [Webcrawler](https://github.com/codepr/webcrawler.git){:target="_blank"}: Simple webcrawler, list on output all subdomains of a website
-
-## Links
-
-- GitHub: [codepr](https://github.com/codepr)
-- LinkedIn: [andrea](https://www.linkedin.com/in/andrea-giacomo-baldan-000776aa)
-- Gmail: [a.g.baldab@gmail.com](mailto:a.g.baldan@gmail.com)
