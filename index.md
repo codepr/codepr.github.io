@@ -10,11 +10,13 @@ Andrea here
 
 ## Blog
 
-{% for post in site.posts %}
-  <div id="post-short">
-    <span class="date"> {{ post.date | date: "%Y %b %d" }}</span>&nbsp;&nbsp;<a href="{{site.url}}{{site.baseurl}}{{post.url}}"> {{ post.title }} </a>
-  </div>
-{% endfor %}
+<div id="blog-group">
+  {% for post in site.posts %}
+    <div id="post-short">
+      <span class="date"> {{ post.date | date: "%Y %b %d" }}</span>&nbsp;&nbsp;<a href="{{site.url}}{{site.baseurl}}{{post.url}}"> {{ post.title }} </a>
+    </div>
+  {% endfor %}
+</div>
 
 ## Projects
 
