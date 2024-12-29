@@ -5,7 +5,7 @@ description: "About me and resume"
 permalink: /about/
 ---
 
-Andrea - upsetting sand for living
+Andrea here
 
 ## Projects
 

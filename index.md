@@ -6,7 +6,7 @@ layout: default
 title: Why hello there
 ---
 
-Andrea - upsetting sand for living
+Andrea here
 
 ## Projects
 
