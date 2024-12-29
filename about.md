@@ -11,8 +11,11 @@ medium sized startups, currently working in London in an Elixir shop.
 I invest a lot of my spare time in side-projects and deepening my knowledge
 exploring various topics, from low level systems, virtual machines and network
 based applications, to higher level distributed systems and FP based best
-practices. Beside coding, I enjoy powerlifting, I'm currently studying Japanese
-and I'm developing a taste for good red wines, with a knack for Malbec.
+practices. Beside coding:
+
+- I enjoy powerlifting - training bests stand at S: 125kg B: 102.5kg D: 170kg
+- I'm currently studying Japanese - 日本語は難しですが面白いです
+- I'm developing a taste for good wine, with a knack for Malbec - Catena and Alma Negra among my favourites
 
 This little corner is meant to be as a soft journal where I document some of my
 explorations, with no guarantee of consistency. When I feel inspired, I may
