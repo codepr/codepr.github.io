@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Oi
+title: Why hello there
 description: "About me and resume"
 permalink: /about/
 ---
