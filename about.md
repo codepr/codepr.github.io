@@ -5,8 +5,8 @@ description: "About me"
 permalink: /about/
 ---
 
-Hello, I'm a software developer with most of my experience made in small to
-medium sized startups, currently working in London in an Elixir shop.
+I'm a software developer with most of my experience made in small to medium
+sized startups, currently working in London in an Elixir shop.
 
 I invest a lot of my spare time in side-projects and deepening my knowledge
 exploring various topics, from low level systems, virtual machines and network
