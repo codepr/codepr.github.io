@@ -23,6 +23,10 @@ img[src*="#content-image-1"] {
     display: block;
 }
 
+#blog-group {
+	margin-left: 30px;
+}
+
 body	{
 	margin-top: 0px;
 	padding:0;
