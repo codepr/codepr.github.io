@@ -13,7 +13,7 @@ latest update of the code can be found in the repository
 
 ## The game
 
-It's about  a best effort terminal based implementation of the classic
+It's about a best effort terminal based implementation of the classic
 battle-tank, starting from a single player single tank and extending it to work
 as a multiplayer server with sockets to sync the game state across players.
 To begin with, the only dependency is `ncurses`, later on, if I get confident enough,
@@ -322,7 +322,7 @@ The client is the main entry point for each player, once started it connects to
 the battletank server and provides a very crude terminal based graphic battlefield
 and handles input from the player:
 
- - upon connection,it  syncs with the server on the game state, receiving
+ - upon connection,it syncs with the server on the game state, receiving
    an index that uniquely identifies the player tank in the game state
  - the server continually broadcasts the game state to keep the clients in
    sync
