@@ -622,6 +622,8 @@ end
 
 ## Binary encoding and decoding
 
+TBD
+
 #### References
 
 - [BEAM](https://www.erlang.org/blog/a-brief-beam-primer/)
