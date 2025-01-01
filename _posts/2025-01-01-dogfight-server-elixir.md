@@ -5,14 +5,13 @@ description: "Old school multiplayer arcade game development journey"
 categories: elixir networking c game-development low-level
 ---
 
-Starting with the server side of the game, Elixir is pretty neat and allows
-for various ways to implement a distributed TCP server. Going for the most
-simple and straight forward approach, leaving refinements and polish for later.
-After more than 3 years of using Elixir full time, I believe it's really
-one of the cleanest backend languages around, extremely productive and
-convenient (pattern matching in Elixir slaps), there are two
-points that make it stand-out and interesting to try for this little
-project:
+Starting with the server side of the game, Elixir is pretty neat and allows for
+various ways to implement a distributed TCP server. Going for the most simple
+and straight forward approach, leaving refinements and polish for later. After
+more than 3 years of using Elixir full time, I believe it's really one of the
+cleanest backend languages around, extremely productive and convenient (pattern
+matching in Elixir slaps), there are two points that make it stand-out and
+interesting to try for this little project:
 
 1. **Concurrency and Scalability**: Built on the Erlang VM (BEAM), which is
    known for its ability to handle a large number of concurrent processes with
@@ -58,7 +57,7 @@ TCP based system to handle players, for the first iteration:
 - Each player process and game process will be spawned inside a cluster on multiple
   nodes, with location transparency and message passing this will be a breeze
 
-## A very basic TCP server
+## A very basic TCP server acceptor
 
 We're gonna use `:gen_tcp` from the builtin `Erlang` library, starting the
 listen loop in a dedicated `Task` is enough for the time being, management of
@@ -102,7 +101,7 @@ defmodule Dogfight.Server do
          player_spec <- player_spec(client_socket, player_id),
          {:ok, pid} <- Horde.DynamicSupervisor.start_child(ClusterServiceSupervisor, player_spec) do
       Logger.info("Player #{player_id} connected")
-      Dogfight.Game.Server.register_player(pid)
+      Dogfight.Game.Server.register_player(pid, player_id)
       :gen_tcp.controlling_process(client_socket, pid)
     else
       error -> Logger.error("Failed to accept connection, reason: #{inspect(error)}")
@@ -156,14 +155,181 @@ The main interesting points are
   to spawn processes that are automatically cluster-aware, the node where they will be spawned is completely
   abstracted away and doesn't matter. (For a simpler solution we could even manually start the `GenSever` with a
   call to `start_link/1`, it's really that simple).
-- The `Dogfight.Game.Server.register_player/1` call basically add the `pid` of the newly instantiated process
+- The `Dogfight.Game.Server.register_player/2` call basically add the `pid` of the newly instantiated process
   to the existing game server (as explained above, there will be a single global game server for the first version). This
   assumes that the game server is already running here, started at application level already.
 - Finally, we transfer the ownership of the connected socket to the newly spawned process through `:gen_tcp.controlling_process/2`
 
+## The player process
+
+After the accept has been successfully performed, the `player_spec/2` call
+provides all that's required to the `Horde.DynamicSupervisor` to spawn a
+`Dogfight.Player` process somewhere in the cluster. Conceptually it's nothing
+more then a connection state, and thus it's pretty trivial:
+
+```elixir
+defmodule Dogfight.Player do
+  @moduledoc """
+  This module represents a player in the Dogfight game. It handles the player's
+  connection, actions, and communication with the game server.
+  """
+
+  require Logger
+  use GenServer
+
+  alias Dogfight.Game.State, as: GameState
+  alias Dogfight.Game.Action, as: GameAction
+
+  def start_link(player_id, socket) do
+    GenServer.start_link(__MODULE__, {player_id, socket})
+  end
+
+  def init({player_id, socket}) do
+    Logger.info("Player connected, registering to game server")
+    {:ok, %{player_id: player_id, socket: socket}}
+  end
+
+  def handle_info({:tcp, _socket, data}, state) do
+    action = GameAction.decode!(data)
+    Dogfight.Game.Server.apply_action(self(), action, state.player_id)
+    {:noreply, state}
+  end
+
+  def handle_info({:tcp_closed, _socket}, state) do
+    Logger.info("Player disconnected")
+    {:noreply, state}
+  end
+
+  def handle_info({:tcp_error, _socket, reason}, state) do
+    Logger.error("Player transmission error #{inspect(reason)}")
+    {:noreply, state}
+  end
+
+  def handle_info({:update, game_state}, state) do
+    send_game_update(state.socket, game_state)
+    {:noreply, state}
+  end
+
+  defp send_game_update(socket, game_state) do
+    :gen_tcp.send(socket, GameState.encode(game_state))
+  end
+end
+```
+Most of the handlers are the typical ones for a barebone TCP connection, the only
+real addition is the `send_game_update/2` call which forward a message to the
+connected client, in this case the binary encoded game state as the payload.
+
 ## The game server
 
-TBD
+This is the main process that govern the state of a game, it is in essence a match
+which can be hosted by one of the player to invite others to join. At the moment
+this logic is yet to be implemented and it's essentially skipped, there is a single
+game server started as part of the application startup.
+
+The main responsibities of the `GenServer` is to provide a single source of truth to
+all the connected clients:
+
+- Each connecting player, after having received an identifier, are registered to the
+  game server (this happens in the acceptor TCP server via the `register_player/2` call)
+- Once a player is registered, a ship is spawned in a random position for them via the
+  `GameState.spawn_ship/2` for the given ID.
+- Broadcast periodic updates of the game state to all connected clients to keep updating
+  the GUI of each of them (currently set at 50 ms by `@tick_rate_ms`, but it's not really
+  important now)
+
+```elixir
+defmodule Dogfight.Game.Server do
+  @moduledoc """
+  Represents a game server for the Dogfight game. It handles the game state and
+  player actions. It is intended as the main source of thruth for each instantiated game,
+  broadcasting the game state to each connected player every `@tick` milliseconds.
+  """
+  require Logger
+  use GenServer
+
+  alias Dogfight.Game.State, as: GameState
+
+  @tick_rate_ms 50
+
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  end
+
+  @impl true
+  def init(_) do
+    game_state = GameState.new()
+    schedule_tick()
+    {:ok, %{players: [], game_state: game_state}}
+  end
+
+  def register_player(pid, player_id) do
+    GenServer.call(__MODULE__, {:register_player, pid})
+    GenServer.cast(__MODULE__, {:spawn_new_ship, player_id})
+  end
+
+  def apply_action(pid, action, player_index) do
+    GenServer.cast(__MODULE__, {:apply_action, pid, action, player_index})
+  end
+
+  defp schedule_tick() do
+    Process.send_after(self(), :tick, @tick_rate_ms)
+  end
+
+  @impl true
+  def handle_info(:tick, state) do
+    new_game_state = GameState.update(state.game_state)
+    updated_state = %{state | game_state: new_game_state}
+    broadcast_game_state(updated_state)
+    schedule_tick()
+    {:noreply, updated_state}
+  end
+
+  @impl true
+  def handle_call({:register_player, pid}, from, state) do
+    new_state =
+      Map.update!(state, :players, fn players -> [{:player_id, %{pid: pid}} | players] end)
+
+    {:reply, from, new_state}
+  end
+
+  @impl true
+  def handle_cast({:spawn_new_ship, player_id}, state) do
+    game_state =
+      case GameState.spawn_ship(state.game_state, player_id) do
+        {:ok, game_state} ->
+          broadcast_game_state(%{state | game_state: game_state})
+          game_state
+
+        {:error, error} ->
+          Logger.error("Failed spawining ship, reason: #{inspect(error)}")
+          state.game_state
+      end
+
+    {:noreply, %{state | game_state: game_state}}
+  end
+
+  @impl true
+  def handle_cast({:apply_action, _pid, action, player_index}, state) do
+    game_state = GameState.apply_action(state.game_state, action, player_index)
+    updated_state = %{state | game_state: game_state}
+    broadcast_game_state(updated_state)
+    {:noreply, updated_state}
+  end
+
+  defp broadcast_game_state(state) do
+    Enum.each(state.players, fn {_pid, player} ->
+      send(player.pid, state.game_state)
+    end)
+  end
+end
+```
+
+The `init/1` call is pretty cheap, no need to add an `handle_continue/2` as it
+won't really block. To be noted that the registration of a new player, performs
+a call and a cast. That because we want to make sure the state is updated
+before spawning the ship for the new player. Also there is no check yet for
+alreay existing ships, disconnections and reconnections etc. It's pretty simple
+and straight-forward.
 
 ## The game state
 
