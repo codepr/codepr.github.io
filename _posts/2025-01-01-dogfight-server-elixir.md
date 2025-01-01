@@ -163,9 +163,13 @@ The main interesting points are
 ## The player process
 
 After the accept has been successfully performed, the `player_spec/2` call
-provides all that's required to the `Horde.DynamicSupervisor` to spawn a
+provides all that's required for the `Horde.DynamicSupervisor` to spawn a
 `Dogfight.Player` process somewhere in the cluster. Conceptually it's nothing
-more then a connection state, and thus it's pretty trivial:
+more than a connection state, and thus it's pretty trivial. The registration of
+each PID to the game server can be a little cumbersome later on, and it may be
+a good opportunity to explore some pub-sub based solution such as the one shipped
+by [Phoenix](https://hexdocs.pm/phoenix_pubsub/Phoenix.PubSub.html); for the time
+being it's ok to keep things simple.
 
 ```elixir
 defmodule Dogfight.Player do
@@ -215,7 +219,7 @@ defmodule Dogfight.Player do
   end
 end
 ```
-Most of the handlers are the typical ones for a barebone TCP connection, the only
+Most of the handlers are the typical ones for a bare bone TCP connection, the only
 real addition is the `send_game_update/2` call which forward a message to the
 connected client, in this case the binary encoded game state as the payload.
 
@@ -226,7 +230,7 @@ which can be hosted by one of the player to invite others to join. At the moment
 this logic is yet to be implemented and it's essentially skipped, there is a single
 game server started as part of the application startup.
 
-The main responsibities of the `GenServer` is to provide a single source of truth to
+The main responsibilities of the `GenServer` is to provide a single source of truth to
 all the connected clients:
 
 - Each connecting player, after having received an identifier, are registered to the
@@ -241,7 +245,7 @@ all the connected clients:
 defmodule Dogfight.Game.Server do
   @moduledoc """
   Represents a game server for the Dogfight game. It handles the game state and
-  player actions. It is intended as the main source of thruth for each instantiated game,
+  player actions. It is intended as the main source of truth for each instantiated game,
   broadcasting the game state to each connected player every `@tick` milliseconds.
   """
   require Logger
@@ -301,7 +305,7 @@ defmodule Dogfight.Game.Server do
           game_state
 
         {:error, error} ->
-          Logger.error("Failed spawining ship, reason: #{inspect(error)}")
+          Logger.error("Failed spawning ship, reason: #{inspect(error)}")
           state.game_state
       end
 
@@ -328,8 +332,9 @@ The `init/1` call is pretty cheap, no need to add an `handle_continue/2` as it
 won't really block. To be noted that the registration of a new player, performs
 a call and a cast. That because we want to make sure the state is updated
 before spawning the ship for the new player. Also there is no check yet for
-alreay existing ships, disconnections and reconnections etc. It's pretty simple
-and straight-forward.
+already existing ships, disconnections and reconnection etc. For all the
+unexpected cases we just log error or crash, it will be for a second pass to
+actually clean up and harden the code. It's pretty simple and straight-forward.
 
 ## The game state
 
