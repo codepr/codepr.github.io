@@ -338,7 +338,289 @@ actually clean up and harden the code. It's pretty simple and straight-forward.
 
 ## The game state
 
-TBD
+The game state represents the main entities of a game, it is indeed pretty
+simple and definitely not optimized at the moment, there's a number of things
+that can be improved and done differently, some of the fields are a carry over
+from the original C implementation which I'm gonna use as the main test-bed,
+but the aim is to then update the state for a better v2 representation. For the
+sake of simplicity, the first version will carry the following entities:
+
+- A list of players active in the game, for simplicity a maximum of 5 units is initially set
+  - Each player is represented by
+      - a vector 2D coordinate x and y representing the position in the screen
+      - health points, initially set at 5
+      - a direction, this can be (not exactly precise but work for a prototype)
+          - `:idle | :move_up | :move_down | :move_left | :move_right`
+      - an alive boolean flag
+      - bullets, set to a maximum of 5, composed by
+          - a vector 2D coordinate x and y representing the position in the screen
+          - a direction, this will be aligned with the player direction
+          - an active boolean flag
+  - Power-ups, this will be spawned randomly on a time-basis, made of
+      - a vector 2D coordinate x and y representing the position in the screen
+      - a kind atom representing the type of effect it will have on the player that
+        captures it, initially can be
+          - `:hp_plus_one | :hp_plus_three | :ammo_plus_one | nil`
+
+At the moment we're not gonna handle scaling and screen size for each player, it is
+initially assumed that each player will play in a small 800x600 window.
+
+```elixir
+defmodule Dogfight.Game.State do
+  @moduledoc """
+  Game state management, Ships and bullet logics, including collision.
+  Represents the source of truth for each connecting player, and its updated
+  based on the input of each one of the connected active players
+  """
+
+  alias Dogfight.Encoding.Helpers, as: Encoding
+  alias Dogfight.Game.Action
+
+  @type t :: %__MODULE__{
+          players: [ship()],
+          active_players: non_neg_integer(),
+          player_index: non_neg_integer(),
+          powerup: powerup()
+        }
+
+  @typep ship :: %{
+           coord: vec2(),
+           hp: integer(),
+           direction: integer(),
+           alive: boolean(),
+           bullets: [bullet()]
+         }
+
+  @typep powerup :: %{
+           coord: vec2(),
+           kind: :hp_plus_one | :hp_plus_three | :ammo_plus_one | nil
+         }
+
+  @typep vec2 :: %{
+           x: integer(),
+           y: integer()
+         }
+
+  @typep bullet :: %{
+           coord: vec2(),
+           direction: integer(),
+           active: boolean()
+         }
+
+  defstruct [:players, :active_players, :player_index, :powerup]
+
+  @max_players 5
+  @max_bullets 5
+  @base_hp 5
+  @screen_width 800
+  @screen_height 600
+
+  def new do
+    %__MODULE__{
+      player_index: 0,
+      active_players: 0,
+      powerup: %{coord: %{x: 0, y: 0}, kind: nil},
+      players: Stream.repeatedly(&new_ship/0) |> Enum.take(@max_players)
+    }
+  end
+
+  defp new_ship do
+    %{
+      coord: %{
+        x: 0,
+        y: 0
+      },
+      hp: 0,
+      direction: :idle,
+      alive: false,
+      bullets: Stream.repeatedly(&new_bullet/0) |> Enum.take(@max_bullets)
+    }
+  end
+
+  defp new_bullet do
+    %{
+      active: false,
+      coord: %{
+        x: 0,
+        y: 0
+      },
+      direction: :idle
+    }
+  end
+
+  # TODO move to a map instead of the array, keepeing as-is for the first
+  # translation pass
+  @spec spawn_ship(t(), integer()) :: {:ok, t()} | {:error, :dismissed_ship}
+  def spawn_ship(game_state, index) do
+    if Enum.at(game_state.players, index).alive do
+      {:ok, game_state}
+    else
+      # TODO fix this monstrosity
+      new_state = %{
+        game_state
+        | active_players: game_state.active_players + 1,
+          players:
+            Enum.with_index(game_state.players, fn
+              player, ^index ->
+                %{
+                  player
+                  | alive: true,
+                    hp: @base_hp,
+                    coord: %{x: :rand.uniform(@screen_width), y: :rand.uniform(@screen_height)},
+                    direction: :up
+                }
+
+              other, _i ->
+                other
+            end)
+      }
+
+      {:ok, new_state}
+    end
+  end
+
+  @spec update(t()) :: t()
+  def update(game_state) do
+    %{game_state | players: update_ships(game_state.players)}
+  end
+
+  defp update_ships(players) do
+    Enum.map(players, &update_ship/1)
+  end
+
+  defp update_ship(%{alive: false} = ship), do: ship
+
+  defp update_ship(%{alive: true} = ship) do
+    bullets = Enum.map(ship.bullets, &update_bullet/1)
+
+    %{
+      ship
+      | bullets: bullets
+    }
+  end
+
+  defp update_bullet(%{active: false} = bullet), do: bullet
+
+  defp update_bullet(%{active: true} = bullet) do
+    case bullet.direction do
+      :up ->
+        %{
+          bullet
+          | coord: %{x: bullet.coord.x, y: bullet.coord.y - 6}
+        }
+
+      :down ->
+        %{
+          bullet
+          | coord: %{x: bullet.coord.x, y: bullet.coord.y + 6}
+        }
+
+      :left ->
+        %{
+          bullet
+          | coord: %{x: bullet.coord.x - 6, y: bullet.coord.y}
+        }
+
+      :right ->
+        %{
+          bullet
+          | coord: %{x: bullet.coord.x + 6, y: bullet.coord.y}
+        }
+
+      _ ->
+        bullet
+    end
+  end
+
+  @spec apply_action(t(), Game.Action.t(), non_neg_integer()) :: t()
+  def apply_action(game_state, action, player_index) do
+    case action do
+      direction when direction in [:up, :down, :left, :right] ->
+        move_ship(game_state, player_index, direction)
+
+      :shoot ->
+        shoot(game_state, player_index)
+
+      _ ->
+        game_state
+    end
+  end
+
+  defp move_ship(game_state, player_index, direction) do
+    player_coord = Enum.at(game_state.players, player_index).coord
+
+    player_coord = move_ship_coord(player_coord, direction)
+
+    ships =
+      Enum.with_index(game_state.players, fn
+        player, ^player_index ->
+          %{
+            player
+            | direction: direction,
+              coord: player_coord
+          }
+
+        other, _i ->
+          other
+      end)
+
+    %{
+      game_state
+      | players: ships
+    }
+  end
+
+  defp move_ship_coord(%{x: x, y: y}, direction) do
+    case direction do
+      :up ->
+        %{x: x, y: y - 3}
+
+      :down ->
+        %{x: x, y: y + 3}
+
+      :left ->
+        %{x: x - 3, y: y}
+
+      :right ->
+        %{x: x + 3, y: y}
+    end
+  end
+
+  defp shoot(game_state, player_index) do
+    %{
+      game_state
+      | players:
+          Enum.with_index(game_state.players, fn
+            player, ^player_index ->
+              bullets = update_bullets(player.bullets, player)
+
+              %{player | bullets: bullets}
+
+            other, _i ->
+              other
+          end)
+    }
+  end
+
+  defp update_bullets(bullets, player) do
+    Enum.map_reduce(bullets, false, fn
+      bullet, false when bullet.active == false ->
+        {%{
+           bullet
+           | active: true,
+             direction: player.direction,
+             coord: %{x: player.coord.x, y: player.coord.y}
+         }, true}
+
+      bullet, updated ->
+        {bullet, updated}
+    end)
+    |> elem(0)
+  end
+end
+```
+
+## Binary encoding and decoding
 
 #### References
 
