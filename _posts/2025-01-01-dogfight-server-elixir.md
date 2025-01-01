@@ -605,7 +605,8 @@ defmodule Dogfight.Game.State do
   defp update_bullets(bullets, player) do
     Enum.map_reduce(bullets, false, fn
       bullet, false when bullet.active == false ->
-        {%{
+        {
+          %{
            bullet
            | active: true,
              direction: player.direction,
