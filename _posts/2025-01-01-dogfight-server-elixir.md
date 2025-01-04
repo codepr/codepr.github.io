@@ -338,29 +338,40 @@ actually clean up and harden the code. It's pretty simple and straight-forward.
 
 ## The game state
 
-The game state represents the main entities of a game, it is indeed pretty
-simple and definitely not optimized at the moment, there's a number of things
-that can be improved and done differently, some of the fields are a carry over
-from the original C implementation which I'm gonna use as the main test-bed,
-but the aim is to then update the state for a better v2 representation. For the
-sake of simplicity, the first version will carry the following entities:
+The game state represents the main entities present in a game, it's the main
+payload of information exchanged between clients and server to keep all the
+players in sync.
+
+it is indeed pretty simple and definitely not optimized at the moment, there's
+a number of things that can be improved and done differently, some of the
+fields are a carry over from the original C implementation which I'm gonna use
+as the main test-bed, but the aim is to then update the state for a better v2
+representation. For the sake of simplicity, the first version will carry the
+following entities:
 
 - A list of players active in the game, for simplicity a maximum of 5 units is initially set
   - Each player is represented by
       - a vector 2D coordinate x and y representing the position in the screen
       - health points, initially set at 5
       - a direction, this can be (not exactly precise but work for a prototype)
-          - `:idle | :move_up | :move_down | :move_left | :move_right`
+          - `:idle | :up | :down | :left | :right`
       - an alive boolean flag
       - bullets, set to a maximum of 5, composed by
           - a vector 2D coordinate x and y representing the position in the screen
           - a direction, this will be aligned with the player direction
           - an active boolean flag
-  - Power-ups, this will be spawned randomly on a time-basis, made of
-      - a vector 2D coordinate x and y representing the position in the screen
-      - a kind atom representing the type of effect it will have on the player that
-        captures it, initially can be
-          - `:hp_plus_one | :hp_plus_three | :ammo_plus_one | nil`
+- Power-ups, this will be spawned randomly on a time-basis, made of
+    - a vector 2D coordinate x and y representing the position in the screen
+    - a kind atom representing the type of effect it will have on the player that
+      captures it, initially can be
+        - `:hp_plus_one | :hp_plus_three | :ammo_plus_one | nil`
+
+There are two more fields that are probably going to be deprecated pretty soon:
+- active_players
+- player_index, this last one basically represents which player to update on
+                each client update. Technically not necessary as ideally the
+                client should be able to just update the entire delta of each
+                update without knowing this, it exists due to legacy reasons.
 
 At the moment we're not gonna handle scaling and screen size for each player, it is
 initially assumed that each player will play in a small 800x600 window.
