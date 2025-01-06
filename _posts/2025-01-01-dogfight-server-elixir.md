@@ -73,14 +73,17 @@ all we need to get started
 ```elixir
 defmodule Dogfight.Server do
   @moduledoc """
+
   Main entry point of the server, accepts connecting clients and defer their
   ownership to the game server. Each connected client is handled by a
-  `GenServer`, the `Dogfight.Player`. The `Dogfight.Game.EventHandler` governs the
-  main logic of an instantiated game and broadcasts updates to each registered
-  player.
+  `GenServer`, the `Dogfight.Player`. The `Dogfight.Game.EventHandler` governs
+  the main logic of an instantiated game and broadcasts updates to each
+  registered player.
+
   """
   require Logger
 
+  alias Dogfight.Game.Event, as: GameEvent
   alias Dogfight.ClusterServiceSupervisor
 
   def listen(port) do
@@ -103,8 +106,7 @@ defmodule Dogfight.Server do
          player_id <- UUID.uuid4(),
          player_spec <- player_spec(client_socket, player_id),
          {:ok, pid} <- Horde.DynamicSupervisor.start_child(ClusterServiceSupervisor, player_spec) do
-      Logger.info("Player #{player_id} connected")
-      Dogfight.Game.EventHandler.register_player(pid, player_id)
+      Dogfight.Game.EventHandler.apply_event(pid, GameEvent.player_connection(player_id))
       :gen_tcp.controlling_process(client_socket, pid)
     else
       error -> Logger.error("Failed to accept connection, reason: #{inspect(error)}")
@@ -161,14 +163,15 @@ defmodule Dogfight.Player do
   require Logger
   use GenServer
 
-  alias Dogfight.Game.Codec.BinaryCodec
+  alias Dogfight.Game.Codecs.BinaryCodec
+  alias Dogfight.Game.Event, as: GameEvent
 
   def start_link(player_id, socket) do
     GenServer.start_link(__MODULE__, {player_id, socket})
   end
 
   def init({player_id, socket}) do
-    Logger.info("Player connected, registering to game server")
+    Logger.info("Player #{player_id} connected, registering to game server")
     {:ok, %{player_id: player_id, socket: socket}}
   end
 
@@ -183,7 +186,13 @@ defmodule Dogfight.Player do
   end
 
   def handle_info({:tcp_closed, _socket}, state) do
-    Logger.info("Player disconnected")
+    Logger.info("Player #{state.player_id} disconnected")
+
+    Dogfight.Game.EventHandler.apply_event(
+      self(),
+      GameEvent.player_disconnection(state.player_id)
+    )
+
     {:noreply, state}
   end
 
@@ -240,11 +249,18 @@ defmodule Dogfight.Game.Event do
   alias Dogfight.Game.State
 
   @type t ::
-          {:move, State.player_id(), State.direction()}
+          {:player_connection, State.player_id()}
+          | {:player_disconnection, State.player_id()}
+          | {:move, {State.player_id(), State.direction()}}
           | {:shoot, State.player_id()}
+          | {:pickup_power_up, State.player_id()}
           | {:spawn_power_up, State.power_up_kind()}
+          | {:start_game}
+          | {:end_game}
 
-  def move(player_id, direction), do: {:move, player_id, direction}
+  def player_connection(player_id), do: {:player_connection, player_id}
+  def player_disconnection(player_id), do: {:player_disconnection, player_id}
+  def move(player_id, direction), do: {:move, {player_id, direction}}
   def shoot(player_id), do: {:shoot, player_id}
 end
 ```
@@ -277,8 +293,8 @@ all the connected clients:
 defmodule Dogfight.Game.EventHandler do
   @moduledoc """
   Represents a game server for the Dogfight game. It handles the game state and
-  player actions. It is intended as the main source of truth for each instantiated game,
-  broadcasting the game state to each connected player every `@tick_rate_ms` milliseconds.
+  player actions. It is intended as the main source of thruth for each instantiated game,
+  broadcasting the game state to each connected player every `@tick` milliseconds.
   """
   require Logger
   use GenServer
@@ -295,16 +311,27 @@ defmodule Dogfight.Game.EventHandler do
   def init(_) do
     game_state = GameState.new()
     schedule_tick()
-    {:ok, %{players: [], game_state: game_state}}
+    {:ok, %{players: %{}, game_state: game_state}}
   end
 
   def register_player(pid, player_id) do
-    GenServer.call(__MODULE__, {:register_player, pid})
+    GenServer.call(__MODULE__, {:register_player, pid, player_id})
     GenServer.cast(__MODULE__, {:add_player, player_id})
   end
 
   def apply_event(pid, event) do
-    GenServer.cast(__MODULE__, {:apply_event, pid, action})
+    case event do
+      {:player_connection, player_id} ->
+        GenServer.call(__MODULE__, {:register_player, pid, player_id})
+        GenServer.cast(__MODULE__, {:add_player, player_id})
+
+      {:player_disconnection, player_id} ->
+        GenServer.call(__MODULE__, {:unregister_player, player_id})
+        GenServer.cast(__MODULE__, {:drop_player, player_id})
+
+      event ->
+        GenServer.cast(__MODULE__, {:apply_event, pid, event})
+    end
   end
 
   defp schedule_tick() do
@@ -321,9 +348,21 @@ defmodule Dogfight.Game.EventHandler do
   end
 
   @impl true
-  def handle_call({:register_player, pid}, from, state) do
+  def handle_call({:register_player, pid, player_id}, from, state) do
     new_state =
-      Map.update!(state, :players, fn players -> [{:player_id, %{pid: pid}} | players] end)
+      Map.update!(state, :players, fn players ->
+        Map.put(players, player_id, pid)
+      end)
+
+    {:reply, from, new_state}
+  end
+
+  @impl true
+  def handle_call({:unregister_player, player_id}, from, state) do
+    new_state =
+      Map.update!(state, :players, fn players ->
+        Map.delete(players, player_id)
+      end)
 
     {:reply, from, new_state}
   end
@@ -331,17 +370,22 @@ defmodule Dogfight.Game.EventHandler do
   @impl true
   def handle_cast({:add_player, player_id}, state) do
     game_state =
-      case GameState.spawn_ship(state.game_state, player_id) do
+      case GameState.add_player(state.game_state, player_id) do
         {:ok, game_state} ->
           broadcast_game_state(%{state | game_state: game_state})
           game_state
 
         {:error, error} ->
-          Logger.error("Failed spawning ship, reason: #{inspect(error)}")
+          Logger.error("Failed spawining spaceship, reason: #{inspect(error)}")
           state.game_state
       end
 
     {:noreply, %{state | game_state: game_state}}
+  end
+
+  @impl true
+  def handle_cast({:drop_player, player_id}, state) do
+    {:noreply, %{state | game_state: GameState.drop_player(state.game_state, player_id)}}
   end
 
   @impl true
@@ -353,8 +397,8 @@ defmodule Dogfight.Game.EventHandler do
   end
 
   defp broadcast_game_state(state) do
-    Enum.each(state.players, fn {_pid, player} ->
-      send(player.pid, state.game_state)
+    Enum.each(Map.values(state.players), fn pid ->
+      send(pid, {:update, state.game_state})
     end)
   end
 end
@@ -636,6 +680,7 @@ defmodule Dogfight.Game.State do
   def new do
     %__MODULE__{
       power_ups: [],
+      status: :closed,
       players: %{}
     }
   end
@@ -661,6 +706,11 @@ defmodule Dogfight.Game.State do
     end
   end
 
+  @spec drop_player(t(), player_id()) :: t()
+  def drop_player(game_state, player_id) do
+    Map.delete(game_state, player_id)
+  end
+
   @spec update(t()) :: t()
   def update(game_state) do
     %{
@@ -681,7 +731,7 @@ defmodule Dogfight.Game.State do
   end
 
   @spec apply_event(t(), Event.t()) :: {:ok, t()} | {:error, :dismissed_ship}
-  def apply_event(game_state, {:move, player_id, direction}) do
+  def apply_event(game_state, {:move, {player_id, direction}}) do
     with {:ok, spaceship} <- fetch_spaceship(game_state.players, player_id) do
       {:ok,
        %{
