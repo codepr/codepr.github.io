@@ -708,7 +708,9 @@ defmodule Dogfight.Game.State do
 
   @spec drop_player(t(), player_id()) :: t()
   def drop_player(game_state, player_id) do
-    Map.delete(game_state, player_id)
+    Map.update!(game_state, :players, fn players ->
+      Map.delete(players, player_id)
+    end)
   end
 
   @spec update(t()) :: t()
