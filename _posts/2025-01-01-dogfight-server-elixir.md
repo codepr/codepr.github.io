@@ -105,7 +105,8 @@ defmodule Dogfight.Server do
     with {:ok, client_socket} <- :gen_tcp.accept(socket),
          player_id <- UUID.uuid4(),
          player_spec <- player_spec(client_socket, player_id),
-         {:ok, pid} <- Horde.DynamicSupervisor.start_child(ClusterServiceSupervisor, player_spec) do
+         {:ok, pid} <- Horde.DynamicSupervisor.start_child(ClusterServiceSupervisor, player_spec),
+         :ok <- :gen_tcp.send(client_socket, player_id) do
       Dogfight.Game.EventHandler.apply_event(pid, GameEvent.player_connection(player_id))
       :gen_tcp.controlling_process(client_socket, pid)
     else
@@ -390,9 +391,17 @@ defmodule Dogfight.Game.EventHandler do
 
   @impl true
   def handle_cast({:apply_event, _pid, event}, state) do
-    game_state = GameState.apply_event(state.game_state, event)
-    updated_state = %{state | game_state: game_state}
-    broadcast_game_state(updated_state)
+    updated_state =
+      with {:ok, game_state} <- GameState.apply_event(state.game_state, event) do
+        updated_state = %{state | game_state: game_state}
+        broadcast_game_state(updated_state)
+        updated_state
+      else
+        e ->
+          Logger.error("Failed to apply event, reason: #{inspect(e)}")
+          state
+      end
+
     {:noreply, updated_state}
   end
 
@@ -497,21 +506,23 @@ defmodule Dogfight.Game.DefaultSpaceship do
     @type t :: %__MODULE__{
             position: Vec2.t(),
             direction: State.direction(),
-            active?: boolean()
+            active?: boolean(),
+            boundaries: %{width: non_neg_integer(), height: non_neg_integer()}
           }
 
-    defstruct [:position, :direction, :active?]
+    defstruct [:position, :direction, :active?, :boundaries]
 
     alias Dogfight.Game.State
     alias Dogfight.Game.Vec2
 
     @bullet_base_speed 6
 
-    def new do
+    def new(width, height) do
       %__MODULE__{
         position: %Vec2{x: 0, y: 0},
         direction: State.idle(),
-        active?: false
+        active?: false,
+        boundaries: %{width: width, height: height}
       }
     end
 
@@ -520,23 +531,36 @@ defmodule Dogfight.Game.DefaultSpaceship do
     def update(bullet) do
       position = bullet.position
 
-      case bullet.direction do
-        :up ->
-          %{bullet | position: Vec2.add_y(position, -@bullet_base_speed)}
+      bullet =
+        case bullet.direction do
+          :up ->
+            %{bullet | position: Vec2.add_y(position, -@bullet_base_speed)}
 
-        :down ->
-          %{bullet | position: Vec2.add_y(position, @bullet_base_speed)}
+          :down ->
+            %{bullet | position: Vec2.add_y(position, @bullet_base_speed)}
 
-        :left ->
-          %{bullet | position: Vec2.add_x(position, -@bullet_base_speed)}
+          :left ->
+            %{bullet | position: Vec2.add_x(position, -@bullet_base_speed)}
 
-        :right ->
-          %{bullet | position: Vec2.add_x(position, @bullet_base_speed)}
+          :right ->
+            %{bullet | position: Vec2.add_x(position, @bullet_base_speed)}
 
-        _ ->
-          bullet
-      end
+          _ ->
+            bullet
+        end
+
+      boundaries_check(bullet)
     end
+
+    defp boundaries_check(%{position: %{x: x}, boundaries: %{width: width}} = bullet)
+         when x < 0 or x >= width,
+         do: %{bullet | active?: false}
+
+    defp boundaries_check(%{position: %{y: y}, boundaries: %{height: height}} = bullet)
+         when y < 0 or y >= height,
+         do: %{bullet | active?: false}
+
+    defp boundaries_check(bullet), do: bullet
   end
 
   @behaviour Dogfight.Game.Spaceship
@@ -565,7 +589,9 @@ defmodule Dogfight.Game.DefaultSpaceship do
       direction: State.idle(),
       hp: @base_hp,
       alive?: true,
-      bullets: Stream.repeatedly(&__MODULE__.Bullet.new/0) |> Enum.take(@base_bullet_count)
+      bullets:
+        Stream.repeatedly(fn -> __MODULE__.Bullet.new(width, height) end)
+        |> Enum.take(@base_bullet_count)
     }
   end
 
@@ -579,6 +605,7 @@ defmodule Dogfight.Game.DefaultSpaceship do
         :down -> Vec2.add_y(position, @base_spaceship_speed)
         :left -> Vec2.add_x(position, -@base_spaceship_speed)
         :right -> Vec2.add_x(position, @base_spaceship_speed)
+        :idle -> position
       end
 
     %{spaceship | direction: direction, position: updated_position}
