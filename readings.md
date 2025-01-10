@@ -52,6 +52,8 @@ thoughts. Hardly ever updated.
 - [Untangling Lifetimes: The Arena Allocator](https://www.rfleury.com/p/untangling-lifetimes-the-arena-allocator)
 - [MaxGCoding.com - A software Engineering Space](https://www.maxgcoding.com/)
 - [Why async Rust](https://without.boats/blog/why-async-rust/)
+- [Systems Languages Should Support Zero Is Initialization](https://blog.xoria.org/zii/)
+- [Prefer Passing By Pointer](https://blog.xoria.org/pass-by-pointer/)
 
 ### Distributed systems
 
