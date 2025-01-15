@@ -6,7 +6,7 @@ categories: elixir networking zig game-development low-level
 ---
 
 A very simple core that should allow for basic interactions is roughly defined,
-the prototype is currenctly comprised by:
+the prototype is currently comprised by:
 
 - A TCP server, with very rudimentary handling of connections
 - A game state, representing the main structure of any given match
@@ -19,12 +19,12 @@ with the first implementation of a client and some basic graphics,
 we're going to define how this communication layer will be implemented.
 
 Although various formats can be used, from a text based protocol, JSON or
-orther various binary based structure serialization buffers such as
+other various binary based structure serialization buffers such as
 protobuf or thrift, we're going to roll our own micro protocol by hand.
 One suggestion could be to use the built-in `:erlang.to_binary_term/2`
 and `:erlang.term_to_binary/1`, but I like the idea of writing a small
 compact format that I can easily support on the client side without having
-to dig deeper into the Erlang bnary format.
+to dig deeper into the Erlang binary format.
 
 As a first draft, it should be something that allows to represent two main
 entities
@@ -47,7 +47,7 @@ easily represented as
     - action: `u8`
     - player_id: `[]u8`
 
-### Implementation
+### Implementation helpers
 
 Again, a little behaviour can be useful here and doesn't really represent an
 excessive burden, if one day we wanted to add multiple protocols, this would
@@ -176,11 +176,11 @@ then straight with the payload
             - active: `u8`
             - direction: `u8`
 
-Pretty small, non-optmized format containing all the information needed to have
+Pretty small, non-optimized format containing all the information needed to have
 basic movements and interaction between entities. For many fields we could
 actually use some `nibbles` or encode more aggressively by using each byte
 space more efficiently, for example, `status`, `direction` and `kind` are
-likely to not ever reprensent more then a bunch of values, `active` and `alive`
+likely to not ever represent more then a bunch of values, `active` and `alive`
 are even just 1 bit, so all those informations could be easily packed in 1 or 2
 bytes but it's not that pressuring as the full payload is still fairly small
 
@@ -221,13 +221,13 @@ payload, is something resembling the following
 The following module will basically expose the `Dogfight.Game.Codec` behaviour
 defined above with a couple of helpers to translate atoms to integer back and
 forth to simplify the encoding. Those values could probably be sent through the
-wire as strings too, avoiding the endianess handling altogether, I just find it
+wire as strings too, avoiding the endianness handling altogether, I just find it
 more appropriate and often more compact to encode them as integer values.
 
 ```elixir
 defmodule Dogfight.Game.Codecs.BinaryCodec do
   @moduledoc """
-  Binary implementation of the game econding and decoding logic
+  Binary implementation of the game encoding and decoding logic
 
   Handles
 
@@ -486,7 +486,6 @@ defmodule Dogfight.Game.Codecs.BinaryCodec do
   def int_to_direction(3), do: :left
   def int_to_direction(4), do: :right
 end
-
 ```
 
 #### References
