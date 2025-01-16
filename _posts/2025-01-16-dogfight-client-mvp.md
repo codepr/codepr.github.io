@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Dogfight! - Client MVP
+title: "Dogfight! - Client MVP"
 description: "Old school multiplayer arcade game development journey"
 categories: elixir networking c game-development low-level
 ---
@@ -24,47 +24,53 @@ and see it reflected based on the user input, we're gonna need
 - A TCP client to connect to the server component
 - An implementation of the binary protocol, this is gonna be from scratch as
   well as we're not using any structured library
-- A graphic layer to display the state of the game
+- A graphic layer to display the state of the game, among which I considered:
+    - [`ncurses`](https://invisible-island.net/ncurses/), the oldest, a staple of TUI applications and old school roguelikes
+    - [`tcod`](https://github.com/libtcod/libtcod), mostly oriented to roguelike games development
+    - a mesh of headers in the [stb style](https://github.com/nothings/stb) (awesome btw)
+    - [`raylib`](https://www.raylib.com/) this was my latest choice originally, and the one I decided to keep pursuing
 - A way to capture the user input and serialized it to be sent to the server
 
 ### Brief intro on the language of choice
 
-I will use the original [battletank_client.c]() as a starting point, it's
-pretty raw and simple but the logic is roughly the same. This time around
-I will implement it in a different language than C.
-I love C, it's my main go-to choice for low-level applications and, for how
-many flaws and dangers and annoyances it poses, I can't help but find joy
-in implementing stuff in it. So it was naturally my first choice here as
-well, but after having implemented a basic version of the game already,
-I decided to take the chance to give an honest try to some other new kids on
-the block.
+I will use the original
+[battletank_client.c](https://github.com/codepr/battletank/blob/main/battletank_client.c)
+as a starting point, it's pretty raw and simple but the logic is roughly the
+same. This time around I will implement it in a different language than C. I
+love C, it's my main go-to choice for low-level applications and, for how many
+flaws and dangers and annoyances it poses, I can't help but find joy in
+implementing stuff in it. So it was naturally my first choice here as well, but
+after having implemented a basic version of the game already, I decided to take
+the chance to give an honest try to one of the other new kids on the block.
 
 The choices were mostly driven by two requirements
 
-- No garbage collection
+- System language, no garbage collection
 - Simplicity, not too much frills, in the style of C
 
 There are a growing number of so-called C-killer languages being shipped
 consistently in the recent years, none of them really worthy of the title yet,
 but some feel at least like a good start with some pretty nice design and
-features, the shortlist was
+features; in the end, my shortlist was
 
 - Zig
 - Odin
 - Hare
 
-`Hare` fell immediately as a second contender, I don't know much of the language
-itself but for some reason I wasn't impressed by its showcase, one cool point
-is the QBF, felt nice to see a new language not relying on LLVM as a backend
-but producing (and releasing for adoption on other compilers too) something
-around 70% of LLVM with 90% of bloat less, pretty impressive feat.
+`Hare` fell immediately as a second contender, I don't know much of the
+language itself but for some reason I wasn't impressed by its showcase, one
+cool point is the
+[qbe](https://harelang.org/documentation/faq.html#why-qbe-instead-of-llvm),
+felt nice to see a new language not relying on LLVM as a backend but producing
+(and releasing for adoption for other compilers too) something around 70% of
+LLVM with 90% of bloat less, pretty impressive feat.
 
-The final choice has really been a toss of coin between `Odin` and `Zig`, both
-provide a nice set of features and ports to `Raylib` (which was already the main
-choice for the GUI layer). `Zig` seemed a little more mature and is showing some
-impressive feats recently with some great products shipped in it (`TigerBeetle`,
-`Bun` and more recently `Ghostty` are all great quality and high performance
-software) plus it was slightly higher on my TO-TRY list.
+The final choice has really been a toss of the coin between `Odin` and `Zig`.
+Both provide a nice set of features and ports to `Raylib` (which was already
+the main choice for the GUI layer). `Zig` seemed a little more mature and is
+showing some impressive feats recently with some great products shipped in it
+(`TigerBeetle`, `Bun` and more recently `Ghostty` are all great quality and
+high performance software) plus it was slightly higher on my TO-TRY list.
 
 ### Starting the client
 
