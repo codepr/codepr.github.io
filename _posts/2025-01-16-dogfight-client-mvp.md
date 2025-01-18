@@ -387,4 +387,42 @@ comes first thing from the server, i.e. the generated player ID.
 
 ### Reading the first game state
 
-TBD
+We have all the elements for a basic interaction now, i.e. a connection to the
+server and print the original state of the game as a new player joining the game.
+This can be done, for simplicty, in the main function to begin with
+
+```zig
+//! Dogfight! client side
+//!
+//! Connects to the gameserver running at port 6699 and receive the gamestate
+//! with its own positioned ship
+const std = @import("std");
+const net = @import("network.zig");
+const gs = @import("gamestate.zig");
+
+const server_port = 6699;
+
+pub fn main() anyerror!void {
+    std.debug.print("Connecting to game server {}\n", .{server_port});
+
+    const allocator = std.heap.page_allocator;
+    // Connect to peer
+    const stream = try net.connect("127.0.0.1", server_port);
+    defer stream.close();
+
+    // Read player ID
+    var player_id: [36]u8 = undefined;
+    try net.handshake(&stream, &player_id);
+    std.debug.print("Player ID: {s}\n", .{player_id});
+
+    // Receive the game state from the server
+    const gamestate = try net.receiveUpdate(&stream, allocator);
+    // Log it to console for debug
+    const stdout = std.io.getStdOut().writer();
+    try gamestate.print(stdout);
+}
+```
+
+A simple `mix run --no-halt` on the `Elixir` server side to run the server
+component, a `zig build run` in the client directory and the game state
+should be printed on the terminal.
