@@ -29,6 +29,7 @@ thoughts. Hardly ever updated.
 - [Why Write ADRs](https://github.blog/engineering/why-write-adrs/)
 - [Supply chain attacks and the many different ways I've backdoored your dependencies](https://kerkour.com/backdoored-dependencies-and-supply-chain-attacks)
 - [Making Hard Things Easy](https://jvns.ca/blog/2023/10/06/new-talk--making-hard-things-easy/)
+- [Build It Yourself](https://lucumr.pocoo.org/2025/1/24/build-it-yourself/)
 
 ### Go best practices
 
