@@ -20,9 +20,9 @@ Andrea here [GitHub](https://github.com/codepr) / [LinkedIn](https://www.linkedi
 
 ## Projects
 
-Non-exhaustive list of open source projects I worked on for the last few years,
-in no particular order and at various stages of development, mostly didactical
-stuff and topics of curiosity.
+Non-exhaustive list of open source pet projects I worked on for the last few
+years, in no particular order and at various stages of development, mostly
+didactic stuff and topics of curiosity.
 
 - [Machines](https://github.com/codepr/machines){:target="_blank"}: playground for the development of simple compilers, VMs and various experiments.
 - [Sol](https://github.com/codepr/sol.git){:target="_blank"}: lightweight MQTT broker from scratch
