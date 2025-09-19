@@ -42,6 +42,7 @@ thoughts. Hardly ever updated.
 
 - [Home-grown bytecode interpreters](https://medium.com/bumble-tech/home-grown-bytecode-interpreters-51e12d59b25c)
 - [A Database Without Dynamic Memory Allocation](https://tigerbeetle.com/blog/a-database-without-dynamic-memory/)
+- [Tiger Style](https://tigerstyle.dev)
 - [Writing system software: code comments](http://antirez.com/news/124)
 - [Adventures in message queues](http://antirez.com/news/88)
 - [The method to epoll's madness](https://copyconstruct.medium.com/the-method-to-epolls-madness-d9d2d6378642)
