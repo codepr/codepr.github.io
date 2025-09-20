@@ -24,6 +24,7 @@ Non-exhaustive list of open source pet projects I worked on for the last few
 years, in no particular order and at various stages of development, mostly
 didactic stuff and topics of curiosity.
 
+- [Tera](https://github.com/codepr/tera.git){:target="_blank"}: No dynamic allocation tiny MQTT broker built according to data oriented programming principles.
 - [Machines](https://github.com/codepr/machines){:target="_blank"}: playground for the development of simple compilers, VMs and various experiments.
 - [Sol](https://github.com/codepr/sol.git){:target="_blank"}: lightweight MQTT broker from scratch
 - [EV](https://github.com/codepr/ev.git){:target="_blank"}: lightweight event-loop library based on multiplexing IO
