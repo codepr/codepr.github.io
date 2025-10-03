@@ -31,13 +31,6 @@ thoughts. Hardly ever updated.
 - [Making Hard Things Easy](https://jvns.ca/blog/2023/10/06/new-talk--making-hard-things-easy/)
 - [Build It Yourself](https://lucumr.pocoo.org/2025/1/24/build-it-yourself/)
 
-### Go best practices
-
-- [The Go type system for newcomers](https://rakyll.org/typesystem/)
-- [Go style packages](https://rakyll.org/style-packages/)
-- [How goroutines work](https://blog.nindalf.com/posts/how-goroutines-work/)
-- [Go - Graceful shutdown of worker goroutines](https://callistaenterprise.se/blogg/teknik/2019/10/05/go-worker-cancellation/)
-
 ### System programming
 
 - [Home-grown bytecode interpreters](https://medium.com/bumble-tech/home-grown-bytecode-interpreters-51e12d59b25c)
@@ -70,6 +63,15 @@ thoughts. Hardly ever updated.
 - [From $erverless to Elixir](https://medium.com/coryodaniel/from-erverless-to-elixir-48752db4d7bc)
 - [A Distributed Systems Reading List](https://ferd.ca/a-distributed-systems-reading-list.html)
 
+<!---
 ### Programming languages
 
 - [Rust vs. Go: Why They're Better Together](https://thenewstack.io/rust-vs-go-why-theyre-better-together/)
+
+### Go best practices
+
+- [The Go type system for newcomers](https://rakyll.org/typesystem/)
+- [Go style packages](https://rakyll.org/style-packages/)
+- [How goroutines work](https://blog.nindalf.com/posts/how-goroutines-work/)
+- [Go - Graceful shutdown of worker goroutines](https://callistaenterprise.se/blogg/teknik/2019/10/05/go-worker-cancellation/)
+-->
