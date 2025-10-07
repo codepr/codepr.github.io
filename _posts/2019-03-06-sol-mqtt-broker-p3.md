@@ -352,7 +352,6 @@ static void on_read(struct evloop *loop, void *arg) {
     int rc = handlers[hdr.bits.type](cb, &packet);
     if (rc == REARM_W) {
         cb->call = on_write;
-
         /*
          * Reset handler to read_handler in order to read new incoming data and
          * EPOLL event for read fds

@@ -214,7 +214,6 @@ static struct list_node *merge_tnode_list(struct list_node *list1,
                                           struct list_node *list2) {
     struct list_node dummy_head = { NULL, NULL }, *tail = &dummy_head;
     while (list1 && list2) {
-
         /* cast to cluster_node */
         char chr1 = ((struct trie_node *) list1->data)->chr;
         char chr2 = ((struct trie_node *) list2->data)->chr;
@@ -276,7 +275,6 @@ static struct trie_node *trie_node_find(const struct trie_node *node,
 
     // Move to the end of the prefix first
     for (; *prefix; prefix++) {
-
         // O(n), the best we can have
         struct list_node *child = linear_search(retnode->children, *prefix);
 
@@ -331,7 +329,6 @@ static void *trie_node_insert(struct trie_node *root, const char *key,
 
     // Iterate through the key char by char
     for (; *key; key++) {
-
         /*
          * We can use a linear search as on a linked list O(n) is the best find
          * algorithm we can use, as binary search would have the same if not
@@ -348,7 +345,6 @@ static void *trie_node_insert(struct trie_node *root, const char *key,
          * depends also on the size of the alphabet.
          */
         tmp = linear_search(cursor->children, *key);
-
         // No match, we add a new node and sort the list with the new added link
         if (!tmp) {
             cur_node = trie_create_node(*key);
@@ -384,7 +380,6 @@ static bool trie_node_recursive_delete(struct trie_node *node, const char *key,
     // Base case
     if (*key == '\0') {
         if (node->data) {
-
             // Update found flag
             *found = true;
 
@@ -409,7 +404,6 @@ static bool trie_node_recursive_delete(struct trie_node *node, const char *key,
             return false;
         struct trie_node *child = cur->data;
         if (trie_node_recursive_delete(child, key + 1, size, found)) {
-
             // Messy solution, requiring probably avoidable allocations
             struct trie_node t = {*key, NULL, NULL};
             struct list_node tmp = {&t, NULL};
@@ -431,7 +425,6 @@ static bool trie_node_recursive_delete(struct trie_node *node, const char *key,
  */
 static bool trie_node_search(const struct trie_node *root,
                              const char *key, void **ret) {
-
     // Walk the trie till the end of the key
     struct trie_node *cursor = trie_node_find(root, key);
     *ret = (cursor && cursor->data) ? cursor->data : NULL;
@@ -473,7 +466,6 @@ bool trie_find(const Trie *trie, const char *key, void **ret) {
  */
 void trie_prefix_delete(Trie *trie, const char *prefix) {
     assert(trie && prefix);
-
     // Walk the trie till the end of the key
     struct trie_node *cursor = trie_node_find(trie->root, prefix);
 
@@ -524,7 +516,6 @@ void trie_prefix_map_tuple(Trie *trie, const char *prefix,
     if (!prefix) {
         trie_prefix_map_func2(trie->root, mapfunc, arg);
     } else {
-
         // Walk the trie till the end of the key
         struct trie_node *node = trie_node_find(trie->root, prefix);
 

@@ -184,7 +184,6 @@ static int connect_handler(struct closure *cb, union mqtt_packet *pkt) {
     // TODO just return error_code and handle it on `on_read`
     if (hashtable_exists(sol.clients,
                          (const char *) pkt->connect.payload.client_id)) {
-
         // Already connected client, 2 CONNECT packet should be interpreted as
         // a violation of the protocol, causing disconnection of the client
 
@@ -770,7 +769,6 @@ static const struct llevel lmap[5] = {
 };
 
 static size_t read_memory_with_mul(const char *memory_string) {
-
     /* Extract digit part */
     size_t num = parse_int(memory_string);
     int mul = 1;
@@ -790,7 +788,6 @@ static size_t read_memory_with_mul(const char *memory_string) {
 }
 
 static size_t read_time_with_mul(const char *time_string) {
-
     /* Extract digit part */
     size_t num = parse_int(time_string);
     int mul = 1;
