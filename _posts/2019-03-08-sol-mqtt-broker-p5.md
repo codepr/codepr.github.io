@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Sol - An MQTT broker from scratch. Part 5 - Topic abstraction"
+title: "MQTT broker from scratch # 5 - Topic abstraction"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
 categories: c unix tutorial structures
 ---

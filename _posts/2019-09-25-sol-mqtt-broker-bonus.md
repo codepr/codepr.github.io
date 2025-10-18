@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Sol - An MQTT broker from scratch. Refactoring & eventloop"
+title: "MQTT broker from scratch. Refactoring & eventloop"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
 categories: c unix tutorial epoll
 ---

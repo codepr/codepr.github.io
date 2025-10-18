@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Sol - An MQTT broker from scratch. Part 1 - The protocol"
+title: "MQTT broker from scratch # 1 - The protocol"
 description: "Writing an MQTT broker from scratch, to really understand something you have to build it."
 categories: c unix tutorial
 ---

@@ -60,7 +60,7 @@ a:link, a:visited    {
 }
 
 code {
-    font-size: 1em;
+    font-size: 120%;
 }
 
 hr {
@@ -139,23 +139,6 @@ hr {
     color:#00a
 }
 
-/* #content-left a:hover    { */
-/*     text-decoration: none; */
-/* } */
-
-/* #post-short a:link, #post-short a:visited    { */
-/*     text-decoration: none; */
-/*     color:#000 */
-/* } */
-
-/* #post-short a:hover    { */
-/*     text-decoration: underline; */
-/* } */
-
-/* #post-short h3, #post h2    { */
-/*     margin-bottom: 0px; */
-/* } */
-
 #post-short i    {
     font-size:0.8em;
     color: grey;
@@ -194,7 +177,7 @@ hr {
     }
 
     #nav {
-        font-size: 1.4em;
+        font-size: 1.1em;
         padding-bottom: 0.5em;
     }
 
