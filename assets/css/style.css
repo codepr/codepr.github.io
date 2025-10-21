@@ -59,6 +59,10 @@ a:link, a:visited    {
     overflow-x: scroll;
 }
 
+.to-be-continued {
+    float: right
+}
+
 code {
     font-size: 120%;
 }
