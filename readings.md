@@ -50,6 +50,7 @@ thoughts. Hardly ever updated.
 - [Why async Rust](https://without.boats/blog/why-async-rust/)
 - [Systems Languages Should Support Zero Is Initialization](https://blog.xoria.org/zii/)
 - [Prefer Passing By Pointer](https://blog.xoria.org/pass-by-pointer/)
+- [Inside High-Frequency Trading Systems: The Race to Zero Latency](https://levelup.gitconnected.com/inside-high-frequency-trading-systems-the-race-to-zero-latency-faa638d0c180)
 
 ### Distributed systems
 
